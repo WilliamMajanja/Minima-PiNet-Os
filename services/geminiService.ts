@@ -6,15 +6,43 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 export const getAiClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
+ * Local Inference Support (AirLLM / Ollama / LocalAI compatible)
+ */
+export const getLocalAiResponse = async (prompt: string, endpoint: string = "http://localhost:11434/v1/chat/completions") => {
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: "llama3", // Default for free Llamas
+        messages: [{ role: "user", content: prompt }],
+        stream: false
+      })
+    });
+    const data = await response.json();
+    return data.choices[0].message.content;
+  } catch (error) {
+    console.error("Local AirLLM Error:", error);
+    return "Local Cluster Error: AirLLM node unreachable. Ensure your local Pi inference worker is active.";
+  }
+};
+
+/**
  * Advanced Multi-Modal AI Interface
  */
 export const getAiResponse = async (prompt: string, options: { 
   context?: any, 
   mode: 'fast' | 'complex' | 'thinking' | 'maps',
+  provider?: 'gemini' | 'airllm',
+  localEndpoint?: string,
   media?: { data: string, mimeType: string }[]
 }) => {
+  // Route to local AirLLM if selected
+  if (options.provider === 'airllm') {
+    return getLocalAiResponse(prompt, options.localEndpoint);
+  }
+
   const ai = getAiClient();
-  // Using gemini-3-flash-preview for basic text tasks as per guidelines
   let model = 'gemini-3-flash-preview'; 
   const config: any = {
     temperature: 0.7,
@@ -31,14 +59,12 @@ export const getAiResponse = async (prompt: string, options: {
     5. Thinking Mode: Advanced architectural reasoning for complex queries.`
   };
 
-  // Model Selection Logic
   if (options.mode === 'complex' || (options.media && options.media.length > 0)) {
     model = 'gemini-3-pro-preview';
   } else if (options.mode === 'thinking') {
     model = 'gemini-3-pro-preview';
     config.thinkingConfig = { thinkingBudget: 32768 };
   } else if (options.mode === 'maps') {
-    // Maps grounding is only supported in Gemini 2.5 series models.
     model = 'gemini-2.5-flash';
     config.tools = [{ googleMaps: {} }];
     try {
@@ -48,9 +74,7 @@ export const getAiResponse = async (prompt: string, options: {
           latLng: { latitude: pos.coords.latitude, longitude: pos.coords.longitude }
         }
       };
-    } catch (e) { /* Fallback if geo blocked */ }
-  } else if (options.mode === 'fast') {
-    model = 'gemini-3-flash-preview';
+    } catch (e) { }
   }
 
   try {
@@ -85,9 +109,6 @@ export const getAiResponse = async (prompt: string, options: {
   }
 };
 
-/**
- * High-Quality Image Generation (Gemini 3 Pro Image)
- */
 export const generateClusterAssets = async (prompt: string) => {
   const ai = getAiClient();
   try {
@@ -113,9 +134,6 @@ export const generateClusterAssets = async (prompt: string) => {
   }
 };
 
-/**
- * Veo 3 Video Generation
- */
 export const generateVeoVideo = async (prompt: string, orientation: '16:9' | '9:16' = '16:9') => {
   const ai = getAiClient();
   try {
@@ -135,7 +153,6 @@ export const generateVeoVideo = async (prompt: string, orientation: '16:9' | '9:
     }
 
     const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-    // Append API key when fetching from the download link.
     const response = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
     const blob = await response.blob();
     return URL.createObjectURL(blob);

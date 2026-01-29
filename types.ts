@@ -1,6 +1,8 @@
 
 export type AppId = 'minima-node' | 'system-monitor' | 'terminal' | 'wallet' | 'ai-assistant' | 'maxima-messenger' | 'cluster-manager' | 'depai-executor' | 'settings' | 'setup-wizard' | 'imager-utility';
 
+export type AIProvider = 'gemini' | 'airllm';
+
 export interface WindowState {
   id: AppId;
   title: string;

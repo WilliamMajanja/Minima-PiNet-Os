@@ -14,6 +14,13 @@ const DePAiExecutor: React.FC<DePAiExecutorProps> = ({ nodes }) => {
 
   const tasks = [
     { 
+        id: 'airllm-infer', 
+        name: 'AirLLM Free Llama', 
+        description: 'Sharded cluster-wide inference worker.', 
+        rate: 0.03,
+        icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+    },
+    { 
         id: 'env-analyze', 
         name: 'Env Observer Agent', 
         description: 'Fuses Sense Hat & NPU telemetry.', 
@@ -50,7 +57,7 @@ const DePAiExecutor: React.FC<DePAiExecutorProps> = ({ nodes }) => {
     };
     
     setActiveSessions(prev => [...prev, newSession]);
-    setOutput(prev => [...prev, `[LINK] Pi-Alpha NPU core handshake complete.`, `[EXEC] Agentic session live: ${sessionId}`]);
+    setOutput(prev => [...prev, `[LINK] Distributed AirLLM cluster handshake complete.`, `[EXEC] Agentic session live: ${sessionId}`]);
   };
 
   const terminateSession = async (sessionId: string) => {
@@ -76,7 +83,7 @@ const DePAiExecutor: React.FC<DePAiExecutorProps> = ({ nodes }) => {
         })));
         
         if (Math.random() > 0.9) {
-            setOutput(prev => [...prev.slice(-15), `[AGENT] Distributed heartbeat synchronized - Cluster Healthy`]);
+            setOutput(prev => [...prev.slice(-15), `[AGENT] Distributed inference heartbeat - Sharding verified`]);
         }
       }, 1000);
       return () => clearInterval(timer);
@@ -90,7 +97,7 @@ const DePAiExecutor: React.FC<DePAiExecutorProps> = ({ nodes }) => {
             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em] mb-4">DePAI Agent Marketplace</h3>
             <div className="space-y-4">
               {tasks.map(t => {
-                const isRunning = activeSessions.some(s => activeSessions.length > 0 && activeTask === t.name); // Simplified logic
+                const isRunning = activeSessions.some(s => activeSessions.length > 0 && activeTask === t.name); 
                 return (
                   <button
                     key={t.id}
@@ -121,7 +128,6 @@ const DePAiExecutor: React.FC<DePAiExecutorProps> = ({ nodes }) => {
             </div>
         </div>
 
-        {/* M.402 Active Sessions List */}
         <div className="mt-auto space-y-4">
           <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center justify-between">
             Active M.402 Sessions

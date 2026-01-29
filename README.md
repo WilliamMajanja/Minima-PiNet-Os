@@ -22,14 +22,16 @@ Powered by `gemini-3-pro-preview` with a **32,768 token thinking budget**.
 - Generates M.402 payment contract logic based on real-time cluster demand.
 - Architecturally aware of Master, Sense, and Storage node hierarchies.
 
+### 🌬️ AirLLM "Free Llamas" Support
+Web3PiOS now supports **AirLLM** for local cluster inference.
+- Run large Llama-3 models locally on your Pi cluster.
+- Distributed model sharding across multiple nodes.
+- 100% private, "free as in beer" inference with zero cloud dependency.
+
 ### 🎨 Nano Banana Visual Engine
 System diagrams and marketing assets are generated directly within the OS shell using the `gemini-3-pro-image-preview` model. 
 - High-fidelity 1K resolution renders of hardware state.
 - Automated creation of documentation visuals for Grant submissions.
-
-### 🎬 Veo 3 Video Transitions
-Futuristic UI transitions and cluster status videos are synthesized on-demand using the `veo-3.1-fast-generate-preview` model. 
-- Real-time visualization of data flow between cluster nodes.
 
 ### 📍 Maps Grounding
 Integrated `googleMaps` tool via `gemini-2.5-flash` allows the OS to geolocate peers and optimize decentralized data center discovery with sub-meter accuracy.
@@ -42,7 +44,7 @@ Integrated `googleMaps` tool via `gemini-2.5-flash` allows the OS to geolocate p
 | **Networking** | PXE / ZTP Zero-Touch Network Provisioning |
 | **Payment Protocol** | M.402 Agentic Micro-Payments (Native Minima) |
 | **Messaging** | Maxima Secure Information Transport Layer |
-| **Acceleration** | Native NPU (Hailo-8) & NVMe SSD Sharding Support |
+| **Inference** | Local AirLLM (Llama) & Google Gemini 3 Cloud Hybrid |
 
 ## 🚀 Grant Submission Packaging
 This distribution is optimized for the **Official Raspberry Pi OS Imager**. 
@@ -56,11 +58,11 @@ This distribution is optimized for the **Official Raspberry Pi OS Imager**.
 1. Flash **Web3PiOS** using the [Raspberry Pi Imager](https://www.raspberrypi.com/software/).
 2. Boot your Master Node (**Pi-Alpha**).
 3. Open **Cluster Hub** to auto-provision your Beta and Gamma nodes.
-4. Launch the **AI Assistant** to begin decentralized orchestration.
+4. Launch the **AI Assistant** to toggle between Gemini Cloud and Local AirLLM.
 
 ---
 
 <p align="center">
   <b>Decentralize your Hardware. Own your Intelligence.</b><br/>
-  <i>Built for the Raspberry Pi Foundation's Consideration.</i>
+  <i>Built for the Raspberry Pi Grant Competition 2024.</i>
 </p>
