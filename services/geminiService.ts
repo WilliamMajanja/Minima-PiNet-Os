@@ -44,12 +44,17 @@ export const getAiResponse = async (prompt: string, options: {
 
   const ai = getAiClient();
   let model = 'gemini-3-flash-preview'; 
+  
+  // Construct a dynamic system instruction based on the passed context
+  const contextStr = JSON.stringify(options.context || {});
+  const nodeCount = options.context?.cluster?.length || 1;
+  
   const config: any = {
     temperature: 0.7,
     systemInstruction: `You are PiNet AI, the master intelligence for Web3PiOS. 
-    Operating on a 3-node Raspberry Pi 5 cluster.
+    Operating on a ${nodeCount}-node Raspberry Pi 5 cluster.
     
-    Current Telemetry Context: ${JSON.stringify(options.context || {})}.
+    Current Telemetry Context: ${contextStr}.
     
     Capabilities:
     1. Multi-Pi Cluster Provisioning (Master, Sense, Storage nodes).

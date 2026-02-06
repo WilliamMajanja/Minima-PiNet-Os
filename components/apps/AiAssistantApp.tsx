@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { getAiResponse, generateVeoVideo } from '../../services/geminiService';
 import { AIProvider } from '../../types';
@@ -31,7 +30,7 @@ const AiAssistantApp: React.FC<AiAssistantAppProps> = ({ context }) => {
     const files = e.target.files;
     if (!files) return;
 
-    Array.from(files).forEach(file => {
+    Array.from(files).forEach((file: File) => {
       const reader = new FileReader();
       reader.onload = (ev) => {
         const base64 = (ev.target?.result as string).split(',')[1];

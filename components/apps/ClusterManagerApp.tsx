@@ -41,12 +41,12 @@ const ClusterManagerApp: React.FC<ClusterManagerAppProps> = ({ nodes }) => {
            </button>
            <span className="px-4 py-2 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded-xl border border-emerald-500/20 uppercase tracking-[0.2em] flex items-center gap-2">
               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-              OS Cluster Synced
+              {nodes.length} Node{nodes.length !== 1 ? 's' : ''} Synced
            </span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className={`grid grid-cols-1 ${nodes.length === 1 ? 'md:grid-cols-1 max-w-xl mx-auto' : 'md:grid-cols-3'} gap-6`}>
         {nodes.map(node => (
           <NodeCard 
             key={node.id} 
@@ -56,6 +56,15 @@ const ClusterManagerApp: React.FC<ClusterManagerAppProps> = ({ nodes }) => {
             isBroadcastMode={isBroadcasting}
           />
         ))}
+        {/* Placeholder slots for up to 3 nodes simulation */}
+        {nodes.length < 3 && isBroadcasting && (
+             <div className="glass-dark p-6 rounded-[2.5rem] border border-white/10 border-dashed flex flex-col items-center justify-center opacity-50 min-h-[300px]">
+                 <div className="w-12 h-12 rounded-full bg-slate-800 animate-pulse flex items-center justify-center">
+                    <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                 </div>
+                 <div className="mt-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Searching...</div>
+             </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pb-8">
@@ -66,16 +75,24 @@ const ClusterManagerApp: React.FC<ClusterManagerAppProps> = ({ nodes }) => {
             </h3>
             <div className="relative h-56 border border-white/10 rounded-2xl bg-black/40 overflow-hidden flex items-center justify-center">
                 <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/grid-me.png')]" />
-                <div className="flex items-center gap-12 z-10">
-                    <TopologyNode label="α" color="border-pink-500" glow="shadow-pink-500/30" />
-                    <div className="relative w-20 h-px bg-white/10">
-                        <div className={`absolute inset-0 bg-gradient-to-r from-pink-500 to-indigo-500 ${isBroadcasting ? 'animate-[ping_1.5s_infinite]' : ''}`} />
-                    </div>
-                    <TopologyNode label="β" color="border-emerald-500" glow="shadow-emerald-500/30" />
-                    <div className="relative w-20 h-px bg-white/10">
-                        <div className={`absolute inset-0 bg-gradient-to-r from-emerald-500 to-amber-500 ${isBroadcasting ? 'animate-[ping_1.5s_infinite_delay-75]' : ''}`} />
-                    </div>
-                    <TopologyNode label="γ" color="border-amber-500" glow="shadow-amber-500/30" />
+                <div className="flex items-center gap-4 sm:gap-12 z-10">
+                    {nodes.map((node, i) => (
+                        <React.Fragment key={node.id}>
+                            <TopologyNode 
+                                label={i === 0 ? "α" : i === 1 ? "β" : "γ"} 
+                                color={i === 0 ? "border-pink-500" : i === 1 ? "border-emerald-500" : "border-amber-500"} 
+                                glow={i === 0 ? "shadow-pink-500/30" : i === 1 ? "shadow-emerald-500/30" : "shadow-amber-500/30"} 
+                            />
+                            {i < nodes.length - 1 && (
+                                <div className="relative w-10 sm:w-20 h-px bg-white/10">
+                                    <div className={`absolute inset-0 bg-gradient-to-r ${i===0 ? 'from-pink-500 to-emerald-500' : 'from-emerald-500 to-amber-500'} ${isBroadcasting ? 'animate-[ping_1.5s_infinite]' : ''}`} />
+                                </div>
+                            )}
+                        </React.Fragment>
+                    ))}
+                    {nodes.length === 1 && (
+                        <div className="text-[10px] text-slate-600 font-mono absolute bottom-4">Single Node Mode</div>
+                    )}
                 </div>
             </div>
         </div>
@@ -122,7 +139,14 @@ const TopologyNode = ({ label, color, glow }: { label: string; color: string; gl
     </div>
 );
 
-const NodeCard = ({ node, isProvisioning, onProvision, isBroadcastMode }: { node: ClusterNode; isProvisioning: boolean; onProvision: () => void; isBroadcastMode: boolean }) => {
+interface NodeCardProps {
+  node: ClusterNode;
+  isProvisioning: boolean;
+  onProvision: () => void;
+  isBroadcastMode: boolean;
+}
+
+const NodeCard: React.FC<NodeCardProps> = ({ node, isProvisioning, onProvision, isBroadcastMode }) => {
     const getHatLabel = (hat: string) => {
         switch(hat) {
             case 'AI_NPU': return { label: 'AI NPU Accelerate', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.989-2.386l-.548-.547z"/></svg>, color: 'text-pink-400' };

@@ -14,6 +14,8 @@ import MaximaMessengerApp from './components/apps/MaximaMessengerApp';
 import ClusterManagerApp from './components/apps/ClusterManagerApp';
 import DePAiExecutor from './components/apps/DePAiExecutor';
 import ImagerUtility from './components/apps/ImagerUtility';
+import FileExplorerApp from './components/apps/FileExplorerApp';
+import SettingsApp from './components/apps/SettingsApp';
 
 const App: React.FC = () => {
   const [isSetupComplete, setIsSetupComplete] = useState(false);
@@ -27,6 +29,8 @@ const App: React.FC = () => {
     { id: 'cluster-manager', title: 'Cluster Hub', isOpen: false, isMinimized: false, zIndex: 1 },
     { id: 'depai-executor', title: 'DePAI Executor', isOpen: false, isMinimized: false, zIndex: 1 },
     { id: 'imager-utility', title: 'Pi Imager Config', isOpen: false, isMinimized: false, zIndex: 1 },
+    { id: 'file-explorer', title: 'File Explorer', isOpen: false, isMinimized: false, zIndex: 1 },
+    { id: 'settings', title: 'System Settings', isOpen: false, isMinimized: false, zIndex: 1 },
   ]);
 
   const [activeId, setActiveId] = useState<AppId>('minima-node');
@@ -38,15 +42,27 @@ const App: React.FC = () => {
     version: '1.0.35'
   });
 
+  // Initial state reflects the local device (Alpha) which is the primary deployment target
   const [clusterNodes, setClusterNodes] = useState<ClusterNode[]>([
-    { id: 'n1', name: 'Pi-Alpha (NVMe Storage Hub)', ip: '192.168.1.10', hat: 'SSD_NVME', status: 'online', metrics: { cpu: 12, ram: 2.1, temp: 45, iops: 12500 } },
-    { id: 'n2', name: 'Pi-Beta (Intelligence Hub)', ip: '192.168.1.11', hat: 'AI_NPU', status: 'online', metrics: { cpu: 8, ram: 1.4, temp: 42, npu: 15 } },
-    { id: 'n3', name: 'Pi-Gamma (Sensory Node)', ip: '192.168.1.12', hat: 'SENSE', status: 'online', metrics: { cpu: 15, ram: 3.2, temp: 48, env: { temp: 22.4, humidity: 45, pressure: 1012 } } },
+    { 
+        id: 'n1', 
+        name: 'Pi-Alpha (Local Host)', 
+        ip: '127.0.0.1', 
+        hat: 'SSD_NVME', 
+        status: 'online', 
+        metrics: { cpu: 12, ram: 2.1, temp: 45, iops: 12500 } 
+    }
   ]);
 
   const [sysStats, setSysStats] = useState<SystemStats>({
     cpu: 24, ram: 45, temp: 42, disk: 12
   });
+
+  // Handle completion of setup wizard with detected nodes
+  const handleSetupComplete = (nodes: ClusterNode[]) => {
+      setClusterNodes(nodes);
+      setIsSetupComplete(true);
+  };
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -98,7 +114,7 @@ const App: React.FC = () => {
   };
 
   if (!isSetupComplete) {
-    return <SetupWizard onComplete={() => setIsSetupComplete(true)} />;
+    return <SetupWizard onComplete={handleSetupComplete} />;
   }
 
   return (
@@ -145,6 +161,8 @@ const App: React.FC = () => {
                 {win.id === 'cluster-manager' && <ClusterManagerApp nodes={clusterNodes} />}
                 {win.id === 'depai-executor' && <DePAiExecutor nodes={clusterNodes} />}
                 {win.id === 'imager-utility' && <ImagerUtility />}
+                {win.id === 'file-explorer' && <FileExplorerApp />}
+                {win.id === 'settings' && <SettingsApp />}
               </WindowContainer>
             </div>
           );
@@ -181,12 +199,12 @@ interface WindowContainerProps {
 const WindowContainer: React.FC<WindowContainerProps> = ({ title, onClose, onMinimize, onFocus, isActive, children }) => {
   return (
     <div 
-      className={`flex flex-col w-full h-full glass-dark rounded-2xl overflow-hidden shadow-2xl transition-all duration-200 border-2 ${isActive ? 'border-pink-500/40 shadow-pink-500/10' : 'border-white/10'}`}
+      className={`flex flex-col w-full h-full glass-dark rounded-2xl overflow-hidden shadow-2xl transition-all duration-200 border-2 ${isActive ? 'border-blue-500/40 shadow-blue-500/10' : 'border-white/10'}`}
       onClick={onFocus}
     >
       <div className={`h-11 flex items-center justify-between px-5 border-b ${isActive ? 'bg-white/10 border-white/20' : 'bg-transparent border-white/5'}`}>
         <div className="flex items-center gap-3">
-          <div className={`w-2.5 h-2.5 rounded-full ${isActive ? 'bg-pink-500 animate-pulse' : 'bg-slate-600'}`} />
+          <div className={`w-2.5 h-2.5 rounded-full ${isActive ? 'bg-blue-500 animate-pulse' : 'bg-slate-600'}`} />
           <span className="text-sm font-semibold text-slate-200 tracking-wide uppercase">{title}</span>
         </div>
         <div className="flex items-center gap-4">
@@ -203,6 +221,6 @@ const WindowContainer: React.FC<WindowContainerProps> = ({ title, onClose, onMin
       </div>
     </div>
   );
-}
+};
 
 export default App;

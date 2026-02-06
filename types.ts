@@ -1,5 +1,5 @@
 
-export type AppId = 'minima-node' | 'system-monitor' | 'terminal' | 'wallet' | 'ai-assistant' | 'maxima-messenger' | 'cluster-manager' | 'depai-executor' | 'settings' | 'setup-wizard' | 'imager-utility';
+export type AppId = 'minima-node' | 'system-monitor' | 'terminal' | 'wallet' | 'ai-assistant' | 'maxima-messenger' | 'cluster-manager' | 'depai-executor' | 'settings' | 'setup-wizard' | 'imager-utility' | 'file-explorer';
 
 export type AIProvider = 'gemini' | 'airllm';
 
@@ -65,4 +65,15 @@ export interface MaximaMessage {
   to: string;
   text: string;
   timestamp: number;
+}
+
+// VFS Types
+export interface VFSNode {
+  name: string;
+  type: 'file' | 'dir';
+  content?: string;
+  children?: VFSNode[];
+  size?: number;
+  modified: number;
+  permissions: string;
 }

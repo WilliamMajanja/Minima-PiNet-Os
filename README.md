@@ -1,3 +1,4 @@
+
 # 🚀 PiNet Web3 OS by Minima
 
 > **The ultimate decentralized operating system for Raspberry Pi 5 clusters. Powered by Minima and optimized for Agentic AI orchestration.**
@@ -47,15 +48,35 @@ Deploy specialized agents to your cluster to monetize hardware or automate maint
 
 ---
 
-### 📥 Getting Started
-1. Flash the **PiNet Web3 OS** image using the official Pi Imager.
-2. Boot your Master Node (**Alpha**) to launch the **Setup Wizard**.
-3. Connect additional nodes via Ethernet to auto-join the cluster.
-4. Open the **PiNet AI Assistant** to manage your decentralized intelligence.
+### 📥 Deployment on Raspberry Pi (NVMe Hat)
+
+The application is optimized for the **Raspberry Pi 5 with NVMe Base**.
+
+#### Option 1: Quick Start (Dev Mode)
+Run this directly on your Pi to start the OS interface:
+```bash
+git clone https://github.com/minima-global/pinet-os.git
+cd pinet-os
+npm install
+npm run dev
+```
+Access the OS at `http://<your-pi-ip>:3000`.
+
+#### Option 2: Docker Container (Production)
+For a persistent "Kiosk" style deployment:
+```bash
+docker build -t web3pios .
+docker run -d -p 3000:3000 --restart unless-stopped web3pios
+```
+
+#### Option 3: Flash to SD/NVMe
+1. Open **Pi Imager Utility** inside the app.
+2. Select **"Web3PiOS v1.0.35"**.
+3. Flash to your NVMe drive for maximum IOPS.
 
 ---
 
 <p align="center">
   <b>Decentralize your Hardware. Own your Intelligence.</b><br/>
-  <i>Built for the Raspberry Pi Grant Community.</i>
+  <i>Built for the Raspberry Pi Grant Competition 2024.</i>
 </p>
