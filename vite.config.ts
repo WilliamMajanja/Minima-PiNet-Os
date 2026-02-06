@@ -12,6 +12,10 @@ export default defineConfig({
       usePolling: true // Needed for some Docker/VM environments on Pi
     }
   },
+  preview: {
+    host: '0.0.0.0',
+    port: 3000
+  },
   define: {
     'process.env': process.env
   }

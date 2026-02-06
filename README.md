@@ -63,11 +63,28 @@ npm run dev
 Access the OS at `http://<your-pi-ip>:3000`.
 
 #### Option 2: Docker Container (Production)
-For a persistent "Kiosk" style deployment:
-```bash
-docker build -t web3pios .
-docker run -d -p 3000:3000 --restart unless-stopped web3pios
-```
+For a persistent "Kiosk" style deployment optimized for Raspberry Pi (ARM64):
+
+1. **Build the Docker Image**:
+   ```bash
+   # Build the container locally on your Pi
+   docker build -t web3pios .
+   ```
+
+2. **Run the Container**:
+   ```bash
+   # Run in detached mode, exposing port 3000
+   docker run -d \
+     --name pinet-os \
+     --restart unless-stopped \
+     -p 3000:3000 \
+     web3pios
+   ```
+
+3. **Verify Deployment**:
+   Access `http://localhost:3000` or `http://<pi-ip-address>:3000` from your network.
+
+*Note: The included Dockerfile uses a multi-stage build process with Alpine Linux to ensure a lightweight footprint suitable for embedded usage.*
 
 #### Option 3: Flash to SD/NVMe
 1. Open **Pi Imager Utility** inside the app.
