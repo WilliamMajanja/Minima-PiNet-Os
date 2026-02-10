@@ -62,7 +62,78 @@ class ShellService {
               children: [
                 { name: 'README.txt', type: 'file', content: 'Welcome to PiNet Web3 OS\n\nThis node is part of a decentralized cluster.', modified: Date.now(), permissions: '-rw-r--r--' },
                 { name: '.bashrc', type: 'file', content: '# ~/.bashrc: executed by bash(1) for non-login shells.', modified: Date.now(), permissions: '-rw-------' },
-                { name: 'projects', type: 'dir', modified: Date.now(), permissions: 'drwxr-xr-x', children: [] },
+                { 
+                  name: 'pinet-os', 
+                  type: 'dir', 
+                  modified: Date.now(), 
+                  permissions: 'drwxr-xr-x', 
+                  children: [
+                    {
+                      name: 'build.sh',
+                      type: 'file',
+                      content: '#!/bin/bash\nset -e\necho "🚀 Building PiNetOS..."\nmkdir -p tools/output\nsudo ./raspi-image-gen/build.sh \\\n  -c images/pinetos/config \\\n  -o tools/output \\\n  -n PiNetOS\necho "✅ Image built: tools/output/PiNetOS.img"',
+                      modified: Date.now(),
+                      permissions: '-rwxr-xr-x'
+                    },
+                    {
+                      name: 'README.md',
+                      type: 'file',
+                      content: '# PiNetOS\n\nPiNetOS is a hardened Raspberry Pi Operating System designed for kiosk, wallet, and fleet deployments.\n\nFeatures:\n- Secure boot + measured boot\n- A/B OTA rollback\n- Signed updates\n- Encrypted persistent storage\n- GPU-accelerated Chromium kiosk\n- Wallet subsystem',
+                      modified: Date.now(),
+                      permissions: '-rw-r--r--'
+                    },
+                    {
+                      name: 'docker',
+                      type: 'dir',
+                      modified: Date.now(),
+                      permissions: 'drwxr-xr-x',
+                      children: [
+                        {
+                          name: 'Dockerfile',
+                          type: 'file',
+                          content: 'FROM raspbian/bookworm\nRUN apt update && apt install -y \\\n git curl rsync xz-utils parted \\\n qemu-user-static debootstrap \\\n genisoimage squashfs-tools \\\n docker.io chromium \\\n network-manager \\\n mesa-vulkan-drivers \\\n cryptsetup tpm2-tools openssl && apt clean\nWORKDIR /build',
+                          modified: Date.now(),
+                          permissions: '-rw-r--r--'
+                        }
+                      ]
+                    },
+                    {
+                      name: 'overlay',
+                      type: 'dir',
+                      modified: Date.now(),
+                      permissions: 'drwxr-xr-x',
+                      children: [
+                        {
+                          name: 'rootfs',
+                          type: 'dir',
+                          modified: Date.now(),
+                          permissions: 'drwxr-xr-x',
+                          children: [
+                             {
+                               name: 'etc',
+                               type: 'dir',
+                               modified: Date.now(),
+                               permissions: 'drwxr-xr-x',
+                               children: [
+                                 {
+                                   name: 'systemd',
+                                   type: 'dir',
+                                   modified: Date.now(),
+                                   permissions: 'drwxr-xr-x',
+                                   children: [
+                                      { name: 'pinetos-shell.service', type: 'file', content: '[Unit]\nDescription=PiNetOS Kiosk Shell\nAfter=graphical.target\n[Service]\nExecStart=/usr/local/bin/pinetos-shell', modified: Date.now(), permissions: '-rw-r--r--' },
+                                      { name: 'wallet.service', type: 'file', content: '[Unit]\nDescription=PiNetOS Wallet\n[Service]\nExecStart=/usr/local/bin/walletd.sh', modified: Date.now(), permissions: '-rw-r--r--' },
+                                      { name: 'ota.service', type: 'file', content: '[Unit]\nDescription=PiNetOS OTA\n[Service]\nExecStart=/usr/local/bin/ota-client.sh', modified: Date.now(), permissions: '-rw-r--r--' }
+                                   ]
+                                 }
+                               ]
+                             }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
               ]
             }
           ]
