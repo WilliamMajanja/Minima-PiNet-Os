@@ -61,6 +61,9 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
       setLoading(true);
       setScanLog([]);
       
+      // Reset to just local before scanning to ensure UI reflects a fresh scan
+      setNodesFound([{ id: 'n1', name: 'Pi-Alpha (Local)', ip: '127.0.0.1', hat: 'SSD_NVME', status: 'online', metrics: { cpu: 12, ram: 2.1, temp: 45, iops: 12500 } }]);
+      
       const foundNodes = await systemService.scanSubnet('192.168.1.0', (log) => {
           setScanLog(prev => [...prev.slice(-6), log]);
       });
@@ -78,10 +81,8 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
   };
 
   const nextStep = () => {
-    // If only local node is found, prevent continuing unless user explicitly chooses to (which is handled by a different button state if we wanted, but here we allow it)
-    // However, for the purpose of the demo, we encourage scanning.
+    // If only local node is found, proceed to next step which effectively means "Use Single Node"
     if (step === 2 && nodesFound.length === 1 && !loading) {
-       // Just proceed to next step if they really want to, effectively "Use Single Node"
        setStep(step + 1);
        return;
     }
@@ -123,7 +124,7 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
           <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">{isScanFailed ? "Discovery Failed" : steps[step].title}</h1>
           <p className="text-slate-400 text-lg font-medium leading-relaxed">
             {step === 2 && nodesFound.length === 1 && !loading 
-                ? (scanLog.length > 0 ? "We couldn't detect any other nodes on the network. Please ensure your cluster is powered on and connected." : "We found 1 device (Local Host). Do you want to scan for cluster peers?") 
+                ? (scanLog.length > 0 ? "We couldn't detect any other nodes on the network. You can retry the scan or continue with a single node." : "We found 1 device (Local Host). Do you want to scan for cluster peers?") 
                 : steps[step].description}
           </p>
           {step === 2 && nodesFound.length > 1 && (
@@ -161,7 +162,9 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                     )}
                     <button 
                         onClick={() => setStep(step + 1)}
-                        className="px-8 py-4 bg-pink-600 hover:bg-pink-500 text-white rounded-2xl text-md font-bold uppercase tracking-widest shadow-xl shadow-pink-900/40 transition-all hover:scale-105 active:scale-95"
+                        className={`px-8 py-4 text-white rounded-2xl text-md font-bold uppercase tracking-widest shadow-xl transition-all hover:scale-105 active:scale-95 ${
+                            nodesFound.length === 1 ? 'bg-white/10 hover:bg-white/20 border border-white/10 shadow-none' : 'bg-pink-600 hover:bg-pink-500 shadow-pink-900/40'
+                        }`}
                     >
                         {nodesFound.length === 1 ? "Use Single Node" : "Continue"}
                     </button>
