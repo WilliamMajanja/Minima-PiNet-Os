@@ -20,28 +20,28 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
 
   const steps = [
     {
-      title: "Welcome to PiNet Web3 OS",
-      description: "The official Web3 distribution for Raspberry Pi by Minima. We'll help you configure your decentralized node.",
+      title: "Minima PiNet Quick Start",
+      description: "Welcome to the official Web3PiOS. We will configure your Raspberry Pi cluster according to Minima's strict decentralization standards.",
       icon: "🚀"
     },
     {
-      title: "Initializing Minima Protocol",
-      description: "Starting Alpha Node Protocol Service. Establishing Master Identity on the network.",
-      icon: "🌐"
+      title: "Full Node Protocol Init",
+      description: "Initializing the local Minima instance. Unlike other chains, your Master Node is a complete validating peer (Layer 1).",
+      icon: "🦁"
     },
     {
       title: "Network Discovery",
-      description: `Scanning local subnet for Raspberry Pi peers via PXE/ICMP.`,
+      description: `Scanning local subnet (192.168.1.x) for available Raspberry Pi devices to join the cluster.`,
       icon: "📡"
     },
     {
-      title: "Cluster Synchronization",
-      description: `Provisioning ${nodesFound.length - 1} Worker Nodes. The Alpha node will serve the OS image to Beta & Gamma units via PXE.`,
-      icon: "🔌"
+      title: "Cluster Provisioning",
+      description: `Installing Minima Full Node software on ${nodesFound.length - 1} detected peers. Every device will run its own chain validation.`,
+      icon: "💾"
     },
     {
-      title: "Agentic Payments (M.402)",
-      description: "Setting up the M.402 payment stream system for autonomous resource management.",
+      title: "MDS & Agentic Layer",
+      description: "Initializing the MiniDapp System (MDS) and M.402 payment rails for autonomous machine-to-machine value transfer.",
       icon: "💎"
     }
   ];
@@ -110,37 +110,49 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
       setLoading(true);
       setProvisionLog([]);
 
-      setProvisionLog(prev => [...prev, `[ALPHA] Master Node initializing TFTP Server...`]);
-      await wait(800);
-      setProvisionLog(prev => [...prev, `[ALPHA] Serving PiNetOS.img (arm64) on 192.168.1.10:69`]);
-      await wait(800);
+      setProvisionLog(prev => [...prev, `[ALPHA] Initiating Cluster Full Node Setup...`]);
+      await wait(500);
 
       for (const node of nodes) {
           setProvisionLog(prev => [...prev, `------------------------------------------------`]);
-          setProvisionLog(prev => [...prev, `[PXE] DHCP Request received from ${node.name} (${node.ip})`]);
-          await wait(600);
-          setProvisionLog(prev => [...prev, `[DHCP] Lease Offered: ${node.ip} mask 255.255.255.0`]);
-          await wait(600);
-          setProvisionLog(prev => [...prev, `[TFTP] Streaming kernel image to ${node.ip}...`]);
+          setProvisionLog(prev => [...prev, `[TARGET] ${node.name} (${node.ip})`]);
           
+          setProvisionLog(prev => [...prev, `[SSH] Handshake successful. Root access verified.`]);
+          await wait(400);
+
+          setProvisionLog(prev => [...prev, `[MINIMA] Creating data directory /home/pi/.minima`]);
+          await wait(300);
+          
+          setProvisionLog(prev => [...prev, `[CONFIG] Writing minima.conf (RPC: 9002, P2P: 9001)...`]);
+          setProvisionLog(prev => [...prev, `   > minipassword set`]);
+          setProvisionLog(prev => [...prev, `   > rpcenable=true`]);
+          setProvisionLog(prev => [...prev, `   > host=${node.ip}`]);
+          await wait(400);
+
+          setProvisionLog(prev => [...prev, `[INSTALL] Deploying Minima binary (v1.0.35)...`]);
           setNodesFound(prev => prev.map(n => n.id === node.id ? { ...n, status: 'provisioning' } : n));
           
-          // Simulate flash time
+          // Simulate flash/install time
           for(let i=0; i<3; i++) {
-              await wait(800);
-              setProvisionLog(prev => [...prev, `[FLASH] Writing blocks... ${(i+1)*33}%`]);
+              await wait(600);
+              setProvisionLog(prev => [...prev, `[JAVA] Heap allocation... ${(i+1)*33}%`]);
           }
 
-          setProvisionLog(prev => [...prev, `[BOOT] ${node.name} booting PiNetOS...`]);
-          await wait(1000);
-          setProvisionLog(prev => [...prev, `[SYNC] Handshake: Minima Protocol active.`]);
+          setProvisionLog(prev => [...prev, `[SYSTEMD] Enabling minima.service (Auto-start)`]);
+          await wait(400);
+
+          setProvisionLog(prev => [...prev, `[MDS] Initializing MiniDapp System... OK`]);
+          setProvisionLog(prev => [...prev, `[BOOT] Starting Minima Service...`]);
+          await wait(800);
+          
+          setProvisionLog(prev => [...prev, `[SYNC] Node is Active. Block Height: 0 (Syncing)`]);
           
           setNodesFound(prev => prev.map(n => n.id === node.id ? { ...n, status: 'online' } : n));
-          setProvisionLog(prev => [...prev, `[OK] ${node.name} Online & Synced.`]);
+          setProvisionLog(prev => [...prev, `[SUCCESS] ${node.name} is now a Full Validating Node.`]);
       }
       
       setProvisionLog(prev => [...prev, `------------------------------------------------`]);
-      setProvisionLog(prev => [...prev, `[CLUSTER] Synchronization Complete. All nodes active.`]);
+      setProvisionLog(prev => [...prev, `[CLUSTER] Setup Complete. All devices running Full Node topology.`]);
       setLoading(false);
   };
 
@@ -185,17 +197,17 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
         </div>
 
         <div className="space-y-4">
-          <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">{isScanFailed ? "Discovery Failed" : steps[step].title}</h1>
+          <h1 className="text-3xl font-black text-white tracking-tighter uppercase italic">{isScanFailed ? "Discovery Failed" : steps[step].title}</h1>
           <p className="text-slate-400 text-lg font-medium leading-relaxed">
             {step === 2 && nodesFound.length === 1 && !loading 
-                ? (scanLog.length > 0 ? "We couldn't detect any other nodes on the network. You can retry the scan or continue with a single node." : "Scanning for local cluster peers...") 
-                : isProvisioningStep && loading ? "Synchronizing Cluster Topology..." : steps[step].description}
+                ? (scanLog.length > 0 ? "We couldn't detect any other nodes on the network. You can retry the scan or continue with a single node." : "Scanning subnet for Pi devices...") 
+                : isProvisioningStep && loading ? "Installing Minima Full Node software..." : steps[step].description}
           </p>
           {step === 2 && nodesFound.length > 1 && (
-              <p className="text-emerald-400 font-bold animate-pulse">Successfully detected full cluster topology!</p>
+              <p className="text-emerald-400 font-bold animate-pulse">Topology Detected: {nodesFound.length} Devices</p>
           )}
           {step === 3 && !loading && nodesFound.every(n => n.status === 'online') && (
-              <p className="text-emerald-400 font-bold animate-pulse">Cluster Synchronized Successfully.</p>
+              <p className="text-emerald-400 font-bold animate-pulse">Minima Protocol Active on All Devices.</p>
           )}
           {isScanFailed && (
                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 text-sm font-bold flex flex-col gap-2">
@@ -217,7 +229,7 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
         {isProvisioningStep && provisionLog.length > 0 && (
             <div ref={provLogRef} className="bg-black/40 rounded-xl p-4 font-mono text-xs text-left h-48 overflow-y-auto border border-white/10 shadow-inner scrollbar-hide">
                 {provisionLog.map((log, i) => (
-                    <div key={i} className={`${log.includes('[OK]') ? 'text-emerald-400' : log.includes('[ALPHA]') ? 'text-pink-400' : 'text-slate-400'} mb-1`}>
+                    <div key={i} className={`${log.includes('[SUCCESS]') ? 'text-emerald-400' : log.includes('[ALPHA]') ? 'text-pink-400' : 'text-slate-400'} mb-1`}>
                         {log}
                     </div>
                 ))}
@@ -244,7 +256,7 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                             nodesFound.length === 1 ? 'bg-white/10 hover:bg-white/20 border border-white/10 shadow-none' : 'bg-pink-600 hover:bg-pink-500 shadow-pink-900/40'
                         }`}
                     >
-                        {nodesFound.length === 1 ? "Use Single Node" : "Continue"}
+                        {nodesFound.length === 1 ? "Use Single Node" : "Configure Cluster"}
                     </button>
                 </div>
                 {nodesFound.length === 1 && scanLog.length > 0 && (
@@ -264,7 +276,7 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                 </div>
             )}
             <p className="text-[10px] font-bold text-pink-500 uppercase tracking-[0.3em]">
-                {isProvisioningStep ? "Cluster PXE Sync in Progress..." : "Deploying OS Components..."}
+                {isProvisioningStep ? "Installing Minima Service..." : "Verifying Hardware Requirements..."}
             </p>
           </div>
         ) : loading && step === 2 ? null : (

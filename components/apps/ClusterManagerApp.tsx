@@ -66,6 +66,37 @@ const ClusterManagerApp: React.FC<ClusterManagerAppProps> = ({ nodes }) => {
         </div>
       </div>
 
+      <div className="space-y-4">
+        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            Live Telemetry Matrix
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {nodes.map(node => (
+                <div key={node.id} className="glass p-3 rounded-xl border border-white/10 hover:bg-white/5 transition-colors">
+                    <div className="flex justify-between items-center mb-2">
+                        <span className="text-[10px] font-bold text-white truncate max-w-[100px]">{node.name}</span>
+                        <div className={`w-1.5 h-1.5 rounded-full ${node.status === 'online' ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'}`} />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                        <div className="flex flex-col items-center bg-white/5 rounded px-1 py-1">
+                            <span className="text-[8px] text-slate-500 uppercase font-bold">CPU</span>
+                            <span className={`text-[10px] font-mono font-bold ${node.metrics.cpu > 80 ? 'text-red-400' : 'text-pink-400'}`}>{Math.round(node.metrics.cpu)}%</span>
+                        </div>
+                        <div className="flex flex-col items-center bg-white/5 rounded px-1 py-1">
+                            <span className="text-[8px] text-slate-500 uppercase font-bold">RAM</span>
+                            <span className="text-[10px] font-mono font-bold text-emerald-400">{node.metrics.ram.toFixed(1)}G</span>
+                        </div>
+                        <div className="flex flex-col items-center bg-white/5 rounded px-1 py-1">
+                            <span className="text-[8px] text-slate-500 uppercase font-bold">TMP</span>
+                            <span className={`text-[10px] font-mono font-bold ${node.metrics.temp > 65 ? 'text-amber-400' : 'text-blue-400'}`}>{Math.round(node.metrics.temp)}°C</span>
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
+      </div>
+
       <div className={`grid grid-cols-1 ${nodes.length === 1 ? 'md:grid-cols-1 max-w-xl mx-auto' : 'md:grid-cols-3'} gap-6`}>
         {nodes.map(node => (
           <NodeCard 
@@ -119,7 +150,7 @@ const ClusterManagerApp: React.FC<ClusterManagerAppProps> = ({ nodes }) => {
 
         <div className="glass-dark p-6 rounded-[2rem] border border-white/5 space-y-6">
             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                 Web3 Imager Configuration
             </h3>
             <div className="space-y-6">
@@ -275,7 +306,7 @@ const NodeCard: React.FC<NodeCardProps> = ({ node, isProvisioning, onProvision, 
                     <div className="text-xl font-bold text-white group-hover:text-pink-400 transition-colors mt-1">{node.name}</div>
                 </div>
                 <div className={`px-3 py-1 rounded-lg text-[9px] font-bold tracking-widest uppercase ${node.status === 'online' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-400'}`}>
-                    ● {node.status}
+                    ● {node.status === 'online' ? 'Full Node Active' : node.status}
                 </div>
             </div>
 

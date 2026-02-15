@@ -30,7 +30,6 @@ class ShellService {
           modified: Date.now(),
           permissions: 'drwxr-xr-x',
           children: [
-            { name: 'minima.conf', type: 'file', content: 'rpcenable=true\nport=9001\nhost=0.0.0.0', modified: Date.now(), permissions: '-rw-r--r--' },
             { name: 'cluster.json', type: 'file', content: '{"nodes": ["n1", "n2", "n3"], "master": "n1"}', modified: Date.now(), permissions: '-rw-r--r--' },
             { 
               name: 'os-release', 
@@ -45,6 +44,29 @@ class ShellService {
                 content: 'raspberrypi',
                 modified: Date.now(),
                 permissions: '-rw-r--r--'
+            },
+            {
+                name: 'systemd',
+                type: 'dir',
+                modified: Date.now(),
+                permissions: 'drwxr-xr-x',
+                children: [
+                    {
+                        name: 'system',
+                        type: 'dir',
+                        modified: Date.now(),
+                        permissions: 'drwxr-xr-x',
+                        children: [
+                            {
+                                name: 'minima.service',
+                                type: 'file',
+                                content: `[Unit]\nDescription=Minima\nAfter=network.target\n[Service]\nUser=pi\nGroup=pi\nType=simple\nExecStart=/usr/bin/java -jar /home/pi/minima.jar -data /home/pi/.minima -rpcenable -port 9001 -rpcport 9002\nRestart=always\nRestartSec=10\n[Install]\nWantedBy=multi-user.target`,
+                                modified: Date.now(),
+                                permissions: '-rw-r--r--'
+                            }
+                        ]
+                    }
+                ]
             }
           ]
         },
@@ -60,6 +82,29 @@ class ShellService {
               modified: Date.now(),
               permissions: 'drwxr-xr-x',
               children: [
+                {
+                    name: '.minima',
+                    type: 'dir',
+                    modified: Date.now(),
+                    permissions: 'drwxr-xr-x',
+                    children: [
+                        {
+                            name: 'minima.conf',
+                            type: 'file',
+                            content: 'host=0.0.0.0\nrpcenable=true\nport=9001\nrpcport=9002\nmdsenable=true\n',
+                            modified: Date.now(),
+                            permissions: '-rw-r--r--'
+                        },
+                        {
+                            name: 'mds',
+                            type: 'dir',
+                            modified: Date.now(),
+                            permissions: 'drwxr-xr-x',
+                            children: []
+                        }
+                    ]
+                },
+                { name: 'minima.jar', type: 'file', content: 'BINARY_JAR', modified: Date.now(), permissions: '-rwxr-xr-x' },
                 { name: 'README.txt', type: 'file', content: 'Welcome to PiNet Web3 OS\n\nThis node is part of a decentralized cluster.', modified: Date.now(), permissions: '-rw-r--r--' },
                 { name: '.bashrc', type: 'file', content: '# ~/.bashrc: executed by bash(1) for non-login shells.', modified: Date.now(), permissions: '-rw-------' },
                 { 
