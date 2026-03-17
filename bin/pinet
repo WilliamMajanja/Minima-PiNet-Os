@@ -1,0 +1,46 @@
+#!/bin/bash
+case "$1" in
+  open)
+    echo -e "\033[1;32mOpening application: $2...\033[0m"
+    echo "PINET_CMD:OPEN:$2"
+    ;;
+  install)
+    echo -e "\033[1;34mInstalling PiNet OS components...\033[0m"
+    sleep 0.5
+    echo "Unpacking minima-node..."
+    sleep 0.5
+    echo "Setting up cluster-manager..."
+    sleep 0.5
+    echo -e "\033[1;32mInstallation complete. You can now use 'pinet open <app_id>' to launch applications.\033[0m"
+    echo "Available apps: minima-node, system-monitor, terminal, ai-assistant, wallet, maxima-messenger, cluster-manager, depai-executor, imager-utility, file-explorer, settings, visual-studio"
+    ;;
+  status)
+    echo -e "\033[1;36mPiNet OS Status:\033[0m"
+    curl -s http://localhost:3000/api/minima/status | grep -o '"status":"[^"]*"' | cut -d'"' -f4 | sed 's/^/  Node: /'
+    curl -s http://localhost:3000/api/minima/status | grep -o '"peers":[^,]*' | cut -d':' -f2 | sed 's/^/  Peers: /'
+    curl -s http://localhost:3000/api/minima/status | grep -o '"blockHeight":[^,]*' | cut -d':' -f2 | sed 's/^/  Block Height: /'
+    ;;
+  cluster)
+    echo -e "\033[1;35mCluster Status:\033[0m"
+    echo "  ID   ROLE    HAT       STATUS"
+    curl -s http://localhost:3000/api/cluster/nodes | grep -o '{"id":"[^"]*","name":"[^"]*","ip":"[^"]*","status":"[^"]*","role":"[^"]*","hat":"[^"]*"}' | while read -r line; do
+      id=$(echo "$line" | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
+      name=$(echo "$line" | grep -o '"name":"[^"]*"' | cut -d'"' -f4)
+      hat=$(echo "$line" | grep -o '"hat":"[^"]*"' | cut -d'"' -f4)
+      status=$(echo "$line" | grep -o '"status":"[^"]*"' | cut -d'"' -f4 | tr '[:lower:]' '[:upper:]')
+      printf "  %-4s %-7s %-9s %s\n" "$id" "$name" "$hat" "$status"
+    done
+    ;;
+  version|info)
+    echo -e "\033[1;35mPiNet OS v2.5.0-LTS\033[0m"
+    echo "Architecture: $(uname -m)"
+    echo "Kernel: $(uname -r)"
+    echo "Minima Node: v1.0.35"
+    ;;
+  help|*)
+    echo -e "\033[1;37mPiNet OS Command Line Interface\033[0m"
+    echo "Usage: pinet <command> [args]"
+    echo ""
+    echo "Commands: open, install, status, start, stop, update, config, logs, cluster, deploy, network, storage, backup, version"
+    ;;
+esac

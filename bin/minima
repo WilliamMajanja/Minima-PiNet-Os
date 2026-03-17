@@ -1,0 +1,16 @@
+#!/bin/bash
+echo -e "\033[1;33mMinima Node CLI v1.0.35\033[0m"
+case "$1" in
+  status)
+    curl -s http://localhost:3000/api/minima/status | grep -o '"status":"[^"]*"' | cut -d'"' -f4 | sed 's/^/Status: /'
+    curl -s http://localhost:3000/api/minima/status | grep -o '"blockHeight":[^,]*' | cut -d':' -f2 | sed 's/^/Block: /'
+    curl -s http://localhost:3000/api/minima/status | grep -o '"peers":[^,]*' | cut -d':' -f2 | sed 's/^/Connections: /'
+    ;;
+  peers)
+    echo "Connected Peers:"
+    curl -s http://localhost:3000/api/minima/status | grep -o '"peers":[^,]*' | cut -d':' -f2
+    ;;
+  *)
+    echo "Usage: minima [status|peers|info|help]"
+    ;;
+esac

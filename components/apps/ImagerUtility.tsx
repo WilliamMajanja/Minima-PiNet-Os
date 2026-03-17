@@ -155,6 +155,13 @@ echo "✅ Image built: tools/output/PiNetOS.img"`;
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                      </button>
                  </div>
+                 <div className="glass-dark p-6 rounded-[2.5rem] border border-white/10 flex items-center justify-between">
+                     <div>
+                         <div className="text-sm font-bold text-white mb-1">Download Source Code</div>
+                         <div className="text-[10px] text-slate-400 uppercase tracking-widest">Full Project ZIP</div>
+                     </div>
+                     <a href="/api/download-full-project" download className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-xs uppercase shadow-lg shadow-blue-900/20 transition-all">Download</a>
+                 </div>
              </div>
         </div>
       )}

@@ -12,6 +12,8 @@ const SystemMonitorApp: React.FC<SystemMonitorAppProps> = ({ stats }) => {
 
   if (!stats) return null;
 
+  const [history, setHistory] = useState<any[]>([]);
+
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (window.electron) {
@@ -27,16 +29,25 @@ const SystemMonitorApp: React.FC<SystemMonitorAppProps> = ({ stats }) => {
 
   const displayCpu = realStats ? realStats.cpuUsage * 100 : (stats.cpu ?? 0);
   const displayRam = realStats ? (1 - realStats.freeMem / realStats.totalMem) * 100 : (stats.ram ?? 0);
+  const displayTemp = stats.temp ?? 0;
 
-  // Generate mock history data
-  const data = React.useMemo(() => {
-    return Array.from({ length: 20 }, (_, i) => ({
-      time: i,
-      cpu: Math.random() * 40 + 20,
-      ram: 45 + Math.random() * 5,
-      temp: 40 + Math.random() * 10
-    }));
-  }, []);
+  useEffect(() => {
+    setHistory(prev => {
+      const newEntry = {
+        time: Date.now(),
+        cpu: displayCpu,
+        ram: displayRam,
+        temp: displayTemp
+      };
+      const newHistory = [...prev, newEntry];
+      if (newHistory.length > 20) {
+        return newHistory.slice(newHistory.length - 20);
+      }
+      return newHistory;
+    });
+  }, [displayCpu, displayRam, displayTemp]);
+
+  const data = history;
 
   return (
     <div className="p-8 h-full space-y-8 overflow-y-auto">

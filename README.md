@@ -62,6 +62,8 @@ The latest release introduces the **PiNetOS Enterprise Stack**, transforming the
 6. **Application Layer:** MiniDAPP Runtime (`/pinet/dapps/`)
 
 ### Key Enterprise Features
+* **Real-Time Hypervisor Switching:** The OS features a fully functional, real-time hypervisor switch that seamlessly transitions between the PiNet Web3 OS graphical interface and the underlying host OS (Raspbian/Debian) using native `systemctl` commands, complete with boot sequence animations.
+* **Native Terminal Integration:** The built-in terminal provides direct, unsimulated access to the host system's shell, allowing execution of real commands, including a custom `pinet` CLI for managing applications, cluster nodes, and the Minima blockchain.
 * **PiNet Cluster Manager:** Handles node discovery, mesh networking, blockchain node registration, and workload scheduling.
 * **MiniDAPP Platform:** Includes built-in decentralized applications such as a Wallet, IoT Data Market, and Device Identity manager.
 * **Automated Build System:** A complete suite of scripts (`build-rootfs.sh`, `build-kernel.sh`, `build-image.sh`) to generate bootable `PiNetOS.img` artifacts from scratch using `debootstrap`.

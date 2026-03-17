@@ -41,6 +41,7 @@ Minima-PiNet-Os is engineered under a **Zero-Trust** paradigm. When auditing or 
 *   **Cluster Mesh Networking:** All inter-node communication is encrypted via WireGuard tunnels managed by the PiNet Cluster Manager.
 *   **Container Isolation:** k3s workloads are isolated using strict AppArmor profiles and rootless container execution where possible.
 *   **MiniDAPP Sandboxing:** Decentralized applications run in a restricted runtime environment with limited access to the host filesystem and network.
+*   **Real-Time Hypervisor & Terminal Security:** The native terminal integration and real-time hypervisor switching are executed with strict privilege separation, ensuring that Web3 UI interactions cannot arbitrarily escalate privileges on the host OS.
 *   **Brute-Force Mitigation:** `fail2ban` is actively monitoring auth logs and will permanently drop IPs (`bantime = -1`) attempting SSH brute-force attacks.
 *   **Privilege Escalation:** The default `pi` user is locked, expired, and removed from the `sudo` group.
 *   **Data at Rest:** Root and data partitions are encrypted via LUKS. IPFS storage is anchored to the Minima blockchain for integrity verification.

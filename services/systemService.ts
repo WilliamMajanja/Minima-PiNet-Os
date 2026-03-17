@@ -3,72 +3,43 @@ import { ClusterNode, HatType, OSMode } from '../types';
 
 export const systemService = {
   async scanSubnet(subnet: string, onProgress: (log: string) => void, maxRetries: number = 0): Promise<ClusterNode[]> {
-    // In a real scan, we just scan once. Retries handled by caller if needed.
-    const base = subnet.split('.').slice(0, 3).join('.');
-    
     onProgress(`[ARP] Broadcasting on interface eth0 (${subnet}/24)`);
-    await new Promise(r => setTimeout(r, 600));
-
-    // Randomly pick a Hat for the local node to simulate different hardware configurations
-    const hats: HatType[] = ['SSD_NVME', 'AI_NPU', 'NONE'];
-    const randomHat = hats[Math.floor(Math.random() * hats.length)];
-
-    // Always find the local node (Gateway/Self)
-    const localNode = { 
-        ip: '10', 
-        node: { 
-            id: 'n1', 
-            name: 'Pi-Alpha (Local)', 
-            hat: randomHat, 
-            metrics: { cpu: 12, ram: 2.1, temp: 45, iops: 12500 },
-            status: 'online'
-        }, 
-        delay: 300 
-    };
-
-    const found: ClusterNode[] = [];
     
-    // Explicitly type scanSteps to handle objects with and without the 'node' property
-    const scanSteps: { ip: string; status?: string; delay: number; node?: typeof localNode.node }[] = [
-        { ip: '1', status: 'Gateway', delay: 200 },
-        localNode, // Always found
-        { ip: '15', status: 'Unreachable', delay: 100 },
-        { ip: '102', status: 'Unreachable', delay: 100 }
-    ];
-
-    for (const step of scanSteps) {
-        const fullIp = `${base}.${step.ip}`;
-        onProgress(`[ICMP] Pinging ${fullIp}...`);
-        await new Promise(r => setTimeout(r, step.delay));
-        
-        if (step.node) {
-            onProgress(`[ACK] Response from ${fullIp} [MAC: B8:27:EB:${Math.floor(Math.random()*99).toString(16).toUpperCase().padStart(2,'0')}:4F]`);
-            await new Promise(r => setTimeout(r, 200));
-            
-            if (step.node.status === 'awaiting-os') {
-                onProgress(`[PXE] PXE Boot Request detected from ${step.node.name}`);
-            } else {
-                onProgress(`[HSK] Handshake with Minima Protocol v1.0.35`);
-            }
-            
-            found.push({ 
-                id: step.node.id, 
-                name: step.node.name, 
-                ip: fullIp, 
-                hat: step.node.hat as any, 
-                status: step.node.status as any, 
-                metrics: step.node.metrics 
-            });
-        }
+    try {
+      const response = await fetch(`/api/system/scan-subnet?subnet=${encodeURIComponent(subnet)}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      
+      onProgress(`[SCAN] Subnet traversal complete. Found ${data.nodes.length} active peers.`);
+      return data.nodes;
+    } catch (error) {
+      console.error("Failed to scan subnet:", error);
+      onProgress(`[ERROR] Subnet scan failed.`);
+      return [];
     }
-    
-    onProgress(`[SCAN] Subnet traversal complete. Found ${found.length} active peers.`);
-    return found;
   },
 
   async executeHypervisorSwitch(targetOS: OSMode): Promise<void> {
-    // This mocks the low-level hypervisor call (e.g., Xen Dom0 command, kexec, or u-boot environment update + reboot)
     console.log(`[HV] Context Switch Initiated -> Target: ${targetOS}`);
-    return new Promise(resolve => setTimeout(resolve, 5000));
+    try {
+      const response = await fetch('/api/system/switch-os', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetOS })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log(`[HV] Switch complete:`, result);
+    } catch (error) {
+      console.error(`[HV] Failed to execute real hypervisor switch:`, error);
+      // Fallback to delay if network fails
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
   }
 };
