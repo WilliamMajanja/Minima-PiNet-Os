@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test-server": "node server.ts",
     "start": "node server.ts",
     "dev": "tsx server.ts",
     "build": "vite build",
