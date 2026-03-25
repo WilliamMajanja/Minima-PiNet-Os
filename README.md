@@ -3,8 +3,9 @@
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
 ![Architecture](https://img.shields.io/badge/arch-ARM64-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Version](https://img.shields.io/badge/version-1.0.0--alpha-orange)
-![Security](https://img.shields.io/badge/security-Zero--Trust-red)
+![Version](https://img.shields.io/badge/version-2.0.0--enterprise-blueviolet)
+![Security](https://img.shields.io/badge/security-Zero--Trust--Attestation-red)
+![Virtualization](https://img.shields.io/badge/virt-LXC--Enterprise-blue)
 
 > **An ultra-minimalist, AI-ready operating system built specifically for the Raspberry Pi community, empowering makers to run decentralized edge computing and neural networks right from their desks.**
 
@@ -36,32 +37,32 @@ The system operates on a perfect balance of performance, intelligence, and secur
 
 | Feature | Description | Implementation Details |
 | :--- | :--- | :--- |
-| **Minimalist OS Footprint** | Absolute resource conservation. | Headless-optimized, Debian Bookworm ARM64 base, stripped kernel modules. |
-| **Edge AI Ready** | Hardware-accelerated neural processing. | Pre-configured bindings for TensorFlow Lite, ONNX, and local inference. |
-| **Zero-Trust Security** | Cryptographically verified execution. | Default-deny firewall, WireGuard mesh, SSH key-only auth, and TPM 2.0 readiness. |
-| **Home Lab Compute** | Lightweight container orchestration. | Integrated **k3s** for deploying AI workloads, IoT services, and containerized apps. |
+| **Enterprise Virtualization** | Kernel-level LXC isolation. | Isolated `pinet-enterprise-env` with GPU/NPU passthrough and CPU pinning. |
+| **AI Acceleration Engine** | Hardware-accelerated neural processing. | Native Hailo-8L NPU support (13 TOPS) + ARM-optimized GGUF 4-bit quantization. |
+| **Zero-Trust Attestation** | Blockchain-verified system integrity. | Remote attestation via Minima ledger; SHA-256 hashing of /boot and /etc/pinet. |
+| **Zero-Exposure Networking** | Private WireGuard veth tunnels. | All container traffic routed through encrypted veth pairs; Host IP remains hidden. |
+| **Enterprise Build System** | Pi Imager compatible .img generation. | Automated pipeline for generating flashable, hardware-verified system images. |
 | **Decentralized Storage** | Distributed file system integration. | Native **IPFS** support with blockchain anchoring and node replication. |
 | **Web3 & Blockchain** | Layer 1 decentralized protocol. | Embedded **Minima** blockchain node and **MiniDAPP** runtime environment. |
 
 ---
 
-## PiNetOS Enterprise Architecture
+## PiNet 2.0 Enterprise Architecture
 
-Transform your Raspberry Pi into a full-fledged decentralized edge node. The system stack is layered as follows:
+Transform your Raspberry Pi into a hardened, hardware-verified edge node. The PiNet 2.0 stack introduces enterprise-grade virtualization and security:
 
-1. **Hardware:** Raspberry Pi 4 / 400 / Compute Module 4 / Pi 5
-2. **Bootloader & Kernel:** Secure Boot, Linux Kernel (ARM64)
-3. **Init System:** systemd
-4. **PiNet Services:** Cluster Manager (libp2p, WireGuard), Edge Compute (k3s), Distributed Storage (IPFS)
-5. **Blockchain Layer:** Minima Node (`/opt/minima`)
-6. **Application Layer:** MiniDAPP Runtime (`/pinet/dapps/`)
+1. **Hardware Layer:** Raspberry Pi 5 (Optimized for Cortex-A76 & PCIe Gen 3).
+2. **Hypervisor Layer:** LXC (Linux Containers) providing kernel-level namespace isolation.
+3. **Resource Management:** `cpuset` pinning (Cores 2-3) via cgroups v2 for deterministic AI latency.
+4. **AI Engine:** Hailo-8L NPU driver integration + ARM NEON/SIMD optimized GGUF inference.
+5. **Security Layer:** Zero Trust Remote Attestation anchored to the Minima Blockchain.
+6. **Networking:** WireGuard veth pairs for zero-exposure container communication.
 
-### Key Community Features
-* **Real-Time Hypervisor Switching:** The OS features a fully functional, real-time hypervisor switch that seamlessly transitions between the slick PiNet Web3 OS graphical interface and the underlying host OS (Raspbian/Debian) using native `systemctl` commands.
-* **Native Terminal Integration:** The built-in terminal provides direct access to the host system's shell, allowing execution of real commands, including a custom `pinet` CLI for managing applications, cluster nodes, and the Minima blockchain.
-* **PiNet Cluster Manager:** Easily link multiple Raspberry Pis together! Handles node discovery, mesh networking, and workload scheduling across your Pi cluster.
-* **MiniDAPP Platform:** Includes built-in decentralized applications such as a Wallet, IoT Data Market, and Device Identity manager.
-* **Automated Build System:** A complete suite of scripts (`build-rootfs.sh`, `build-kernel.sh`, `build-image.sh`) to generate bootable `PiNetOS.img` artifacts from scratch using `debootstrap`.
+### Key Enterprise Features
+* **LXC Isolation:** Run your Web3 and AI workloads in a secure, isolated container while maintaining direct access to hardware accelerators (GPU/NPU).
+* **Remote Attestation:** The system automatically hashes critical firmware and configuration paths, attesting them against the immutable Minima ledger to detect unauthorized tampering.
+* **Deterministic AI Performance:** By pinning AI workloads to specific CPU cores and using dedicated NPU hardware, PiNet 2.0 eliminates context-switching jitter.
+* **Enterprise Imager Utility:** A built-in portal to build, verify, and release flashable `.img` artifacts that are 100% compatible with the official Raspberry Pi Imager.
 
 ---
 
@@ -71,43 +72,27 @@ Tailored specifically for modern ARM-based Raspberry Pi boards.
 
 | Component | Minimum Specification | Recommended Specification |
 | :--- | :--- | :--- |
-| **Platform** | Raspberry Pi 4 Model B (4GB) | Raspberry Pi 5 (8GB) or CM4 |
+| **Platform** | Raspberry Pi 4 Model B (4GB) | **Raspberry Pi 5 (8GB)** |
+| **AI Accelerator** | ARM NEON (CPU) | **Hailo-8L NPU (13 TOPS)** |
 | **Architecture** | ARM64 (aarch64) | ARM64 (aarch64) |
-| **Storage** | 16GB High-Endurance MicroSD | 64GB NVMe SSD (via PCIe HAT) |
+| **Storage** | 16GB High-Endurance MicroSD | 128GB NVMe SSD (via PCIe Gen 3) |
 | **Network** | Gigabit Ethernet or Wi-Fi | Gigabit Ethernet + WireGuard Mesh |
 
 ---
 
 ## Installation & Provisioning
 
-### Method 1: Raspberry Pi Imager (Easiest)
-1. Download the latest `PiNetOS.img` release.
-2. Open **Raspberry Pi Imager**.
-3. Under "Choose OS", select **Use custom** and select the downloaded `.img` file.
-4. Under "Choose Storage", select your MicroSD card or NVMe drive.
-5. Click the **Settings (Gear) Icon** to pre-configure your Wi-Fi and enable SSH (highly recommended).
-6. Click **Write**.
+### Method 1: Enterprise Build & Flash (Recommended)
+1. Access the **Pi Imager Portal** within the PiNet 2.0 Dashboard.
+2. Click **Execute Enterprise Build** to generate a hardware-verified `.img` artifact.
+3. Once the build is complete, download the image or use the **Push to GitHub Release** feature.
+4. Flash the resulting image using the official **Raspberry Pi Imager** (select "Use custom").
 
-### Method 2: Automated Installer (For existing Raspbian installs)
-For a fully automated setup of the entire PiNetOS stack (including k3s, IPFS, and Minima) on top of an existing Debian/Raspbian Bookworm install:
-
+### Method 2: Manual CLI Provisioning
+For power users on Linux/macOS:
 ```bash
-git clone https://github.com/WilliamMajanja/Minima-PiNet-Os.git
-cd Minima-PiNet-Os/scripts
-sudo ./install-pinet.sh
-```
-
-### Method 3: Manual CLI Flashing (For Linux/Mac Power Users)
-Download the latest `PiNetOS.img` and flash it to your target media using `dd`. 
-*(Note: Replace `/dev/sdX` with your actual target drive. **Double-check the drive letter to avoid data loss.**)*
-
-```bash
-# Unmount the drive if auto-mounted
-sudo umount /dev/sdX*
-
-# Flash the image with block size optimization and sync
-sudo dd if=Minima-PiNet-Os.img of=/dev/sdX bs=4M status=progress
-sudo sync
+# Flash the verified Enterprise image
+sudo dd if=PiNetOS-Enterprise-v2.0-LTS.img of=/dev/sdX bs=4M status=progress conv=fsync
 ```
 
 ---

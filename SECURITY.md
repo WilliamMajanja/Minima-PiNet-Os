@@ -11,8 +11,8 @@ We maintain a strict rolling-release security model. Only the latest stable rele
 
 | Version | Supported | Notes |
 | :--- | :--- | :--- |
-| **1.0.x (Current)** | ✅ Yes | Active development and critical security patches. |
-| **0.9.x (Beta)** | ❌ No | Deprecated. Upgrade to 1.0.x immediately. |
+| **2.0.x (Current)** | ✅ Yes | Enterprise Hypervisor, Zero Trust Attestation. |
+| **1.0.x (Legacy)** | ✅ Yes | Active development and critical security patches. |
 | **< 0.9.x** | ❌ No | End of Life. |
 
 *Note: Upstream components (Debian Bookworm, Docker, Minima Node) are subject to their respective maintainers' security lifecycles. Our OTA (Over-The-Air) update mechanism will push upstream patches as they are verified against our stack.*
@@ -36,7 +36,11 @@ We take the security of our edge computing and blockchain infrastructure extreme
 Minima-PiNet-Os is engineered under a **Zero-Trust** paradigm. When auditing or reporting vulnerabilities, please consider our established threat model and hardening baselines:
 
 ### In-Scope Security Controls
-*   **Cryptographic Authentication:** SSH is strictly limited to `ed25519` key-based authentication. Password authentication and legacy algorithms (RSA/ECDSA) are disabled by default.
+*   **Enterprise Hypervisor (LXC):** Workloads are isolated in LXC containers (`pinet-enterprise-env`) with kernel-level namespace separation, preventing container escapes from impacting the host OS.
+*   **Blockchain-Backed Remote Attestation:** System integrity is verified by hashing `/boot/firmware` and `/etc/pinet`, attested against the immutable Minima ledger. Any unauthorized tampering triggers an immediate security lockdown.
+*   **Zero-Exposure Networking:** All container traffic is routed through encrypted WireGuard veth pairs, ensuring the host IP is never exposed to the external network.
+*   **Deterministic Resource Pinning:** `cpuset` pinning (Cores 2-3) ensures that AI inference is isolated from other system processes, preventing side-channel timing attacks.
+*   **Cryptographic Authentication:** SSH is strictly limited to `ed25519` key-based authentication.
 *   **Network Perimeter:** UFW (Uncomplicated Firewall) is configured to default-deny all ingress traffic. Only ports `22` (SSH), `9001` (Minima P2P), `9002` (Minima RPC), `51820` (WireGuard), and `6443` (k3s API) are exposed.
 *   **Cluster Mesh Networking:** All inter-node communication is encrypted via WireGuard tunnels managed by the PiNet Cluster Manager.
 *   **Container Isolation:** k3s workloads are isolated using strict AppArmor profiles and rootless container execution where possible.
