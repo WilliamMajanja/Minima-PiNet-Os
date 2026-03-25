@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { SystemStats } from '../../types';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { getApiUrl } from '../../utils/api';
 
 interface SystemMonitorAppProps {
   stats: SystemStats;
@@ -19,7 +20,7 @@ const SystemMonitorApp: React.FC<SystemMonitorAppProps> = ({ stats }) => {
   });
 
   const fetchPinet2Status = () => {
-    fetch('/api/pinet2/status')
+    fetch(getApiUrl('/api/pinet2/status'))
       .then(res => res.json())
       .then(data => setPinet2Status(data))
       .catch(err => console.error("Failed to load PiNet 2.0 status", err));

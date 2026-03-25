@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { settingsService } from '../../services/settingsService';
+import { getApiUrl } from '../../utils/api';
 
 const SettingsApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState('system');
@@ -19,7 +20,7 @@ const SettingsApp: React.FC = () => {
   });
 
   const fetchPinet2Status = () => {
-    fetch('/api/pinet2/status')
+    fetch(getApiUrl('/api/pinet2/status'))
       .then(res => res.json())
       .then(data => setPinet2Status(data))
       .catch(err => console.error("Failed to load PiNet 2.0 status", err));
@@ -32,7 +33,7 @@ const SettingsApp: React.FC = () => {
         setTorEnabled(settingsService.torEnabled);
     });
     
-    fetch('/api/os-info')
+    fetch(getApiUrl('/api/os-info'))
       .then(res => res.json())
       .then(data => setOsInfo(data))
       .catch(err => console.error("Failed to load OS info", err));
@@ -62,12 +63,12 @@ const SettingsApp: React.FC = () => {
   };
 
   const handleLxcInit = () => {
-    fetch('/api/pinet2/lxc-init', { method: 'POST' })
+    fetch(getApiUrl('/api/pinet2/lxc-init'), { method: 'POST' })
       .then(() => fetchPinet2Status());
   };
 
   const handleSwitch = (mode: string) => {
-    fetch('/api/pinet2/switch', { 
+    fetch(getApiUrl('/api/pinet2/switch'), { 
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mode })
@@ -75,12 +76,12 @@ const SettingsApp: React.FC = () => {
   };
 
   const handleAiDetect = () => {
-    fetch('/api/pinet2/ai-detect', { method: 'POST' })
+    fetch(getApiUrl('/api/pinet2/ai-detect'), { method: 'POST' })
       .then(() => fetchPinet2Status());
   };
 
   const handleHealthCheck = () => {
-    fetch('/api/pinet2/health-check', { method: 'POST' })
+    fetch(getApiUrl('/api/pinet2/health-check'), { method: 'POST' })
       .then(() => fetchPinet2Status());
   };
 

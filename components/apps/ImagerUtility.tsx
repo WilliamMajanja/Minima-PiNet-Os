@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { getApiUrl } from '../../utils/api';
 
 const ImagerUtility: React.FC = () => {
   const [isCopied, setIsCopied] = useState(false);
@@ -11,7 +12,7 @@ const ImagerUtility: React.FC = () => {
   });
 
   const fetchStatus = () => {
-    fetch('/api/pinet2/status')
+    fetch(getApiUrl('/api/pinet2/status'))
       .then(res => res.json())
       .then(data => setPinet2(data));
   };
@@ -23,11 +24,11 @@ const ImagerUtility: React.FC = () => {
   }, []);
 
   const handleBuild = () => {
-    fetch('/api/build/image', { method: 'POST' }).then(() => fetchStatus());
+    fetch(getApiUrl('/api/build/image'), { method: 'POST' }).then(() => fetchStatus());
   };
 
   const handleRelease = () => {
-    fetch('/api/build/release', { method: 'POST' }).then(() => fetchStatus());
+    fetch(getApiUrl('/api/build/release'), { method: 'POST' }).then(() => fetchStatus());
   };
 
   const imagerJson = `{

@@ -23,6 +23,7 @@ import { clusterService } from './services/clusterService';
 import { settingsService } from './services/settingsService';
 import { systemService } from './services/systemService';
 import { ExceptionFilter } from './utils/core';
+import { getApiUrl } from './utils/api';
 
 type TransitionState = 'idle' | 'shutting-down' | 'booting';
 
@@ -112,7 +113,7 @@ const App: React.FC = () => {
 
   // Fetch OS Info on mount
   useEffect(() => {
-    fetch('/api/os-info')
+    fetch(getApiUrl('/api/os-info'))
       .then(res => res.json())
       .then(data => {
         setOsInfo(data);
@@ -164,7 +165,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch('/api/system-stats');
+        const res = await fetch(getApiUrl('/api/system-stats'));
         if (res.ok) {
           const data = await res.json() as SystemStats;
           setSysStats(data);

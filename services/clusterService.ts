@@ -1,6 +1,7 @@
 
 import { ClusterNode } from '../types';
 import { ExceptionFilter } from '../utils/core';
+import { getApiUrl } from '../utils/api';
 
 type Listener = () => void;
 
@@ -15,7 +16,7 @@ class ClusterServiceImpl {
 
   private async fetchUpdates(): Promise<void> {
     try {
-      const response = await fetch('/api/cluster/nodes');
+      const response = await fetch(getApiUrl('/api/cluster/nodes'));
       if (response.ok) {
         this._nodes = await response.json() as ClusterNode[];
         this.emit();
@@ -38,7 +39,7 @@ class ClusterServiceImpl {
 
   async provisionNode(id: string): Promise<void> {
     try {
-      const response = await fetch('/api/cluster/provision', {
+      const response = await fetch(getApiUrl('/api/cluster/provision'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })

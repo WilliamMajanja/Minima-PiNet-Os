@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { NodeStats, SystemStats } from '../types';
 import { motion } from 'motion/react';
+import { getApiUrl } from '../utils/api';
 
 interface TopBarProps {
   nodeStats: NodeStats;
@@ -27,7 +28,7 @@ const TopBar: React.FC<TopBarProps> = ({ nodeStats, systemStats, onSwitchOS, cur
       target.style.pointerEvents = 'none';
       
       // Construct absolute URL to ensure fetch works correctly in iframe
-      const downloadUrl = new URL(url, window.location.origin).href;
+      const downloadUrl = getApiUrl(url);
       
       const response = await fetch(downloadUrl);
       

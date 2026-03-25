@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { shell } from '../../services/shellService';
 import { VFSNode } from '../../types';
+import { getApiUrl } from '../../utils/api';
 
 const FileExplorerApp: React.FC = () => {
   const [currentPath, setCurrentPath] = useState(shell.getCurrentPath());
@@ -13,7 +14,7 @@ const FileExplorerApp: React.FC = () => {
 
   const updateView = async () => {
       try {
-        const response = await fetch(`/api/files/list?path=${encodeURIComponent(currentPath)}`);
+        const response = await fetch(getApiUrl(`/api/files/list?path=${encodeURIComponent(currentPath)}`));
         if (!response.ok) throw new Error('Failed to fetch files');
         const files = await response.json();
         setNodes(files);

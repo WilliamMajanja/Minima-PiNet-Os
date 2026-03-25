@@ -1,6 +1,7 @@
 
 import { NodeStats } from '../types';
 import { ExceptionFilter } from '../utils/core';
+import { getApiUrl } from '../utils/api';
 
 type Listener = () => void;
 
@@ -40,7 +41,7 @@ class MinimaServiceImpl {
 
   private async fetchUpdates(): Promise<void> {
     try {
-      const response = await fetch('/api/minima/status');
+      const response = await fetch(getApiUrl('/api/minima/status'));
       if (response.ok) {
         const data = await response.json() as MinimaStatusResponse;
         this._balance = data.balance;
@@ -74,7 +75,7 @@ class MinimaServiceImpl {
 
   async burn(amount: number, description: string): Promise<void> {
     try {
-      const response = await fetch('/api/minima/cmd', {
+      const response = await fetch(getApiUrl('/api/minima/cmd'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command: `burn amount:${amount} desc:${description}` })
@@ -88,7 +89,7 @@ class MinimaServiceImpl {
 
   async send(to: string, amount: number): Promise<boolean> {
     try {
-      const response = await fetch('/api/minima/cmd', {
+      const response = await fetch(getApiUrl('/api/minima/cmd'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command: `send to:${to} amount:${amount}` })
@@ -105,7 +106,7 @@ class MinimaServiceImpl {
 
   async cmd(command: string): Promise<any> {
     try {
-      const response = await fetch('/api/minima/cmd', {
+      const response = await fetch(getApiUrl('/api/minima/cmd'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command })

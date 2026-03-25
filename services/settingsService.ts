@@ -1,4 +1,6 @@
 
+import { getApiUrl } from '../utils/api';
+
 type Listener = () => void;
 
 class SettingsServiceImpl {
@@ -13,7 +15,7 @@ class SettingsServiceImpl {
 
   private async init() {
     try {
-      const response = await fetch('/api/settings');
+      const response = await fetch(getApiUrl('/api/settings'));
       if (response.ok) {
         const data = await response.json();
         this._wallpaper = data.wallpaper;
@@ -38,7 +40,7 @@ class SettingsServiceImpl {
     this._wallpaper = w; 
     this.emit(); 
     try {
-      await fetch('/api/settings', {
+      await fetch(getApiUrl('/api/settings'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wallpaper: w })
@@ -51,7 +53,7 @@ class SettingsServiceImpl {
     this._nodeAlias = a; 
     this.emit(); 
     try {
-      await fetch('/api/settings', {
+      await fetch(getApiUrl('/api/settings'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nodeAlias: a })
@@ -64,7 +66,7 @@ class SettingsServiceImpl {
     this._torEnabled = e; 
     this.emit(); 
     try {
-      await fetch('/api/settings', {
+      await fetch(getApiUrl('/api/settings'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ torEnabled: e })
