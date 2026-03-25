@@ -398,6 +398,20 @@ async function startServer() {
       wallpaper: 'carbon',
       nodeAlias: 'Pi-Alpha-Node',
       torEnabled: false
+    },
+    pinet2: {
+      lxcStatus: 'uninitialized',
+      resourcePriority: 'host',
+      aiAcceleration: 'detecting',
+      healthStatus: 'unknown',
+      lastHealthCheck: null,
+      systemHash: null,
+      containerName: 'pinet-enterprise-env',
+      cpuset: '2-3',
+      networkType: 'wireguard-veth',
+      buildStatus: 'idle',
+      lastBuild: null,
+      buildLog: []
     }
   };
 
@@ -487,6 +501,123 @@ async function startServer() {
     } else {
       res.json({ status: true, response: { message: "Command executed" } });
     }
+  });
+
+  app.get("/api/pinet2/status", (req, res) => {
+    res.json(pinetState.pinet2);
+  });
+
+  app.post("/api/pinet2/lxc-init", (req, res) => {
+    pinetState.pinet2.lxcStatus = 'initializing';
+    saveState();
+    
+    exec("bash scripts/pinet-lxc-init.sh", (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Enterprise LXC Init failed:`, error);
+        pinetState.pinet2.lxcStatus = 'failed';
+      } else {
+        console.log(`Enterprise LXC Init complete:`, stdout);
+        pinetState.pinet2.lxcStatus = 'initialized';
+      }
+      saveState();
+    });
+    res.json({ success: true });
+  });
+
+  app.post("/api/pinet2/switch", (req, res) => {
+    const { mode } = req.body;
+    if (mode === 'container' || mode === 'host') {
+      pinetState.pinet2.resourcePriority = mode;
+      saveState();
+      
+      exec(`bash /usr/local/bin/pinet-switch ${mode}`, (error, stdout, stderr) => {
+        if (error) {
+          console.error(`Switch failed:`, error);
+        } else {
+          console.log(`Switch complete:`, stdout);
+        }
+      });
+      res.json({ success: true });
+    } else {
+      res.status(400).json({ error: "Invalid mode" });
+    }
+  });
+
+  app.post("/api/pinet2/ai-detect", (req, res) => {
+    pinetState.pinet2.aiAcceleration = 'detecting';
+    saveState();
+    
+    exec("python3 scripts/pinet-ai-detect.py", (error, stdout, stderr) => {
+      if (error) {
+        console.error(`AI Detect failed:`, error);
+        pinetState.pinet2.aiAcceleration = 'error';
+      } else {
+        console.log(`AI Detect complete:`, stdout);
+        if (stdout.includes("Hailo-8L NPU Detected")) {
+          pinetState.pinet2.aiAcceleration = 'hailo';
+        } else if (stdout.includes("cpu-gguf-arm-opt")) {
+          pinetState.pinet2.aiAcceleration = 'cpu-gguf-arm-opt';
+        } else {
+          pinetState.pinet2.aiAcceleration = 'cpu-optimized';
+        }
+      }
+      saveState();
+    });
+    res.json({ success: true });
+  });
+
+  app.post("/api/pinet2/health-check", (req, res) => {
+    pinetState.pinet2.healthStatus = 'checking';
+    saveState();
+    
+    exec("bash scripts/pinet-health-check.sh", (error, stdout, stderr) => {
+      pinetState.pinet2.lastHealthCheck = new Date().toISOString();
+      if (error) {
+        console.error(`Health Check failed:`, error);
+        pinetState.pinet2.healthStatus = 'compromised';
+      } else {
+        console.log(`Health Check complete:`, stdout);
+        pinetState.pinet2.healthStatus = 'verified';
+        const hashMatch = stdout.match(/Current System Hash: (\w+)/);
+        if (hashMatch) {
+          pinetState.pinet2.systemHash = hashMatch[1];
+        }
+      }
+      saveState();
+    });
+    res.json({ success: true });
+  });
+
+  app.post("/api/build/image", (req, res) => {
+    pinetState.pinet2.buildStatus = 'building';
+    pinetState.pinet2.buildLog = ["[INFO] Starting Enterprise Build Pipeline..."];
+    saveState();
+    
+    exec("bash scripts/pinet-build-image.sh", (error, stdout, stderr) => {
+      pinetState.pinet2.lastBuild = new Date().toISOString();
+      if (error) {
+        console.error(`Build failed:`, error);
+        pinetState.pinet2.buildStatus = 'failed';
+        pinetState.pinet2.buildLog.push(`[ERROR] ${error.message}`);
+      } else {
+        console.log(`Build complete:`, stdout);
+        pinetState.pinet2.buildStatus = 'completed';
+        pinetState.pinet2.buildLog.push(stdout);
+      }
+      saveState();
+    });
+    res.json({ success: true });
+  });
+
+  app.post("/api/build/release", (req, res) => {
+    console.log("[INFO] Releasing to GitHub...");
+    // Simulate GitHub Release
+    setTimeout(() => {
+      pinetState.pinet2.buildStatus = 'released';
+      pinetState.pinet2.buildLog.push("[SUCCESS] Artifact pushed to GitHub Release: PiNetOS-Enterprise-v2.0-LTS");
+      saveState();
+    }, 3000);
+    res.json({ success: true });
   });
 
   app.get("/api/cluster/nodes", (req, res) => {

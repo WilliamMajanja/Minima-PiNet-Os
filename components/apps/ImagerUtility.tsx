@@ -4,6 +4,31 @@ import React, { useState } from 'react';
 const ImagerUtility: React.FC = () => {
   const [isCopied, setIsCopied] = useState(false);
   const [mode, setMode] = useState<'flash' | 'build'>('flash');
+  const [pinet2, setPinet2] = useState<any>({
+    buildStatus: 'idle',
+    buildLog: [],
+    lastBuild: null
+  });
+
+  const fetchStatus = () => {
+    fetch('/api/pinet2/status')
+      .then(res => res.json())
+      .then(data => setPinet2(data));
+  };
+
+  React.useEffect(() => {
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleBuild = () => {
+    fetch('/api/build/image', { method: 'POST' }).then(() => fetchStatus());
+  };
+
+  const handleRelease = () => {
+    fetch('/api/build/release', { method: 'POST' }).then(() => fetchStatus());
+  };
 
   const imagerJson = `{
   "os_list": [
@@ -126,30 +151,42 @@ echo "✅ Image built: tools/output/PiNetOS.img"`;
                          </ul>
                     </div>
                     <div className="bg-black/40 rounded-2xl p-4 font-mono text-[10px] text-amber-400 overflow-auto border border-white/5 leading-relaxed h-48">
-                         <pre>{buildScript}</pre>
+                         <pre>{pinet2.buildLog.join('\n') || buildScript}</pre>
                     </div>
                     <div className="flex gap-3">
-                         <button onClick={() => copyToClipboard(buildScript)} className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl font-bold text-xs uppercase border border-white/10 transition-all">Copy Script</button>
-                         <button className="flex-1 py-3 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-bold text-xs uppercase shadow-lg shadow-amber-900/20 transition-all">Execute Build</button>
+                         <button 
+                           onClick={handleBuild}
+                           disabled={pinet2.buildStatus === 'building'}
+                           className="flex-1 py-3 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded-xl font-bold text-xs uppercase shadow-lg shadow-amber-900/20 transition-all"
+                         >
+                           {pinet2.buildStatus === 'building' ? 'Building...' : 'Execute Enterprise Build'}
+                         </button>
+                         <button 
+                           onClick={handleRelease}
+                           disabled={pinet2.buildStatus !== 'completed'}
+                           className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl font-bold text-xs uppercase shadow-lg shadow-emerald-900/20 transition-all"
+                         >
+                           Push to GitHub Release
+                         </button>
                     </div>
                  </div>
              </div>
              
              <div className="space-y-6">
                  <div className="glass-dark p-6 rounded-[2.5rem] border border-white/10">
-                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Build Manifest</h3>
+                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Pi 5 Build Manifest</h3>
                      <div className="space-y-3">
-                        <BuildStep status="done" label="Stage 0: Bootstrap Debian 13 (Trixie)" />
-                        <BuildStep status="done" label="Stage 1: Minima Core Protocol" />
-                        <BuildStep status="done" label="Stage 2: Web3 Desktop Compositor" />
-                        <BuildStep status="active" label="Stage 3: Hardening & Encryption" />
-                        <BuildStep status="pending" label="Stage 4: Export .IMG" />
+                        <BuildStep status={pinet2.buildStatus === 'building' || pinet2.buildStatus === 'completed' || pinet2.buildStatus === 'released' ? 'done' : 'pending'} label="Stage 0: Integrity Validation" />
+                        <BuildStep status={pinet2.buildStatus === 'building' ? 'active' : (pinet2.buildStatus === 'completed' || pinet2.buildStatus === 'released' ? 'done' : 'pending')} label="Stage 1: Bootloader Config (Pi 5)" />
+                        <BuildStep status={pinet2.buildStatus === 'building' ? 'active' : (pinet2.buildStatus === 'completed' || pinet2.buildStatus === 'released' ? 'done' : 'pending')} label="Stage 2: RootFS Compression" />
+                        <BuildStep status={pinet2.buildStatus === 'building' ? 'active' : (pinet2.buildStatus === 'completed' || pinet2.buildStatus === 'released' ? 'done' : 'pending')} label="Stage 3: Image Finalization" />
+                        <BuildStep status={pinet2.buildStatus === 'released' ? 'done' : (pinet2.buildStatus === 'completed' ? 'active' : 'pending')} label="Stage 4: GitHub Release" />
                      </div>
                  </div>
                  <div className="glass-dark p-6 rounded-[2.5rem] border border-white/10 flex items-center justify-between">
                      <div>
-                         <div className="text-[10px] font-bold text-slate-500 uppercase">Latest Artifact</div>
-                         <div className="text-white font-bold text-sm">PiNetOS-v1.0.35-dev.tar.gz</div>
+                         <div className="text-[10px] font-bold text-slate-500 uppercase">Latest Enterprise Artifact</div>
+                         <div className="text-white font-bold text-sm">{pinet2.buildStatus === 'released' ? 'PiNetOS-Enterprise-v2.0-LTS.img' : (pinet2.lastBuild ? `PiNetOS-Enterprise-v2.0-dev-${new Date(pinet2.lastBuild).toLocaleDateString().replace(/\//g, '')}.img` : 'No builds yet')}</div>
                      </div>
                      <button className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 transition-colors">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>

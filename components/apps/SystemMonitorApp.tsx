@@ -9,6 +9,21 @@ interface SystemMonitorAppProps {
 
 const SystemMonitorApp: React.FC<SystemMonitorAppProps> = ({ stats }) => {
   const [realStats, setRealStats] = useState<any>(null);
+  const [pinet2Status, setPinet2Status] = useState<any>({
+    lxcStatus: 'uninitialized',
+    resourcePriority: 'host',
+    aiAcceleration: 'detecting',
+    healthStatus: 'unknown',
+    lastHealthCheck: null,
+    systemHash: null
+  });
+
+  const fetchPinet2Status = () => {
+    fetch('/api/pinet2/status')
+      .then(res => res.json())
+      .then(data => setPinet2Status(data))
+      .catch(err => console.error("Failed to load PiNet 2.0 status", err));
+  };
 
   if (!stats) return null;
 
@@ -24,7 +39,13 @@ const SystemMonitorApp: React.FC<SystemMonitorAppProps> = ({ stats }) => {
       fetchStats();
       interval = setInterval(fetchStats, 2000);
     }
-    return () => clearInterval(interval);
+    fetchPinet2Status();
+    const pinet2Interval = setInterval(fetchPinet2Status, 5000);
+
+    return () => {
+        clearInterval(interval);
+        clearInterval(pinet2Interval);
+    };
   }, []);
 
   const displayCpu = realStats ? realStats.cpuUsage * 100 : (stats.cpu ?? 0);
@@ -54,6 +75,30 @@ const SystemMonitorApp: React.FC<SystemMonitorAppProps> = ({ stats }) => {
       <div>
         <h1 className="text-2xl font-bold text-white tracking-tight">System Performance</h1>
         <p className="text-slate-400 text-sm">Real-time telemetry for Raspberry Pi Node</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <StatusCard 
+          title="LXC Isolation" 
+          value={pinet2Status.lxcStatus} 
+          subValue={pinet2Status.resourcePriority === 'container' ? 'Priority: High' : 'Priority: Low'} 
+          color="blue" 
+          icon={<LxcIcon />}
+        />
+        <StatusCard 
+          title="AI Acceleration" 
+          value={pinet2Status.aiAcceleration} 
+          subValue={pinet2Status.aiAcceleration === 'hailo' ? 'NPU: Hailo-8L' : 'CPU: GGUF-4bit'} 
+          color="pink" 
+          icon={<AiIcon />}
+        />
+        <StatusCard 
+          title="Zero Trust" 
+          value={pinet2Status.healthStatus} 
+          subValue={pinet2Status.healthStatus === 'verified' ? 'State: Attested' : 'State: Unknown'} 
+          color="emerald" 
+          icon={<SecurityIcon />}
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -118,5 +163,30 @@ const SystemMonitorApp: React.FC<SystemMonitorAppProps> = ({ stats }) => {
     </div>
   );
 };
+
+const StatusCard = ({ title, value, subValue, color, icon }: any) => {
+    const colorClasses: any = {
+        blue: 'text-blue-400 border-blue-500/20 bg-blue-500/5',
+        pink: 'text-pink-400 border-pink-500/20 bg-pink-500/5',
+        emerald: 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5'
+    };
+
+    return (
+        <div className={`glass p-6 rounded-2xl border ${colorClasses[color]} space-y-3`}>
+            <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">{title}</span>
+                <div className="opacity-40">{icon}</div>
+            </div>
+            <div>
+                <div className="text-xl font-bold uppercase tracking-tight">{value}</div>
+                <div className="text-[10px] opacity-60 font-medium">{subValue}</div>
+            </div>
+        </div>
+    );
+};
+
+const LxcIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>;
+const AiIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>;
+const SecurityIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>;
 
 export default SystemMonitorApp;

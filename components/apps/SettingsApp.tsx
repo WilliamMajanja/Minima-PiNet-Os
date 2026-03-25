@@ -9,6 +9,21 @@ const SettingsApp: React.FC = () => {
   const [torEnabled, setTorEnabled] = useState(settingsService.torEnabled);
   const [wallpaper, setWallpaper] = useState(settingsService.wallpaper);
   const [osInfo, setOsInfo] = useState<any>(null);
+  const [pinet2Status, setPinet2Status] = useState<any>({
+    lxcStatus: 'uninitialized',
+    resourcePriority: 'host',
+    aiAcceleration: 'detecting',
+    healthStatus: 'unknown',
+    lastHealthCheck: null,
+    systemHash: null
+  });
+
+  const fetchPinet2Status = () => {
+    fetch('/api/pinet2/status')
+      .then(res => res.json())
+      .then(data => setPinet2Status(data))
+      .catch(err => console.error("Failed to load PiNet 2.0 status", err));
+  };
 
   useEffect(() => {
     const unsub = settingsService.subscribe(() => {
@@ -22,7 +37,13 @@ const SettingsApp: React.FC = () => {
       .then(data => setOsInfo(data))
       .catch(err => console.error("Failed to load OS info", err));
       
-    return unsub;
+    fetchPinet2Status();
+    const interval = setInterval(fetchPinet2Status, 5000);
+      
+    return () => {
+        unsub();
+        clearInterval(interval);
+    };
   }, []);
 
   const handleWallpaperChange = (w: string) => {
@@ -40,6 +61,29 @@ const SettingsApp: React.FC = () => {
       settingsService.setTorEnabled(newVal);
   };
 
+  const handleLxcInit = () => {
+    fetch('/api/pinet2/lxc-init', { method: 'POST' })
+      .then(() => fetchPinet2Status());
+  };
+
+  const handleSwitch = (mode: string) => {
+    fetch('/api/pinet2/switch', { 
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode })
+    }).then(() => fetchPinet2Status());
+  };
+
+  const handleAiDetect = () => {
+    fetch('/api/pinet2/ai-detect', { method: 'POST' })
+      .then(() => fetchPinet2Status());
+  };
+
+  const handleHealthCheck = () => {
+    fetch('/api/pinet2/health-check', { method: 'POST' })
+      .then(() => fetchPinet2Status());
+  };
+
   return (
     <div className="flex h-full bg-slate-900/40">
       <div className="w-56 bg-black/20 border-r border-white/5 p-4 flex flex-col gap-2">
@@ -47,6 +91,7 @@ const SettingsApp: React.FC = () => {
         <NavButton active={activeTab === 'network'} onClick={() => setActiveTab('network')} icon={<NetworkIcon />} label="Network" />
         <NavButton active={activeTab === 'display'} onClick={() => setActiveTab('display')} icon={<DisplayIcon />} label="Display" />
         <NavButton active={activeTab === 'security'} onClick={() => setActiveTab('security')} icon={<SecurityIcon />} label="Security" />
+        <NavButton active={activeTab === 'pinet2'} onClick={() => setActiveTab('pinet2')} icon={<PiNetIcon />} label="PiNet 2.0" />
         <NavButton active={activeTab === 'services'} onClick={() => setActiveTab('services')} icon={<ServicesIcon />} label="Services" />
       </div>
 
@@ -157,6 +202,106 @@ const SettingsApp: React.FC = () => {
                 </Section>
              </div>
         )}
+
+        {activeTab === 'pinet2' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                <Section title="Enterprise Hypervisor (LXC)">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <div className="text-sm font-medium text-slate-200">LXC Isolation</div>
+                            <div className="text-[10px] text-slate-500 uppercase tracking-widest">{pinet2Status.lxcStatus}</div>
+                        </div>
+                        <button 
+                            onClick={handleLxcInit}
+                            disabled={pinet2Status.lxcStatus === 'initializing' || pinet2Status.lxcStatus === 'initialized'}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold uppercase rounded-xl transition-all"
+                        >
+                            Initialize
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="p-3 bg-black/40 rounded-xl border border-white/5">
+                            <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">Namespace</div>
+                            <div className="text-xs text-white font-mono">{pinet2Status.containerName || 'pinet-enterprise-env'}</div>
+                        </div>
+                        <div className="p-3 bg-black/40 rounded-xl border border-white/5">
+                            <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">CPU Pinning</div>
+                            <div className="text-xs text-white font-mono">cpuset: {pinet2Status.cpuset || '2-3'}</div>
+                        </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-slate-200">Resource Priority</span>
+                        <div className="flex bg-black/40 rounded-xl p-1 border border-white/10">
+                            <button 
+                                onClick={() => handleSwitch('host')}
+                                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all ${pinet2Status.resourcePriority === 'host' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                            >
+                                Host
+                            </button>
+                            <button 
+                                onClick={() => handleSwitch('container')}
+                                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all ${pinet2Status.resourcePriority === 'container' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                            >
+                                Container
+                            </button>
+                        </div>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-4 italic">Architectural Note: LXC namespaces provide kernel-level isolation, while cpuset pinning ensures deterministic AI performance by isolating inference to dedicated cores.</p>
+                </Section>
+
+                <Section title="AI Acceleration Engine">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <div className="text-sm font-medium text-slate-200">Detection Mode</div>
+                            <div className="text-[10px] text-slate-500 uppercase tracking-widest">{pinet2Status.aiAcceleration}</div>
+                        </div>
+                        <button 
+                            onClick={handleAiDetect}
+                            className="px-4 py-2 bg-pink-600 hover:bg-pink-500 text-white text-xs font-bold uppercase rounded-xl transition-all"
+                        >
+                            Scan Hardware
+                        </button>
+                    </div>
+                    <p className="text-[10px] text-slate-500 italic">Architectural Note: We prioritize Hailo-8L NPUs (13 TOPS), falling back to ARM-optimized GGUF 4-bit quantization for high-efficiency CPU inference.</p>
+                </Section>
+
+                <Section title="Zero Trust Attestation">
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="text-sm font-medium text-slate-200">Integrity Status</div>
+                                <div className={`text-[10px] uppercase tracking-widest ${pinet2Status.healthStatus === 'verified' ? 'text-emerald-500' : pinet2Status.healthStatus === 'compromised' ? 'text-red-500' : 'text-slate-500'}`}>
+                                    {pinet2Status.healthStatus}
+                                </div>
+                            </div>
+                            <button 
+                                onClick={handleHealthCheck}
+                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold uppercase rounded-xl transition-all"
+                            >
+                                Verify State
+                            </button>
+                        </div>
+                        {pinet2Status.systemHash && (
+                            <div className="p-3 rounded-xl bg-black/40 border border-white/10">
+                                <div className="text-[8px] font-bold text-slate-500 uppercase mb-1">System Hash (SHA-256)</div>
+                                <div className="text-[10px] text-slate-300 font-mono break-all">{pinet2Status.systemHash}</div>
+                            </div>
+                        )}
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${pinet2Status.healthStatus === 'verified' ? 'bg-emerald-500' : 'bg-slate-500'}`} />
+                                <span className="text-[10px] text-slate-400 uppercase font-bold">Blockchain Sync</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${pinet2Status.networkType === 'wireguard-veth' ? 'bg-blue-500' : 'bg-slate-500'}`} />
+                                <span className="text-[10px] text-slate-400 uppercase font-bold">WireGuard veth</span>
+                            </div>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-4 italic">Architectural Note: System integrity is verified by hashing /boot/firmware and /etc/pinet, attested against the immutable Minima ledger.</p>
+                    </div>
+                </Section>
+            </div>
+        )}
       </div>
     </div>
   );
@@ -211,6 +356,7 @@ const SystemIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentCol
 const NetworkIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/></svg>;
 const DisplayIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>;
 const SecurityIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>;
+const PiNetIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>;
 const ServicesIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/></svg>;
 
 export default SettingsApp;
