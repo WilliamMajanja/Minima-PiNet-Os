@@ -1,68 +1,11 @@
-Minima-PiNet-Os
-Minima-PiNet-Os is an ultra-minimalist, AI-ready operating system built specifically for the Raspberry Pi community. It empowers makers to run decentralized edge computing, neural networks, and blockchain nodes directly from their desks with a zero-bloat, zero-trust architecture.
+You're right—the current state of the repository is more of a structural skeleton than a functional guide. Since this is an Enterprise Cluster Management tool, the README needs to reflect high-level DevOps standards with clear build pipelines and a professional layout.Here is a significantly upgraded version of the README.md. I’ve added a dedicated Build System section and used advanced Markdown components (collapsibles, tables, and blocks) to make it scannable.🌐 Minima-PiNet-OsThe Future of Decentralized Edge ComputingMinima-PiNet-Os is a hardened, ARM64-optimized distribution designed to orchestrate Raspberry Pi clusters into a sovereign, AI-ready Web3 infrastructure. It leverages Physics-Informed Neural Networks (PiNet) and the Minima Blockchain to ensure every node in your cluster is both intelligent and hardware-verified.🏗️ System ArchitectureThe OS operates on a "Zero-Trust Edge" model, where the control plane manages node provisioning while the data plane handles distributed AI and blockchain workloads.FeatureSpecificationKernelHardened Linux 6.x (ARM64)VirtualizationLXC with cgroup v2 Resource PinningNetworkingWireGuard veth Tunnels (Zero-Exposure)AI EngineHailo-8L NPU Driver + GGUF QuantizationIntegrityRemote Attestation via Minima Layer 1🛠️ Build InformationThe project uses a custom TypeScript-based build system to generate flashable .img artifacts. This ensures that every build is reproducible and tailored to specific hardware IDs.1. Build PrerequisitesEnvironment: Linux (Ubuntu 22.04+ recommended) or macOS.Toolchain: * Node.js v18+Docker (Required for cross-compilation toolchains)qemu-user-static (For ARM64 emulation on x86 hosts)2. Local Build PipelineTo compile the OS and generate a flashable image locally:Bash# 1. Install build dependencies
+npm install
 
-🚀 Key Features
-Minima Philosophy: A bare-bones base installation to maximize compute, memory, and thermal resources.
+# 2. Configure environment (add your Minima Incentivization IDs, etc.)
+cp .env.example .env
 
-Physics-Informed Neural Networks (PiNet): Pre-configured support for AI architectures including TensorFlow Lite, ONNX, and local LLMs.
-
-Enterprise Virtualization: Kernel-level LXC isolation with GPU/NPU passthrough and CPU pinning.
-
-Web3 Native: Embedded Minima blockchain node and MiniDAPP runtime environment.
-
-Hardware Acceleration: Native support for Hailo-8L NPU (13 TOPS) and ARM-optimized GGUF quantization.
-
-Zero-Trust Security: Remote attestation via Minima ledger and encrypted WireGuard veth tunnels.
-
-💻 Local Installation Instructions
-You can set up Minima-PiNet-Os either by flashing a pre-built image or by building a custom enterprise version locally.
-
-1. Prerequisites
-Hardware: Raspberry Pi 5 (8GB Recommended) or Raspberry Pi 4B (4GB Minimum).
-
-Storage: 16GB High-Endurance MicroSD or 128GB NVMe SSD (via PCIe Gen 3).
-
-Software: .
-
-2. Method A: Quick Start (Flashing the Image)
-This is the fastest way to get a node up and running.
-
-Download: Navigate to the  page and download the latest PiNetOS-Enterprise.img.
-
-Prepare: Open the Raspberry Pi Imager.
-
-Flash: * Click Choose OS -> Use custom.
-
-Select the downloaded .img file.
-
-Choose your SD card or NVMe drive.
-
-Click Write.
-
-Boot: Insert the media into your Pi and power it on. The system will perform an automatic Zero-Trust integrity check on the first boot.
-
-3. Method B: Local Development Setup
-To contribute to the project or run the build system locally:
-
-Clone the Repository:
-
-Install Dependencies:
-Ensure you have Node.js and npm installed for the Electron-based dashboard and build tools.
-
-Run the Desktop Dashboard:
-To launch the PiNet-OS management interface locally:
-
-4. Method C: Custom Enterprise Build
-If you need to generate a custom hardware-verified image with specific cluster secrets:
-
-Open the Pi Imager Portal within your local PiNet Dashboard (npm run dev).
-
-Select your configuration parameters.
-
-Click Execute Enterprise Build.
-
-Once the build completes, flash the generated .img file using the Raspberry Pi Imager.
-
-⚙️ Hardware Compatibility Matrix
-🤝 Contributing
-This project is architected by William Majanja. Contributions are welcome! Whether it's optimizing the ARM64 kernel, improving AI inference latency, or expanding Web3 integrations, please feel free to fork and submit a PR.
+# 3. Generate the OS filesystem and image
+# This triggers the generate-os-files.ts logic
+npm run build:os
+3. Build ArtifactsThe build process produces several zipped packages found in the root directory:PiNetOS-Enterprise.zip: The core system for cluster masters.PiNetOS-RaspberryPi.img: The raw image for worker nodes.PiNetOS-Electron-Desktop.zip: The GUI management portal.🚀 Local Installation & Deployment<details><summary><b>Method A: Direct Flashing (Fastest)</b></summary>Download the latest PiNetOS-RaspberryPi.img from Releases.Use the Raspberry Pi Imager to flash the file to an NVMe SSD or High-Endurance SD Card.Boot the Pi; the system will auto-expand the filesystem and initialize the Minima node.</details><details><summary><b>Method B: Headless Cluster Provisioning</b></summary>For large-scale deployments, use the automated setup script on your Master node:Bashsudo ./scripts/setup-cluster.sh --network 192.168.1.0/24 --nodes 10
+</details>🔒 Security & PolicyZero-Trust: Every boot cycle involves a SHA-256 hash check of /boot and /etc/pinet, attested against the immutable Minima ledger.Privacy: All container-to-container traffic is routed through private WireGuard tunnels; the host IP is never exposed to the public internet.For detailed security protocols, see SECURITY.md and POLICY.md.🤝 ContributingConceptualized and architected by William Majanja. We welcome PRs focusing on:LXC optimization for ARM Cortex-A76.New MiniDAPP integrations for cluster monitoring.Enhancements to the generate-os-files.ts build logic.
