@@ -1,6 +1,6 @@
 {
-  "name": "PiNet Web3 OS",
-  "description": "The official Web3-native operating system distribution for Raspberry Pi clusters by Minima. Featuring decentralized node management, hardware hat orchestration, and agentic payment protocols.",
+  "name": "PiNet 2.0 Enterprise",
+  "description": "The official Enterprise-grade, Web3-native operating system for Raspberry Pi 5 clusters. Featuring LXC virtualization, Hailo-8L NPU acceleration, and blockchain-backed remote attestation.",
   "requestFramePermissions": [
     "camera",
     "microphone"

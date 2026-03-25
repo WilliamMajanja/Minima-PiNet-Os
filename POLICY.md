@@ -28,6 +28,11 @@ This document outlines the operational, security, and ethical policies governing
 *   **Local Inference:** PiNet 2.0 promotes local AI inference to protect user privacy and reduce reliance on proprietary black-box models.
 *   **Transparency:** All AI models deployed via the DePAi Executor must include a model card detailing training data and bias considerations.
 
+## 6. Community & Support Policy
+*   **Open Source:** PiNet 2.0 is and will always remain open source under the MIT License.
+*   **Support:** Technical support is provided via the official GitHub Issues and Community Discord. Enterprise-tier support is available for commercial deployments.
+*   **Code of Conduct:** All community interactions must adhere to the Contributor Covenant.
+
 ---
 
 *Last Updated: March 25, 2026*

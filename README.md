@@ -82,18 +82,16 @@ Tailored specifically for modern ARM-based Raspberry Pi boards.
 
 ## Installation & Provisioning
 
-### Method 1: Enterprise Build & Flash (Recommended)
-1. Access the **Pi Imager Portal** within the PiNet 2.0 Dashboard.
-2. Click **Execute Enterprise Build** to generate a hardware-verified `.img` artifact.
-3. Once the build is complete, download the image or use the **Push to GitHub Release** feature.
-4. Flash the resulting image using the official **Raspberry Pi Imager** (select "Use custom").
+### 🚀 Quick Start (Recommended)
+1.  **Download:** Get the latest `PiNetOS-Enterprise.img` from the [Releases](https://github.com/WilliamMajanja/Minima-PiNet-Os/releases) page.
+2.  **Flash:** Open the **Official Raspberry Pi Imager**, select "Use custom", and choose the downloaded `.img` file.
+3.  **Boot:** Insert the MicroSD/NVMe into your Pi 5 and power it on. The system will automatically perform a Zero-Trust integrity check on first boot.
 
-### Method 2: Manual CLI Provisioning
-For power users on Linux/macOS:
-```bash
-# Flash the verified Enterprise image
-sudo dd if=PiNetOS-Enterprise-v2.0-LTS.img of=/dev/sdX bs=4M status=progress conv=fsync
-```
+### 🛠️ Advanced: Custom Enterprise Build
+If you need a custom build with specific cluster secrets:
+1.  Open the **Pi Imager Portal** in your PiNet Dashboard.
+2.  Click **Execute Enterprise Build** to generate a hardware-verified image.
+3.  Flash the resulting file using the Raspberry Pi Imager.
 
 ---
 
