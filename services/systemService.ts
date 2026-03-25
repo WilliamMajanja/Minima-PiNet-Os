@@ -1,5 +1,6 @@
 
 import { ClusterNode, HatType, OSMode } from '../types';
+import { ExceptionFilter } from '../utils/core';
 
 export const systemService = {
   async scanSubnet(subnet: string, onProgress: (log: string) => void, maxRetries: number = 0): Promise<ClusterNode[]> {
@@ -10,12 +11,12 @@ export const systemService = {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const data = await response.json();
+      const data = await response.json() as { nodes: ClusterNode[] };
       
       onProgress(`[SCAN] Subnet traversal complete. Found ${data.nodes.length} active peers.`);
       return data.nodes;
     } catch (error) {
-      console.error("Failed to scan subnet:", error);
+      ExceptionFilter.handle(error, 'systemService.scanSubnet');
       onProgress(`[ERROR] Subnet scan failed.`);
       return [];
     }
@@ -37,7 +38,7 @@ export const systemService = {
       const result = await response.json();
       console.log(`[HV] Switch complete:`, result);
     } catch (error) {
-      console.error(`[HV] Failed to execute real hypervisor switch:`, error);
+      ExceptionFilter.handle(error, 'systemService.executeHypervisorSwitch');
       // Fallback to delay if network fails
       await new Promise(resolve => setTimeout(resolve, 3000));
     }

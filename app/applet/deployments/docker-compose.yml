@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  pinet-controller:
+    build: .
+    command: pinet cluster init
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  ipfs-node:
+    image: ipfs/go-ipfs:latest
+    ports:
+      - "4001:4001"
+      - "5001:5001"
+      - "8080:8080"
+    volumes:
+      - ipfs_staging:/export
+      - ipfs_data:/data/ipfs
+
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  minima:
+    image: minimaglobal/minima:latest
+    ports:
+      - "9001:9001"
+      - "9002:9002"
+    volumes:
+      - minima_data:/home/minima/data
+
+volumes:
+  ipfs_staging:
+  ipfs_data:
+  ollama_data:
+  minima_data:

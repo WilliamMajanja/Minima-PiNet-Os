@@ -1,13 +1,30 @@
 
 import { NodeStats } from '../types';
+import { ExceptionFilter } from '../utils/core';
 
 type Listener = () => void;
+
+export interface MinimaTransaction {
+  id: number;
+  type: string;
+  amount: string;
+  date: string;
+  status: string;
+}
+
+export interface MinimaStatusResponse {
+  balance: number;
+  blockHeight: number;
+  transactions: MinimaTransaction[];
+  peers: number;
+  status: string;
+}
 
 class MinimaServiceImpl {
   private listeners: Listener[] = [];
   private _balance = 1250.45;
   private _blockHeight = 1245091;
-  private _transactions: any[] = [];
+  private _transactions: MinimaTransaction[] = [];
   private _stats: NodeStats = {
     blockHeight: 1245091,
     peers: 14,
@@ -17,16 +34,15 @@ class MinimaServiceImpl {
   };
 
   constructor() {
-    // Poll for real updates from backend
     this.fetchUpdates();
     setInterval(() => this.fetchUpdates(), 5000);
   }
 
-  private async fetchUpdates() {
+  private async fetchUpdates(): Promise<void> {
     try {
       const response = await fetch('/api/minima/status');
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as MinimaStatusResponse;
         this._balance = data.balance;
         this._blockHeight = data.blockHeight;
         this._transactions = data.transactions;
@@ -37,48 +53,52 @@ class MinimaServiceImpl {
           status: data.status
         };
         this.emit();
+      } else {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
     } catch (e) {
-      console.error("Failed to fetch minima updates:", e);
+      ExceptionFilter.handle(e, 'minimaService.fetchUpdates');
     }
   }
 
-  subscribe(listener: Listener) {
+  subscribe(listener: Listener): () => void {
     this.listeners.push(listener);
     return () => { this.listeners = this.listeners.filter(l => l !== listener); };
   }
 
-  private emit() { this.listeners.forEach(l => l()); }
+  private emit(): void { this.listeners.forEach(l => l()); }
 
-  get balance() { return this._balance; }
-  get transactions() { return this._transactions; }
-  get stats() { return this._stats; }
+  get balance(): number { return this._balance; }
+  get transactions(): MinimaTransaction[] { return this._transactions; }
+  get stats(): NodeStats { return this._stats; }
 
-  async burn(amount: number, description: string) {
+  async burn(amount: number, description: string): Promise<void> {
     try {
-      await fetch('/api/minima/cmd', {
+      const response = await fetch('/api/minima/cmd', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command: `burn amount:${amount} desc:${description}` })
       });
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       this.fetchUpdates();
     } catch (e) {
-      console.error("Failed to burn:", e);
+      ExceptionFilter.handle(e, 'minimaService.burn');
     }
   }
 
-  async send(to: string, amount: number) {
+  async send(to: string, amount: number): Promise<boolean> {
     try {
       const response = await fetch('/api/minima/cmd', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command: `send to:${to} amount:${amount}` })
       });
-      const result = await response.json();
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const result = await response.json() as { status: boolean };
       this.fetchUpdates();
       return result.status;
     } catch (e) {
-      console.error("Failed to send:", e);
+      ExceptionFilter.handle(e, 'minimaService.send');
       return false;
     }
   }
@@ -90,8 +110,10 @@ class MinimaServiceImpl {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command })
       });
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       return await response.json();
     } catch (e) {
+      ExceptionFilter.handle(e, 'minimaService.cmd');
       return { status: false, error: e };
     }
   }
@@ -115,4 +137,4 @@ class MinimaServiceImpl {
 }
 
 export const minimaService = new MinimaServiceImpl();
-export const MinimaService = minimaService; // Export as singleton instance but keep compatibility
+export const MinimaService = minimaService;

@@ -308,7 +308,7 @@ const NodeCard: React.FC<NodeCardProps> = ({ node, isProvisioning, onProvision, 
                 <MetricBar label="Memory" value={node.metrics.ram * 4} color="bg-emerald-500" />
             </div>
 
-            <div className="mt-6 pt-6 border-t border-white/5">
+            <div className="mt-6 pt-6 border-t border-white/5 space-y-3">
                 {isProvisioning ? (
                     <div className="space-y-2">
                         <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
@@ -317,13 +317,24 @@ const NodeCard: React.FC<NodeCardProps> = ({ node, isProvisioning, onProvision, 
                         <p className="text-[9px] font-bold text-pink-500 uppercase text-center tracking-widest">Imaging Web3PiOS...</p>
                     </div>
                 ) : (
-                    <button 
-                        onClick={onProvision}
-                        disabled={node.status !== 'online' && node.status !== 'awaiting-os'}
-                        className="w-full py-2 bg-white/5 hover:bg-white/10 text-white text-[10px] font-bold uppercase tracking-widest rounded-xl border border-white/10 transition-all active:scale-95 disabled:opacity-50"
-                    >
-                        {node.status === 'online' ? 'Re-Provision Node' : 'Provision Node'}
-                    </button>
+                    <>
+                        <button 
+                            onClick={onProvision}
+                            disabled={node.status !== 'online' && node.status !== 'awaiting-os'}
+                            className="w-full py-2 bg-white/5 hover:bg-white/10 text-white text-[10px] font-bold uppercase tracking-widest rounded-xl border border-white/10 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            {node.status === 'online' ? 'Re-Provision Node' : 'Provision Node'}
+                        </button>
+                        {node.status === 'online' && (
+                            <button 
+                                onClick={() => window.open(`https://connect.raspberrypi.com/devices/${node.id}`, '_blank')}
+                                className="w-full py-2 bg-[#C51A4A]/20 hover:bg-[#C51A4A]/40 text-[#C51A4A] hover:text-white text-[10px] font-bold uppercase tracking-widest rounded-xl border border-[#C51A4A]/30 transition-all active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                                Pi Connect
+                            </button>
+                        )}
+                    </>
                 )}
             </div>
         </div>

@@ -22,6 +22,7 @@ import { minimaService } from './services/minimaService';
 import { clusterService } from './services/clusterService';
 import { settingsService } from './services/settingsService';
 import { systemService } from './services/systemService';
+import { ExceptionFilter } from './utils/core';
 
 type TransitionState = 'idle' | 'shutting-down' | 'booting';
 
@@ -119,7 +120,7 @@ const App: React.FC = () => {
           setCurrentOS(data.defaultContext as OSMode);
         }
       })
-      .catch(err => console.error("Failed to fetch OS info:", err));
+      .catch(err => ExceptionFilter.handle(err, 'App.fetchOsInfo'));
   }, []);
 
   // Subscriptions to services
@@ -165,13 +166,13 @@ const App: React.FC = () => {
       try {
         const res = await fetch('/api/system-stats');
         if (res.ok) {
-          const data = await res.json();
+          const data = await res.json() as SystemStats;
           setSysStats(data);
         } else {
-          console.warn(`System stats fetch failed with status: ${res.status}`);
+          throw new Error(`System stats fetch failed with status: ${res.status}`);
         }
       } catch (err) {
-        console.error("Failed to fetch system stats:", err);
+        ExceptionFilter.handle(err, 'App.fetchSystemStats');
       }
     };
 
@@ -331,134 +332,167 @@ const App: React.FC = () => {
     const hostUser = isUbuntu ? 'user@ubuntu' : isDebian ? 'user@debian' : 'pi@raspberrypi';
     
     return (
-        <div 
-            className="w-screen h-screen bg-slate-300 relative overflow-hidden font-sans selection:bg-red-200 cursor-default animate-in fade-in duration-1000"
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-        >
-             {/* Wallpaper */}
-            <div className={`absolute inset-0 bg-center bg-no-repeat bg-white opacity-10 pointer-events-none ${isUbuntu ? 'bg-[url("https://assets.ubuntu.com/v1/29985a98-ubuntu-logo32.png")]' : isDebian ? 'bg-[url("https://www.debian.org/logos/openlogo-nd-100.png")]' : 'bg-[url("https://www.raspberrypi.com/app/uploads/2018/03/RPi-Logo-Reg-SCREEN.png")]'}`} />
-            <div className={`absolute inset-0 bg-cover opacity-90 ${isUbuntu ? 'bg-[url("https://images.unsplash.com/photo-1596495578065-6e0763fa1178?q=80&w=2400")]' : isDebian ? 'bg-[url("https://images.unsplash.com/photo-1506748686214-e9df14d4d9d0?q=80&w=2400")]' : 'bg-[url("https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?q=80&w=2400")]'}`} />
-
-            {/* Top Panel */}
-            <div className="absolute top-0 w-full h-8 bg-slate-200 shadow-md flex items-center justify-between px-2 z-50">
-                <div className="flex items-center gap-4">
-                    <button 
-                        onClick={() => setRaspMenuOpen(!raspMenuOpen)}
-                        className={`flex items-center gap-2 px-2 py-1 hover:bg-slate-300 rounded transition-colors ${raspMenuOpen ? 'bg-slate-300 shadow-inner' : ''}`}
-                    >
-                        {isUbuntu ? (
-                          <div className="w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center text-white text-[10px] font-bold">U</div>
-                        ) : isDebian ? (
-                          <div className="w-5 h-5 rounded-full bg-red-600 flex items-center justify-center text-white text-[10px] font-bold">D</div>
-                        ) : (
-                          <img src="https://assets.raspberrypi.com/static/raspberry-pi-logo-f6334c9c27b0b8d5a1900115d7f1c9c8.svg" className="w-5 h-5" alt="Pi" />
-                        )}
-                        <span className="text-sm font-bold text-slate-700">Menu</span>
-                    </button>
-                    <div className="w-px h-4 bg-slate-400" />
-                    <button className="p-1 hover:bg-slate-300 rounded" title="Web Browser">
-                        <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
-                    </button>
-                    <button className="p-1 hover:bg-slate-300 rounded" title="File Manager">
-                        <svg className="w-4 h-4 text-amber-600" fill="currentColor" viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>
-                    </button>
-                    <button 
-                        onClick={() => setRaspTermOpen(!raspTermOpen)}
-                        className={`p-1 hover:bg-slate-300 rounded ${raspTermOpen ? 'bg-slate-300' : ''}`} 
-                        title="Terminal"
-                    >
-                        <svg className="w-4 h-4 text-slate-800" fill="currentColor" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM4 18V6h16v12H4z"/><path d="M6 10l4 4-4 4v-8zm6 6h6v2h-6v-2z"/></svg>
-                    </button>
-                </div>
+        <div className="w-screen h-screen bg-[#f8f9fa] flex flex-col font-sans">
+            {/* Raspberry Pi Connect Header */}
+            <div className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6 shadow-sm z-50 shrink-0">
                 <div className="flex items-center gap-3">
-                    <button onClick={toggleOS} className="px-3 py-1 bg-red-600 text-white text-xs font-bold rounded shadow hover:bg-red-500 transition-colors animate-pulse">
-                        Return to PiNet OS
-                    </button>
-                    <span className="text-xs font-medium text-slate-700">{new Date().toLocaleTimeString()}</span>
-                </div>
-            </div>
-
-            {/* Start Menu Overlay */}
-            {raspMenuOpen && (
-                <div className="absolute top-9 left-2 w-56 bg-slate-100 rounded-lg shadow-xl border border-slate-300 z-50 flex flex-col py-1 text-sm text-slate-700">
-                    <div className="px-3 py-2 hover:bg-blue-500 hover:text-white cursor-pointer flex items-center gap-2">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
-                        <span>Programming</span>
+                    <div className="w-8 h-8 rounded-full bg-[#C51A4A] flex items-center justify-center">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
                     </div>
-                    <div className="px-3 py-2 hover:bg-blue-500 hover:text-white cursor-pointer flex items-center gap-2">
-                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
-                        <span>Internet</span>
-                    </div>
-                    <div className="px-3 py-2 hover:bg-blue-500 hover:text-white cursor-pointer flex items-center gap-2">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
-                        <span>Sound & Video</span>
-                    </div>
-                    <div className="px-3 py-2 hover:bg-blue-500 hover:text-white cursor-pointer flex items-center gap-2">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-                        <span>Accessories</span>
-                    </div>
-                    <div className="h-px bg-slate-300 my-1" />
-                    <div className="px-3 py-2 hover:bg-blue-500 hover:text-white cursor-pointer flex items-center gap-2">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                        <span>Shutdown</span>
-                    </div>
-                </div>
-            )}
-
-            {/* Desktop Icons */}
-            <div className="p-6 mt-8 grid gap-6 w-fit absolute top-0 left-0">
-                <div 
-                    onDoubleClick={() => setRaspTermOpen(true)}
-                    className="flex flex-col items-center gap-1 group cursor-pointer hover:bg-white/10 p-2 rounded"
-                >
-                    <div className="w-12 h-12 bg-slate-800 rounded p-2 shadow border border-slate-600 group-hover:bg-slate-700 flex items-center justify-center">
-                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 17l6-6-6-6M12 19h8" /></svg>
-                    </div>
-                    <span className="text-xs text-white font-bold drop-shadow-md bg-slate-900/50 px-1 rounded">Terminal</span>
-                </div>
-                <div className="flex flex-col items-center gap-1 group cursor-pointer hover:bg-white/10 p-2 rounded">
-                    <div className="w-12 h-12 bg-slate-200 rounded p-2 shadow border border-slate-300 group-hover:bg-slate-100">
-                        <svg className="w-full h-full text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-                    </div>
-                    <span className="text-xs text-white font-bold drop-shadow-md bg-slate-900/50 px-1 rounded">Trash</span>
-                </div>
-                <div className="flex flex-col items-center gap-1 group cursor-pointer hover:bg-white/10 p-2 rounded">
-                    <div className="w-12 h-12 bg-slate-200 rounded p-2 shadow border border-slate-300 group-hover:bg-slate-100">
-                        <svg className="w-full h-full text-amber-600" fill="currentColor" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
-                    </div>
-                    <span className="text-xs text-white font-bold drop-shadow-md bg-slate-900/50 px-1 rounded">Documents</span>
-                </div>
-            </div>
-
-            {/* Interactive Terminal Window */}
-            {raspTermOpen && (
-                <div 
-                    style={{ left: termPos.x, top: termPos.y }}
-                    className="absolute w-[600px] h-[400px] bg-black rounded-t-lg shadow-2xl border border-slate-600 font-mono text-sm flex flex-col"
-                >
-                    <div 
-                        onMouseDown={handleMouseDown}
-                        className="bg-slate-300 px-2 py-1 flex justify-between items-center rounded-t-lg cursor-move select-none active:bg-slate-400 transition-colors"
-                    >
-                        <span className="text-xs font-bold text-slate-700">{hostUser}: ~</span>
-                        <div className="flex gap-1.5" onMouseDown={(e) => e.stopPropagation()}>
-                            <button 
-                                onClick={() => setRaspTermOpen(false)}
-                                className="w-3 h-3 rounded-full bg-slate-400 hover:bg-slate-500" 
-                            />
-                            <button className="w-3 h-3 rounded-full bg-slate-400 hover:bg-slate-500" />
-                            <button 
-                                onClick={() => setRaspTermOpen(false)}
-                                className="w-3 h-3 rounded-full bg-red-400 hover:bg-red-500" 
-                            />
+                    <div>
+                        <h1 className="text-sm font-bold text-gray-900">Raspberry Pi Connect</h1>
+                        <div className="text-xs text-gray-500 flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                            Connected to {osInfo?.hostname || 'pinet-alpha'} • Screen Sharing
                         </div>
                     </div>
-                    <div className="p-0 flex-1 overflow-hidden">
-                        <TerminalApp osMode={currentOS} onOpenApp={(appId) => openApp(appId as AppId)} onGuiSwitch={() => switchOS((osInfo?.osName || 'raspbian') as OSMode)} />
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="px-3 py-1 bg-gray-100 rounded-md text-xs font-mono text-gray-500 border border-gray-200">
+                        {sysStats.cpu.toFixed(1)}% CPU • {sysStats.temp.toFixed(1)}°C
+                    </div>
+                    <div className="w-px h-6 bg-gray-200"></div>
+                    <button className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors" title="Fullscreen">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
+                    </button>
+                    <button onClick={toggleOS} className="px-4 py-1.5 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition-colors border border-gray-300 shadow-sm flex items-center gap-2">
+                        <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                        Disconnect
+                    </button>
+                </div>
+            </div>
+
+            {/* Remote Desktop Area */}
+            <div className="flex-1 relative overflow-hidden bg-[#1e1e1e] flex items-center justify-center p-4 sm:p-8">
+                <div className="w-full h-full max-w-[1280px] max-h-[720px] relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10">
+                    <div 
+                        className="w-full h-full bg-slate-300 relative overflow-hidden font-sans selection:bg-red-200 cursor-default animate-in fade-in duration-1000"
+                        onMouseMove={handleMouseMove}
+                        onMouseUp={handleMouseUp}
+                    >
+                         {/* Wallpaper */}
+                        <div className={`absolute inset-0 bg-center bg-no-repeat bg-white opacity-10 pointer-events-none ${isUbuntu ? 'bg-[url("https://assets.ubuntu.com/v1/29985a98-ubuntu-logo32.png")]' : isDebian ? 'bg-[url("https://www.debian.org/logos/openlogo-nd-100.png")]' : 'bg-[url("https://www.raspberrypi.com/app/uploads/2018/03/RPi-Logo-Reg-SCREEN.png")]'}`} />
+                        <div className={`absolute inset-0 bg-cover opacity-90 ${isUbuntu ? 'bg-[url("https://images.unsplash.com/photo-1596495578065-6e0763fa1178?q=80&w=2400")]' : isDebian ? 'bg-[url("https://images.unsplash.com/photo-1506748686214-e9df14d4d9d0?q=80&w=2400")]' : 'bg-[url("https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?q=80&w=2400")]'}`} />
+
+                        {/* Top Panel */}
+                        <div className="absolute top-0 w-full h-8 bg-slate-200 shadow-md flex items-center justify-between px-2 z-50">
+                            <div className="flex items-center gap-4">
+                                <button 
+                                    onClick={() => setRaspMenuOpen(!raspMenuOpen)}
+                                    className={`flex items-center gap-2 px-2 py-1 hover:bg-slate-300 rounded transition-colors ${raspMenuOpen ? 'bg-slate-300 shadow-inner' : ''}`}
+                                >
+                                    {isUbuntu ? (
+                                      <div className="w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center text-white text-[10px] font-bold">U</div>
+                                    ) : isDebian ? (
+                                      <div className="w-5 h-5 rounded-full bg-red-600 flex items-center justify-center text-white text-[10px] font-bold">D</div>
+                                    ) : (
+                                      <img src="https://assets.raspberrypi.com/static/raspberry-pi-logo-f6334c9c27b0b8d5a1900115d7f1c9c8.svg" className="w-5 h-5" alt="Pi" />
+                                    )}
+                                    <span className="text-sm font-bold text-slate-700">Menu</span>
+                                </button>
+                                <div className="w-px h-4 bg-slate-400" />
+                                <button className="p-1 hover:bg-slate-300 rounded" title="Web Browser">
+                                    <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                                </button>
+                                <button className="p-1 hover:bg-slate-300 rounded" title="File Manager">
+                                    <svg className="w-4 h-4 text-amber-600" fill="currentColor" viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>
+                                </button>
+                                <button 
+                                    onClick={() => setRaspTermOpen(!raspTermOpen)}
+                                    className={`p-1 hover:bg-slate-300 rounded ${raspTermOpen ? 'bg-slate-300' : ''}`} 
+                                    title="Terminal"
+                                >
+                                    <svg className="w-4 h-4 text-slate-800" fill="currentColor" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM4 18V6h16v12H4z"/><path d="M6 10l4 4-4 4v-8zm6 6h6v2h-6v-2z"/></svg>
+                                </button>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <span className="text-xs font-medium text-slate-700">{new Date().toLocaleTimeString()}</span>
+                            </div>
+                        </div>
+
+                        {/* Start Menu Overlay */}
+                        {raspMenuOpen && (
+                            <div className="absolute top-9 left-2 w-56 bg-slate-100 rounded-lg shadow-xl border border-slate-300 z-50 flex flex-col py-1 text-sm text-slate-700">
+                                <div className="px-3 py-2 hover:bg-blue-500 hover:text-white cursor-pointer flex items-center gap-2">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                                    <span>Programming</span>
+                                </div>
+                                <div className="px-3 py-2 hover:bg-blue-500 hover:text-white cursor-pointer flex items-center gap-2">
+                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                                    <span>Internet</span>
+                                </div>
+                                <div className="px-3 py-2 hover:bg-blue-500 hover:text-white cursor-pointer flex items-center gap-2">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+                                    <span>Sound & Video</span>
+                                </div>
+                                <div className="px-3 py-2 hover:bg-blue-500 hover:text-white cursor-pointer flex items-center gap-2">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                    <span>Accessories</span>
+                                </div>
+                                <div className="h-px bg-slate-300 my-1" />
+                                <div className="px-3 py-2 hover:bg-blue-500 hover:text-white cursor-pointer flex items-center gap-2">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                                    <span>Shutdown</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Desktop Icons */}
+                        <div className="p-6 mt-8 grid gap-6 w-fit absolute top-0 left-0">
+                            <div 
+                                onDoubleClick={() => setRaspTermOpen(true)}
+                                className="flex flex-col items-center gap-1 group cursor-pointer hover:bg-white/10 p-2 rounded"
+                            >
+                                <div className="w-12 h-12 bg-slate-800 rounded p-2 shadow border border-slate-600 group-hover:bg-slate-700 flex items-center justify-center">
+                                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 17l6-6-6-6M12 19h8" /></svg>
+                                </div>
+                                <span className="text-xs text-white font-bold drop-shadow-md bg-slate-900/50 px-1 rounded">Terminal</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-1 group cursor-pointer hover:bg-white/10 p-2 rounded">
+                                <div className="w-12 h-12 bg-slate-200 rounded p-2 shadow border border-slate-300 group-hover:bg-slate-100">
+                                    <svg className="w-full h-full text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                                </div>
+                                <span className="text-xs text-white font-bold drop-shadow-md bg-slate-900/50 px-1 rounded">Trash</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-1 group cursor-pointer hover:bg-white/10 p-2 rounded">
+                                <div className="w-12 h-12 bg-slate-200 rounded p-2 shadow border border-slate-300 group-hover:bg-slate-100">
+                                    <svg className="w-full h-full text-amber-600" fill="currentColor" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
+                                </div>
+                                <span className="text-xs text-white font-bold drop-shadow-md bg-slate-900/50 px-1 rounded">Documents</span>
+                            </div>
+                        </div>
+
+                        {/* Interactive Terminal Window */}
+                        {raspTermOpen && (
+                            <div 
+                                style={{ left: termPos.x, top: termPos.y }}
+                                className="absolute w-[600px] h-[400px] bg-black rounded-t-lg shadow-2xl border border-slate-600 font-mono text-sm flex flex-col"
+                            >
+                                <div 
+                                    onMouseDown={handleMouseDown}
+                                    className="bg-slate-300 px-2 py-1 flex justify-between items-center rounded-t-lg cursor-move select-none active:bg-slate-400 transition-colors"
+                                >
+                                    <span className="text-xs font-bold text-slate-700">{hostUser}: ~</span>
+                                    <div className="flex gap-1.5" onMouseDown={(e) => e.stopPropagation()}>
+                                        <button 
+                                            onClick={() => setRaspTermOpen(false)}
+                                            className="w-3 h-3 rounded-full bg-slate-400 hover:bg-slate-500" 
+                                        />
+                                        <button className="w-3 h-3 rounded-full bg-slate-400 hover:bg-slate-500" />
+                                        <button 
+                                            onClick={() => setRaspTermOpen(false)}
+                                            className="w-3 h-3 rounded-full bg-red-400 hover:bg-red-500" 
+                                        />
+                                    </div>
+                                </div>
+                                <div className="p-0 flex-1 overflow-hidden">
+                                    <TerminalApp osMode={currentOS} onOpenApp={(appId) => openApp(appId as AppId)} onGuiSwitch={() => switchOS((osInfo?.osName || 'raspbian') as OSMode)} />
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
-            )}
+            </div>
         </div>
     );
   }
