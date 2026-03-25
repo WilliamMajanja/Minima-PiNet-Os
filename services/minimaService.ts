@@ -51,7 +51,7 @@ class MinimaServiceImpl {
           ...this._stats,
           blockHeight: data.blockHeight,
           peers: data.peers,
-          status: data.status
+          status: data.status as "Synced" | "Syncing" | "Offline"
         };
         this.emit();
       } else {

@@ -23,13 +23,13 @@ export const systemService = {
     }
   },
 
-  async executeHypervisorSwitch(targetOS: OSMode): Promise<void> {
-    console.log(`[HV] Context Switch Initiated -> Target: ${targetOS}`);
+  async executeHypervisorSwitch(targetOS: OSMode, nodeId?: string): Promise<void> {
+    console.log(`[HV] Context Switch Initiated -> Target: ${targetOS} on ${nodeId || 'localhost'}`);
     try {
       const response = await fetch(getApiUrl('/api/system/switch-os'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetOS })
+        body: JSON.stringify({ targetOS, nodeId })
       });
       
       if (!response.ok) {

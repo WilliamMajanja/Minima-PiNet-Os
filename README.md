@@ -63,6 +63,7 @@ Transform your Raspberry Pi into a hardened, hardware-verified edge node. The Pi
 * **Remote Attestation:** The system automatically hashes critical firmware and configuration paths, attesting them against the immutable Minima ledger to detect unauthorized tampering.
 * **Deterministic AI Performance:** By pinning AI workloads to specific CPU cores and using dedicated NPU hardware, PiNet 2.0 eliminates context-switching jitter.
 * **Enterprise Imager Utility:** A built-in portal to build, verify, and release flashable `.img` artifacts that are 100% compatible with the official Raspberry Pi Imager.
+* **Remote Orchestration via rpi-connect:** Manage your cluster nodes, perform hypervisor context switching, and execute commands securely from anywhere using Raspberry Pi Connect integration.
 
 ---
 
@@ -86,6 +87,30 @@ Tailored specifically for modern ARM-based Raspberry Pi boards.
 1.  **Download:** Get the latest `PiNetOS-Enterprise.img` from the [Releases](https://github.com/WilliamMajanja/Minima-PiNet-Os/releases) page.
 2.  **Flash:** Open the **Official Raspberry Pi Imager**, select "Use custom", and choose the downloaded `.img` file.
 3.  **Boot:** Insert the MicroSD/NVMe into your Pi 5 and power it on. The system will automatically perform a Zero-Trust integrity check on first boot.
+
+### 💻 Local Testing & Development
+To run and test the PiNetOS interface locally on your development machine:
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/WilliamMajanja/Minima-PiNet-Os.git
+   cd Minima-PiNet-Os
+   ```
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+3. **Start the development server:**
+   ```bash
+   npm run dev
+   ```
+   This will start the backend API and the Vite development server.
+4. **Access the interface:**
+   Open your browser and navigate to `http://localhost:3000`.
+5. **Test Electron Desktop App (Optional):**
+   ```bash
+   npm run electron:dev
+   ```
 
 ### 🛠️ Advanced: Custom Enterprise Build
 If you need a custom build with specific cluster secrets:

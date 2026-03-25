@@ -240,19 +240,25 @@ async function startServer() {
 
   // --- Real Hypervisor / OS Switch Endpoint ---
   app.post("/api/system/switch-os", express.json(), (req, res) => {
-    const { targetOS } = req.body;
-    console.log(`[HV] Executing real system switch to: ${targetOS}`);
+    const { targetOS, nodeId } = req.body;
+    console.log(`[HV] Executing system switch to: ${targetOS} on node: ${nodeId || 'localhost'}`);
     
-    // In a true PiNetOS hardware environment, this executes systemctl to switch targets.
-    // We attempt the real command, and if it fails (e.g., inside a Docker container without systemd),
-    // we fallback to a simulated delay to maintain the UX.
-    const cmd = targetOS === 'pinet' 
-      ? 'sudo systemctl isolate pinet-kiosk.target || sleep 3'
-      : 'sudo systemctl isolate graphical.target || sleep 3';
+    // Use rpi-connect for hypervisor contextualization and cluster orchestration
+    let cmd = '';
+    if (nodeId && nodeId !== 'n1' && nodeId !== 'localhost') {
+      // Remote node orchestration via rpi-connect
+      const targetState = targetOS === 'pinet' ? 'pinet-kiosk.target' : 'graphical.target';
+      cmd = `rpi-connect shell ${nodeId} "sudo systemctl isolate ${targetState}" || sleep 3`;
+    } else {
+      // Local node switch
+      cmd = targetOS === 'pinet' 
+        ? 'sudo systemctl isolate pinet-kiosk.target || sleep 3'
+        : 'sudo systemctl isolate graphical.target || sleep 3';
+    }
 
     exec(cmd, (error, stdout, stderr) => {
       if (error) {
-        console.warn(`[HV] Systemctl failed (expected in container), fallback used. Error: ${error.message}`);
+        console.warn(`[HV] Command failed (expected in container), fallback used. Error: ${error.message}`);
       }
       res.json({ success: true, targetOS, stdout, stderr });
     });
@@ -715,11 +721,8 @@ async function startServer() {
       node.status = 'provisioning';
       saveState();
       
-      // Execute a real provisioning command (e.g., via SSH or local script)
-      // We use a safe fallback if the script doesn't exist
-      const provisionCmd = fs.existsSync('/opt/pinet/scripts/provision.sh') 
-        ? `bash /opt/pinet/scripts/provision.sh ${node.ip}`
-        : `echo "Provisioning ${node.ip}..." && sleep 5`;
+      // Execute a real provisioning command via rpi-connect
+      const provisionCmd = `rpi-connect shell ${node.ip} "curl -sSL https://raw.githubusercontent.com/WilliamMajanja/Minima-PiNet-Os/main/install.sh | bash" || sleep 5`;
 
       exec(provisionCmd, (error, stdout, stderr) => {
         if (error) {
