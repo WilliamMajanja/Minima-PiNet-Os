@@ -21,6 +21,9 @@ async function startServer() {
 
   const PORT = 3000;
 
+  // Global JSON middleware - move to top
+  app.use(express.json());
+
   // Global CORS middleware
   app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -307,7 +310,7 @@ async function startServer() {
   });
 
   // --- Real File System Endpoints ---
-  app.use(express.json());
+  // express.json() moved to top
 
   app.get("/api/files/list", (req, res) => {
     const dirPath = (req.query.path as string) || process.cwd();
@@ -371,7 +374,7 @@ async function startServer() {
   });
 
   // --- Real Minima Node Persistence ---
-  const STATE_FILE = '/tmp/pinet-state.json';
+  const STATE_FILE = path.join(process.cwd(), 'pinet-state.json');
   let pinetState = {
     minima: {
       balance: 1250.45,
@@ -609,15 +612,96 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  app.post("/api/build/release", (req, res) => {
-    console.log("[INFO] Releasing to GitHub...");
-    // Simulate GitHub Release
-    setTimeout(() => {
-      pinetState.pinet2.buildStatus = 'released';
-      pinetState.pinet2.buildLog.push("[SUCCESS] Artifact pushed to GitHub Release: PiNetOS-Enterprise-v2.0-LTS");
+  app.post("/api/build/release", async (req, res) => {
+    const githubToken = process.env.GITHUB_TOKEN;
+    let githubRepo = process.env.GITHUB_REPO || "WilliamMajanja/Minima-PiNet-Os";
+    
+    // Parse repo if it's a full URL
+    if (githubRepo.includes("github.com/")) {
+      githubRepo = githubRepo.split("github.com/")[1].replace(/\/$/, "");
+    }
+    
+    const artifactPath = path.join(process.cwd(), "PiNetOS-RaspberryPi.img");
+
+    if (!githubToken) {
+      console.error("[ERROR] GITHUB_TOKEN is not set.");
+      pinetState.pinet2.buildStatus = 'failed';
+      pinetState.pinet2.buildLog.push("[ERROR] GITHUB_TOKEN is not set. Please add it to your environment variables.");
       saveState();
-    }, 3000);
-    res.json({ success: true });
+      return res.status(400).json({ error: "GITHUB_TOKEN is not set." });
+    }
+
+    if (!fs.existsSync(artifactPath)) {
+      console.error("[ERROR] Artifact not found for release.");
+      pinetState.pinet2.buildStatus = 'failed';
+      pinetState.pinet2.buildLog.push("[ERROR] Artifact not found: PiNetOS-RaspberryPi.img. Run build first.");
+      saveState();
+      return res.status(400).json({ error: "Artifact not found." });
+    }
+
+    console.log(`[INFO] Releasing to GitHub: ${githubRepo}...`);
+    pinetState.pinet2.buildStatus = 'releasing';
+    pinetState.pinet2.buildLog.push(`[INFO] Creating GitHub Release for ${githubRepo}...`);
+    saveState();
+
+    try {
+      // 1. Create Release
+      const releaseResponse = await fetch(`https://api.github.com/repos/${githubRepo}/releases`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `token ${githubToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          tag_name: `v2.0.0-ent-${Date.now()}`,
+          name: `PiNet 2.0 Enterprise Release - ${new Date().toLocaleDateString()}`,
+          body: "Official Enterprise-grade, Web3-native operating system for Raspberry Pi 5 clusters. Featuring LXC virtualization, Hailo-8L NPU acceleration, and blockchain-backed remote attestation.",
+          draft: false,
+          prerelease: false
+        })
+      });
+
+      if (!releaseResponse.ok) {
+        const errorData = await releaseResponse.json();
+        throw new Error(`Failed to create release: ${JSON.stringify(errorData)}`);
+      }
+
+      const releaseData = await releaseResponse.json();
+      const uploadUrl = releaseData.upload_url.replace('{?name,label}', '?name=PiNetOS-Enterprise-v2.0-LTS.img');
+
+      pinetState.pinet2.buildLog.push(`[INFO] Release created. Uploading artifact...`);
+      saveState();
+
+      // 2. Upload Asset
+      const fileBuffer = fs.readFileSync(artifactPath);
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `token ${githubToken}`,
+          'Content-Type': 'application/octet-stream',
+          'Content-Length': fileBuffer.length.toString()
+        },
+        body: fileBuffer
+      });
+
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json();
+        throw new Error(`Failed to upload asset: ${JSON.stringify(errorData)}`);
+      }
+
+      pinetState.pinet2.buildStatus = 'released';
+      pinetState.pinet2.buildLog.push(`[SUCCESS] Artifact released to GitHub: ${releaseData.html_url}`);
+      saveState();
+      res.json({ success: true, url: releaseData.html_url });
+
+    } catch (error: any) {
+      console.error("[ERROR] GitHub Release failed:", error);
+      pinetState.pinet2.buildStatus = 'failed';
+      pinetState.pinet2.buildLog.push(`[ERROR] GitHub Release failed: ${error.message}`);
+      saveState();
+      res.status(500).json({ error: error.message });
+    }
   });
 
   app.get("/api/cluster/nodes", (req, res) => {
@@ -706,6 +790,22 @@ async function startServer() {
     } else {
       res.status(404).send("File not found");
     }
+  });
+
+  // Global API Error Handler
+  app.use('/api', (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error(`[API Error] ${req.method} ${req.url}:`, err);
+    res.status(500).json({ 
+      error: "Internal Server Error", 
+      message: err.message,
+      path: req.url
+    });
+  });
+
+  // 404 for API routes
+  app.use('/api', (req, res) => {
+    console.warn(`[API 404] ${req.method} ${req.url}`);
+    res.status(404).json({ error: "Not Found", path: req.url });
   });
 
   // Vite middleware for development
