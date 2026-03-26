@@ -1,0 +1,140 @@
+#!/bin/sh
+# PiNet-OS Setup Script
+# One-time setup: installs dependencies, downloads Minima, configures the environment
+# POSIX-compatible — works on any Linux distro on Raspberry Pi 5
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Source runtime library
+. "$SCRIPT_DIR/../lib/pinet-runtime.sh"
+
+printf "\n${WHITE}╔══════════════════════════════════════════════════╗${NC}\n"
+printf "${WHITE}║       PiNet-OS v%s — Initial Setup           ║${NC}\n" "$PINET_VERSION"
+printf "${WHITE}╚══════════════════════════════════════════════════╝${NC}\n\n"
+
+# ─── Create Runtime Directories ───────────────────────────────────────────────
+
+log_info "Creating runtime directories..."
+init_runtime_dirs
+log_ok "Runtime directories created at $PINET_HOME"
+
+# ─── Check & Install Java ─────────────────────────────────────────────────────
+
+log_info "Checking Java installation..."
+if ! command -v java >/dev/null 2>&1; then
+  log_warn "Java not found. Attempting to install OpenJDK 17..."
+  if command -v apt >/dev/null 2>&1; then
+    sudo apt update -qq && sudo apt install -y openjdk-17-jre-headless
+  elif command -v dnf >/dev/null 2>&1; then
+    sudo dnf install -y java-17-openjdk-headless
+  elif command -v pacman >/dev/null 2>&1; then
+    sudo pacman -Sy --noconfirm jre17-openjdk-headless
+  else
+    log_error "Could not auto-install Java. Please install Java 17+ manually."
+    exit 1
+  fi
+fi
+check_java || exit 1
+
+# ─── Check & Install Node.js ──────────────────────────────────────────────────
+
+log_info "Checking Node.js installation..."
+if ! command -v node >/dev/null 2>&1; then
+  log_warn "Node.js not found. Attempting to install Node.js 18..."
+  if command -v apt >/dev/null 2>&1; then
+    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+    sudo apt install -y nodejs
+  else
+    log_error "Could not auto-install Node.js. Please install Node.js 18+ manually."
+    exit 1
+  fi
+fi
+check_node || exit 1
+
+# ─── Download Minima JAR ──────────────────────────────────────────────────────
+
+MINIMA_VERSION="1.0.35"
+MINIMA_JAR_URL="https://github.com/nicholasg/Minima/releases/latest/download/minima.jar"
+
+if [ ! -f "$PINET_MINIMA_JAR" ]; then
+  log_info "Downloading Minima v$MINIMA_VERSION..."
+  mkdir -p "$(dirname "$PINET_MINIMA_JAR")"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL -o "$PINET_MINIMA_JAR" "$MINIMA_JAR_URL" 2>/dev/null || {
+      log_warn "Could not download Minima JAR from GitHub."
+      log_info "Please manually place minima.jar at: $PINET_MINIMA_JAR"
+    }
+  elif command -v wget >/dev/null 2>&1; then
+    wget -q -O "$PINET_MINIMA_JAR" "$MINIMA_JAR_URL" 2>/dev/null || {
+      log_warn "Could not download Minima JAR from GitHub."
+      log_info "Please manually place minima.jar at: $PINET_MINIMA_JAR"
+    }
+  fi
+
+  if [ -f "$PINET_MINIMA_JAR" ]; then
+    log_ok "Minima JAR downloaded to $PINET_MINIMA_JAR"
+  fi
+else
+  log_ok "Minima JAR already present at $PINET_MINIMA_JAR"
+fi
+
+# ─── Install Web Desktop Dependencies ─────────────────────────────────────────
+
+log_info "Installing web desktop dependencies..."
+cd "$PROJECT_DIR"
+if [ -f "package.json" ]; then
+  npm install --production 2>/dev/null || npm install 2>/dev/null || {
+    log_warn "npm install failed — web desktop may not work correctly."
+  }
+  log_ok "Web desktop dependencies installed."
+else
+  log_warn "package.json not found in $PROJECT_DIR"
+fi
+
+# ─── Generate Initial Configuration ───────────────────────────────────────────
+
+if [ ! -f "$PINET_CONFIG_FILE" ]; then
+  log_info "Generating initial configuration..."
+  generate_config "worker"
+  log_ok "Configuration generated."
+else
+  log_ok "Configuration already exists at $PINET_CONFIG_FILE"
+fi
+
+# ─── Generate Node Identity ───────────────────────────────────────────────────
+
+IDENTITY_FILE="$PINET_STATE_DIR/identity.json"
+if [ ! -f "$IDENTITY_FILE" ]; then
+  _node_id=$(generate_node_id)
+  cat > "$IDENTITY_FILE" << EOF
+{
+  "nodeId": "$_node_id",
+  "createdAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "platform": "$(uname -s) $(uname -m)",
+  "hostname": "$(hostname 2>/dev/null || echo 'unknown')"
+}
+EOF
+  log_ok "Node identity created: $_node_id"
+else
+  log_ok "Node identity already exists."
+fi
+
+# ─── Summary ──────────────────────────────────────────────────────────────────
+
+printf "\n${GREEN}╔══════════════════════════════════════════════════╗${NC}\n"
+printf "${GREEN}║          Setup Complete!                          ║${NC}\n"
+printf "${GREEN}╚══════════════════════════════════════════════════╝${NC}\n\n"
+
+printf "  ${CYAN}Runtime:${NC}    $PINET_HOME\n"
+printf "  ${CYAN}Config:${NC}     $PINET_CONFIG_FILE\n"
+printf "  ${CYAN}Minima:${NC}     $PINET_MINIMA_JAR\n"
+printf "  ${CYAN}Node ID:${NC}    $(generate_node_id)\n"
+printf "\n"
+printf "  ${WHITE}Next steps:${NC}\n"
+printf "    ${CYAN}pinet start${NC}                         # Start as worker node\n"
+printf "    ${CYAN}pinet start --role master${NC}            # Start as master node\n"
+printf "    ${CYAN}pinet start --role worker --master IP${NC} # Join a cluster\n"
+printf "\n"

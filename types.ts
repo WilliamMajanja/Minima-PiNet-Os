@@ -36,6 +36,9 @@ export interface ClusterNode {
   ip: string;
   hat: HatType;
   status: 'online' | 'offline' | 'processing' | 'provisioning' | 'awaiting-os';
+  role?: 'master' | 'worker';
+  maximaAddress?: string;
+  lastHeartbeat?: number;
   metrics: {
     cpu: number;
     ram: number;
@@ -59,6 +62,8 @@ export interface MaximaContact {
   address: string;
   status: 'online' | 'offline';
   lastSeen: string;
+  publicKey?: string;
+  sameChain?: boolean;
 }
 
 export interface MaximaMessage {
@@ -67,6 +72,8 @@ export interface MaximaMessage {
   to: string;
   text: string;
   timestamp: number;
+  application?: string;
+  delivered?: boolean;
 }
 
 // VFS Types
@@ -79,3 +86,29 @@ export interface VFSNode {
   modified: number;
   permissions: string;
 }
+
+// ─── Enterprise Edge Types ────────────────────────────────────────────────────
+
+export type IndustryVertical =
+  | 'agritech'
+  | 'logistics'
+  | 'ev-infrastructure'
+  | 'telecoms'
+  | 'industrial-iot'
+  | 'smart-city'
+  | 'general';
+
+export type ConnectivityLayer = '5g' | '4g-lte' | '2g-gsm' | 'wireguard-mesh' | 'offline';
+
+export interface EdgeCapabilities {
+  aiRuntime: 'tflite' | 'onnx' | 'gguf' | 'none';
+  containerRuntime: 'k3s' | 'docker' | 'none';
+  storage: 'ipfs' | 'local' | 'none';
+  connectivity: ConnectivityLayer[];
+  hasNpu: boolean;
+  hasNvme: boolean;
+  hasSenseHat: boolean;
+}
+
+// Re-export cluster protocol types for convenience
+export type { ClusterState, NodeInfo, NodeRole, NodeStatus, NodeMetrics, ProvenanceEvent } from './types/cluster-protocol';

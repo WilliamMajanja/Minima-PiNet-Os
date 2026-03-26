@@ -1,46 +1,278 @@
-#!/bin/bash
-case "$1" in
-  open)
-    echo -e "\033[1;32mOpening application: $2...\033[0m"
-    echo "PINET_CMD:OPEN:$2"
-    ;;
-  install)
-    echo -e "\033[1;34mInstalling PiNet OS components...\033[0m"
-    sleep 0.5
-    echo "Unpacking minima-node..."
-    sleep 0.5
-    echo "Setting up cluster-manager..."
-    sleep 0.5
-    echo -e "\033[1;32mInstallation complete. You can now use 'pinet open <app_id>' to launch applications.\033[0m"
-    echo "Available apps: minima-node, system-monitor, terminal, ai-assistant, wallet, maxima-messenger, cluster-manager, depai-executor, imager-utility, file-explorer, settings, visual-studio"
-    ;;
-  status)
-    echo -e "\033[1;36mPiNet OS Status:\033[0m"
-    curl -s http://localhost:3000/api/minima/status | grep -o '"status":"[^"]*"' | cut -d'"' -f4 | sed 's/^/  Node: /'
-    curl -s http://localhost:3000/api/minima/status | grep -o '"peers":[^,]*' | cut -d':' -f2 | sed 's/^/  Peers: /'
-    curl -s http://localhost:3000/api/minima/status | grep -o '"blockHeight":[^,]*' | cut -d':' -f2 | sed 's/^/  Block Height: /'
-    ;;
-  cluster)
-    echo -e "\033[1;35mCluster Status:\033[0m"
-    echo "  ID   ROLE    HAT       STATUS"
-    curl -s http://localhost:3000/api/cluster/nodes | grep -o '{"id":"[^"]*","name":"[^"]*","ip":"[^"]*","status":"[^"]*","role":"[^"]*","hat":"[^"]*"}' | while read -r line; do
-      id=$(echo "$line" | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
-      name=$(echo "$line" | grep -o '"name":"[^"]*"' | cut -d'"' -f4)
-      hat=$(echo "$line" | grep -o '"hat":"[^"]*"' | cut -d'"' -f4)
-      status=$(echo "$line" | grep -o '"status":"[^"]*"' | cut -d'"' -f4 | tr '[:lower:]' '[:upper:]')
-      printf "  %-4s %-7s %-9s %s\n" "$id" "$name" "$hat" "$status"
-    done
-    ;;
-  version|info)
-    echo -e "\033[1;35mPiNet OS v2.5.0-LTS\033[0m"
-    echo "Architecture: $(uname -m)"
-    echo "Kernel: $(uname -r)"
-    echo "Minima Node: v1.0.35"
-    ;;
-  help|*)
-    echo -e "\033[1;37mPiNet OS Command Line Interface\033[0m"
-    echo "Usage: pinet <command> [args]"
-    echo ""
-    echo "Commands: open, install, status, start, stop, update, config, logs, cluster, deploy, network, storage, backup, version"
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════════
+# PiNet-OS — Enterprise Edge Infrastructure CLI
+# Spawnable from any Linux distro CLI on Raspberry Pi 5
+# No dedicated image required — runs as a contained environment
+# ═══════════════════════════════════════════════════════════════════════════════
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Source runtime library
+if [ -f "$SCRIPT_DIR/../lib/pinet-runtime.sh" ]; then
+  . "$SCRIPT_DIR/../lib/pinet-runtime.sh"
+else
+  echo "Error: pinet-runtime.sh not found. Run from the PiNet-OS directory." >&2
+  exit 1
+fi
+
+# ─── Subcommands ──────────────────────────────────────────────────────────────
+
+cmd_start() {
+  _role="worker"
+  _master_addr=""
+
+  # Parse arguments
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --role)  _role="$2"; shift 2 ;;
+      --master) _master_addr="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  # Validate role
+  case "$_role" in
+    master|worker) ;;
+    *) log_error "Invalid role: $_role. Must be 'master' or 'worker'."; exit 1 ;;
+  esac
+
+  if [ "$_role" = "worker" ] && [ -n "$_master_addr" ]; then
+    log_info "Starting PiNet-OS as WORKER (master: $_master_addr)"
+  elif [ "$_role" = "master" ]; then
+    log_info "Starting PiNet-OS as MASTER node"
+  else
+    log_info "Starting PiNet-OS as WORKER (standalone)"
+  fi
+
+  # Check if already running
+  if is_running; then
+    log_warn "PiNet-OS is already running. Use 'pinet stop' first."
+    exit 1
+  fi
+
+  # Initialize directories
+  init_runtime_dirs
+
+  # Generate/update config
+  generate_config "$_role" "$_master_addr"
+
+  # Record master PID (this shell)
+  echo $$ > "$PINET_PID_FILE"
+
+  # Start Minima node
+  if [ -f "$PINET_MINIMA_JAR" ]; then
+    start_minima
+  else
+    log_warn "Minima JAR not found. Skipping Minima node startup."
+    log_info "Run 'pinet setup' to install Minima."
+  fi
+
+  # Start web desktop
+  start_desktop "$PROJECT_DIR"
+
+  # Show status
+  show_status
+
+  log_ok "PiNet-OS is running."
+  printf "  ${CYAN}Desktop:${NC}  http://localhost:$PINET_DESKTOP_PORT\n"
+  printf "  ${CYAN}Minima:${NC}   http://localhost:$PINET_MINIMA_RPC_PORT\n"
+  printf "\n"
+}
+
+cmd_stop() {
+  if ! is_running; then
+    log_warn "PiNet-OS is not running."
+    return 0
+  fi
+  stop_all
+}
+
+cmd_status() {
+  show_status
+
+  # Try to get live data from the desktop API
+  if command -v curl >/dev/null 2>&1; then
+    _api="http://localhost:$PINET_DESKTOP_PORT"
+    _minima_data=$(curl -s "$_api/api/minima/status" 2>/dev/null || echo "")
+    if [ -n "$_minima_data" ]; then
+      printf "  ${WHITE}Minima Node:${NC}\n"
+      echo "$_minima_data" | grep -o '"status":"[^"]*"' | head -1 | sed 's/.*:"\(.*\)"/    Status: \1/'
+      echo "$_minima_data" | grep -o '"blockHeight":[0-9]*' | head -1 | sed 's/.*:\(.*\)/    Block:  \1/'
+      echo "$_minima_data" | grep -o '"peers":[0-9]*' | head -1 | sed 's/.*:\(.*\)/    Peers:  \1/'
+      printf "\n"
+    fi
+
+    _cluster_data=$(curl -s "$_api/api/cluster/state" 2>/dev/null || echo "")
+    if [ -n "$_cluster_data" ] && echo "$_cluster_data" | grep -q '"clusterId"'; then
+      printf "  ${WHITE}Cluster:${NC}\n"
+      echo "$_cluster_data" | grep -o '"clusterId":"[^"]*"' | head -1 | sed 's/.*:"\(.*\)"/    Cluster ID: \1/'
+      printf "\n"
+    fi
+  fi
+}
+
+cmd_join() {
+  _master_addr="$1"
+  if [ -z "$_master_addr" ]; then
+    log_error "Usage: pinet join <master_address>"
+    exit 1
+  fi
+  log_info "Joining cluster at $_master_addr..."
+  cmd_start --role worker --master "$_master_addr"
+}
+
+cmd_logs() {
+  _follow=""
+  if [ "$1" = "--follow" ] || [ "$1" = "-f" ]; then
+    _follow="-f"
+  fi
+
+  if [ -d "$PINET_LOG_DIR" ]; then
+    if [ -n "$_follow" ]; then
+      log_info "Following PiNet-OS logs (Ctrl+C to stop)..."
+      tail -f "$PINET_LOG_DIR"/*.log 2>/dev/null || log_warn "No log files found."
+    else
+      for _logfile in "$PINET_LOG_DIR"/*.log; do
+        if [ -f "$_logfile" ]; then
+          printf "\n${CYAN}=== %s ===${NC}\n" "$(basename "$_logfile")"
+          tail -20 "$_logfile"
+        fi
+      done
+    fi
+  else
+    log_warn "No logs found. PiNet-OS may not have been started yet."
+  fi
+}
+
+cmd_shell() {
+  log_info "Attaching to PiNet-OS session..."
+  export PS1="\[\e[35m\]pinet@$(hostname)\[\e[0m\]:\[\e[36m\]\w\[\e[0m\]\$ "
+  export PINET_HOME
+  export PINET_MINIMA_RPC_PORT
+  export PINET_DESKTOP_PORT
+  exec "${SHELL:-/bin/sh}"
+}
+
+cmd_setup() {
+  if [ -f "$SCRIPT_DIR/pinet-setup" ]; then
+    sh "$SCRIPT_DIR/pinet-setup"
+  else
+    log_error "Setup script not found at $SCRIPT_DIR/pinet-setup"
+    exit 1
+  fi
+}
+
+cmd_open() {
+  _app_id="$1"
+  if [ -z "$_app_id" ]; then
+    printf "${WHITE}Available applications:${NC}\n"
+    printf "  minima-node       Minima blockchain node dashboard\n"
+    printf "  system-monitor    System performance monitoring\n"
+    printf "  terminal          Interactive web terminal\n"
+    printf "  ai-assistant      AI assistant (Gemini)\n"
+    printf "  wallet            Web3 wallet\n"
+    printf "  maxima-messenger  Maxima P2P messenger\n"
+    printf "  cluster-manager   Cluster orchestrator\n"
+    printf "  depai-executor    DePAI workload executor\n"
+    printf "  imager-utility    Pi Imager utility\n"
+    printf "  file-explorer     File system browser\n"
+    printf "  settings          System settings\n"
+    printf "  visual-studio     Visual asset studio\n"
+    return 0
+  fi
+  printf "${GREEN}Opening application: %s${NC}\n" "$_app_id"
+  echo "PINET_CMD:OPEN:$_app_id"
+
+  # Try to open in browser
+  _url="http://localhost:$PINET_DESKTOP_PORT"
+  if command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$_url" 2>/dev/null &
+  elif command -v open >/dev/null 2>&1; then
+    open "$_url" 2>/dev/null &
+  fi
+}
+
+cmd_cluster() {
+  printf "${MAGENTA}╔══════════════════════════════════════════════╗${NC}\n"
+  printf "${MAGENTA}║          Cluster Status                       ║${NC}\n"
+  printf "${MAGENTA}╚══════════════════════════════════════════════╝${NC}\n\n"
+
+  if command -v curl >/dev/null 2>&1; then
+    _data=$(curl -s "http://localhost:$PINET_DESKTOP_PORT/api/cluster/state" 2>/dev/null || echo "")
+    if [ -n "$_data" ] && echo "$_data" | grep -q '"nodes"'; then
+      echo "$_data"
+    else
+      # Fallback to node list
+      _nodes=$(curl -s "http://localhost:$PINET_DESKTOP_PORT/api/cluster/nodes" 2>/dev/null || echo "[]")
+      printf "  ${WHITE}%-12s %-20s %-16s %-10s %-8s${NC}\n" "ID" "NAME" "IP" "STATUS" "HAT"
+      printf "  ────────── ──────────────────── ──────────────── ────────── ────────\n"
+      echo "$_nodes" | grep -o '"id":"[^"]*"' | cut -d'"' -f4 | while read -r _id; do
+        printf "  %-12s\n" "$_id"
+      done
+    fi
+  else
+    log_warn "curl not available — cannot query cluster status"
+  fi
+}
+
+cmd_version() {
+  printf "${MAGENTA}PiNet-OS v%s${NC} — Enterprise Edge Infrastructure\n" "$PINET_VERSION"
+  printf "  Architecture: %s\n" "$(uname -m)"
+  printf "  Kernel:       %s\n" "$(uname -r)"
+  printf "  Minima:       v%s\n" "$(echo "$PINET_VERSION" | cut -d. -f1-2)"
+  printf "  Node.js:      %s\n" "$(node --version 2>/dev/null || echo 'not installed')"
+  printf "  Java:         %s\n" "$(java -version 2>&1 | head -1 || echo 'not installed')"
+}
+
+cmd_help() {
+  printf "\n${WHITE}PiNet-OS — Enterprise Edge Infrastructure for AI, Web3 & IoT${NC}\n\n"
+  printf "Usage: ${CYAN}pinet${NC} <command> [options]\n\n"
+  printf "${WHITE}Lifecycle:${NC}\n"
+  printf "  ${CYAN}setup${NC}                      One-time setup (install dependencies)\n"
+  printf "  ${CYAN}start${NC} [--role R] [--master] Start PiNet-OS runtime\n"
+  printf "  ${CYAN}stop${NC}                       Stop all PiNet-OS services\n"
+  printf "  ${CYAN}status${NC}                     Show runtime status\n"
+  printf "  ${CYAN}logs${NC} [--follow]            View service logs\n"
+  printf "  ${CYAN}shell${NC}                      Attach to PiNet-OS session\n"
+  printf "\n${WHITE}Cluster:${NC}\n"
+  printf "  ${CYAN}join${NC} <master_address>      Join an existing cluster\n"
+  printf "  ${CYAN}cluster${NC}                    Show cluster topology\n"
+  printf "\n${WHITE}Applications:${NC}\n"
+  printf "  ${CYAN}open${NC} [app_id]              Launch a desktop application\n"
+  printf "\n${WHITE}System:${NC}\n"
+  printf "  ${CYAN}version${NC}                    Show version information\n"
+  printf "  ${CYAN}help${NC}                       Show this help message\n"
+  printf "\n${WHITE}Roles:${NC}\n"
+  printf "  ${CYAN}master${NC}  — Cluster coordinator, accepts join requests\n"
+  printf "  ${CYAN}worker${NC}  — Joins a master, executes workloads\n"
+  printf "\n${WHITE}Examples:${NC}\n"
+  printf "  pinet setup                                # First-time setup\n"
+  printf "  pinet start --role master                  # Start as master\n"
+  printf "  pinet start --role worker --master 1.2.3.4 # Join cluster\n"
+  printf "  pinet open cluster-manager                 # Launch cluster UI\n"
+  printf "\n"
+}
+
+# ─── Main Dispatch ────────────────────────────────────────────────────────────
+
+case "${1:-help}" in
+  start)   shift; cmd_start "$@" ;;
+  stop)    cmd_stop ;;
+  status)  cmd_status ;;
+  join)    shift; cmd_join "$@" ;;
+  logs)    shift; cmd_logs "$@" ;;
+  shell)   cmd_shell ;;
+  setup)   cmd_setup ;;
+  open)    shift; cmd_open "$@" ;;
+  cluster) cmd_cluster ;;
+  version|info) cmd_version ;;
+  help|--help|-h) cmd_help ;;
+  *)
+    log_error "Unknown command: $1"
+    cmd_help
+    exit 1
     ;;
 esac

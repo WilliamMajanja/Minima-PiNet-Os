@@ -1,0 +1,23 @@
+[Unit]
+Description=PiNet-OS Web Desktop — Browser-based Control Plane
+After=network-online.target minima.service
+Wants=network-online.target
+Documentation=https://github.com/WilliamMajanja/Minima-PiNet-Os
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/opt/pinet/desktop
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=PINET_MINIMA_RPC_PORT=9001
+Environment=PINET_HOME=/home/pi/.pinet
+ExecStart=/usr/bin/node server.ts
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pinet-desktop
+
+[Install]
+WantedBy=multi-user.target

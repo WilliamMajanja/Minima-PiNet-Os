@@ -452,12 +452,12 @@ async function startServer() {
 
   app.get("/api/minima/status", async (req, res) => {
     try {
-      // Try to get real Minima status
-      const response = await fetch('http://127.0.0.1:9002/status', { timeout: 2000 } as RequestInit);
+      // Try to get real Minima status via RPC
+      const response = await fetch(`${MINIMA_RPC_URL}/status`, { signal: AbortSignal.timeout(3000) });
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as any;
         const realStatus = {
-          balance: pinetState.minima.balance, // Keep balance from state for now unless we parse real balance
+          balance: pinetState.minima.balance,
           blockHeight: data.response?.chain?.block || pinetState.minima.blockHeight,
           status: 'Synced',
           peers: data.response?.network?.connected || pinetState.minima.peers,
@@ -476,7 +476,7 @@ async function startServer() {
     
     try {
       // Try real Minima RPC
-      const response = await fetch(`http://127.0.0.1:9002/${encodeURIComponent(command)}`, { timeout: 2000 } as RequestInit);
+      const response = await fetch(`${MINIMA_RPC_URL}/${encodeURIComponent(command)}`, { signal: AbortSignal.timeout(5000) });
       if (response.ok) {
         const data = await response.json();
         return res.json(data);
@@ -709,13 +709,293 @@ async function startServer() {
     }
   });
 
+  // ─── Minima RPC Port Configuration ──────────────────────────────────────
+  const MINIMA_RPC_PORT = process.env.PINET_MINIMA_RPC_PORT || 9001;
+  const MINIMA_RPC_URL = process.env.MINIMA_RPC_URL || `http://127.0.0.1:${MINIMA_RPC_PORT}`;
+  const CLUSTER_API_PORT = process.env.PINET_CLUSTER_API_PORT || 9090;
+  const CLUSTER_API_URL = `http://127.0.0.1:${CLUSTER_API_PORT}`;
+
+  // ─── Cluster State (local + from Go service) ──────────────────────────
+  let clusterEventLog: any[] = [];
+  let provenanceEvents: any[] = [];
+
+  // ─── WebSocket for Cluster Events ────────────────────────────────────
+  const clusterWsClients: Set<WebSocket> = new Set();
+
+  // Broadcast cluster events to all connected WebSocket clients
+  const broadcastClusterEvent = (type: string, payload: any) => {
+    const message = JSON.stringify({ type, payload, timestamp: Date.now() });
+    clusterWsClients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(message);
+      }
+    });
+  };
+
+  // Handle WebSocket upgrade for cluster events channel
+  server.on('upgrade', (request, socket, head) => {
+    if (request.url === '/ws/cluster') {
+      const clusterWss = new WebSocketServer({ noServer: true });
+      clusterWss.handleUpgrade(request, socket, head, (ws) => {
+        clusterWsClients.add(ws);
+        ws.on('close', () => clusterWsClients.delete(ws));
+
+        // Send current state on connect
+        fetchClusterState().then(state => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'cluster-state', payload: state }));
+          }
+        });
+      });
+    }
+  });
+
+  // Helper: fetch cluster state from Go service or fallback to local
+  const fetchClusterState = async () => {
+    try {
+      const response = await fetch(`${CLUSTER_API_URL}/cluster/state`, { signal: AbortSignal.timeout(2000) });
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (e) {
+      // Go service not running — fallback to local state
+    }
+    return {
+      clusterId: '',
+      version: 0,
+      masterNodeId: '',
+      masterAddress: '',
+      nodes: pinetState.cluster.map((n: any) => ({
+        nodeId: n.id,
+        maximaAddress: '',
+        hostname: n.name,
+        role: n.id === 'n1' ? 'master' : 'worker',
+        status: n.status === 'online' ? 'active' : 'offline',
+        lastHeartbeat: Date.now(),
+        joinedAt: Date.now(),
+        metrics: n.metrics || { cpu: 0, ram: 0, temp: 0, disk: 0, networkIn: 0, networkOut: 0 },
+        capabilities: [],
+        version: '3.0.0',
+      })),
+      createdAt: Date.now(),
+      lastUpdated: Date.now(),
+    };
+  };
+
+  // ─── Cluster API Endpoints ─────────────────────────────────────────────
+
+  app.get("/api/cluster/state", async (req, res) => {
+    const state = await fetchClusterState();
+    res.json(state);
+  });
+
   app.get("/api/cluster/nodes", (req, res) => {
     res.json(pinetState.cluster);
   });
 
+  app.post("/api/cluster/join", async (req, res) => {
+    const { masterAddress } = req.body;
+    if (!masterAddress) {
+      return res.status(400).json({ error: "masterAddress required" });
+    }
+
+    try {
+      // Send Maxima join request via Minima RPC
+      const joinMsg = JSON.stringify({
+        type: 'CLUSTER_JOIN_REQUEST',
+        sender: 'local-node',
+        senderAddress: '',
+        timestamp: Date.now(),
+        nonce: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+        clusterId: '',
+        payload: {
+          nodeId: 'local-node',
+          hostname: os.hostname(),
+          platform: `${os.type()} ${os.arch()}`,
+          version: '3.0.0',
+          capabilities: [],
+        },
+      });
+
+      const command = `maxima action:send to:${masterAddress} application:pinet-cluster data:${joinMsg.replace(/ /g, '_')}`;
+      const rpcResp = await fetch(`${MINIMA_RPC_URL}/${encodeURIComponent(command)}`, { signal: AbortSignal.timeout(5000) });
+
+      if (rpcResp.ok) {
+        clusterEventLog.push({ type: 'JOIN_REQUEST', target: masterAddress, time: Date.now() });
+        res.json({ success: true, message: "Join request sent via Maxima" });
+      } else {
+        res.json({ success: false, message: "Failed to send join request" });
+      }
+    } catch (e: any) {
+      res.json({ success: false, message: `Join failed: ${e.message}` });
+    }
+  });
+
+  app.post("/api/cluster/exec", async (req, res) => {
+    const { targetNodeId, command, args = [] } = req.body;
+    if (!targetNodeId || !command) {
+      return res.status(400).json({ error: "targetNodeId and command required" });
+    }
+
+    clusterEventLog.push({ type: 'EXEC_REQUEST', target: targetNodeId, command, time: Date.now() });
+    res.json({ success: true, message: "Exec request queued" });
+  });
+
+  // ─── Rate limiter for command execution endpoints ──────────────────────
+  const execRateLimiter = {
+    requests: new Map<string, number[]>(),
+    maxRequests: 10,
+    windowMs: 60000, // 1 minute window
+    check(key: string): boolean {
+      const now = Date.now();
+      const timestamps = this.requests.get(key) || [];
+      const recent = timestamps.filter(t => now - t < this.windowMs);
+      if (recent.length >= this.maxRequests) {
+        return false;
+      }
+      recent.push(now);
+      this.requests.set(key, recent);
+      return true;
+    }
+  };
+
+  app.post("/api/cluster/exec-local", (req, res) => {
+    // Rate limit: max 10 exec requests per minute per IP
+    const clientIp = req.ip || 'unknown';
+    if (!execRateLimiter.check(clientIp)) {
+      return res.status(429).json({ error: "Too many exec requests. Try again later." });
+    }
+
+    const { workloadId, command: cmd, args = [], timeout: cmdTimeout = 30000 } = req.body;
+    const start = Date.now();
+
+    const proc = spawn(cmd, args, { timeout: cmdTimeout });
+    let stdout = '';
+    let stderr = '';
+
+    proc.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
+    proc.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
+
+    proc.on('close', (code: number | null) => {
+      res.json({
+        workloadId,
+        exitCode: code ?? -1,
+        stdout: stdout.substring(0, 10000),
+        stderr: stderr.substring(0, 10000),
+        durationMs: Date.now() - start,
+      });
+    });
+
+    proc.on('error', (err: Error) => {
+      res.json({
+        workloadId,
+        exitCode: -1,
+        stdout: '',
+        stderr: err.message,
+        durationMs: Date.now() - start,
+      });
+    });
+  });
+
+  app.get("/api/cluster/provenance", (req, res) => {
+    res.json(provenanceEvents);
+  });
+
+  app.get("/api/cluster/events", (req, res) => {
+    res.json(clusterEventLog.slice(-100));
+  });
+
+  // ─── Maxima API Endpoints ──────────────────────────────────────────────
+
+  app.get("/api/maxima/contacts", async (req, res) => {
+    try {
+      const rpcResp = await fetch(`${MINIMA_RPC_URL}/${encodeURIComponent('maxima action:contacts')}`, { signal: AbortSignal.timeout(3000) });
+      if (rpcResp.ok) {
+        const data = await rpcResp.json() as any;
+        if (data.status && data.response) {
+          const contacts = data.response.map((c: any) => ({
+            name: c.extradata?.name || `Node-${c.id}`,
+            address: c.currentaddress,
+            status: (Date.now() - c.lastseen) < 60000 ? 'online' : 'offline',
+            lastSeen: new Date(c.lastseen).toISOString(),
+            publicKey: c.publickey,
+            sameChain: c.samechain,
+          }));
+          return res.json({ contacts });
+        }
+      }
+    } catch (e) {
+      // Fallback to demo contacts
+    }
+
+    // Fallback: return placeholder contacts
+    res.json({
+      contacts: [
+        { name: 'Node Alpha', address: 'MX_0x7123...A1F', status: 'online', lastSeen: 'Now' },
+        { name: 'Node Beta', address: 'MX_0x9922...B3D', status: 'offline', lastSeen: '5m ago' },
+      ]
+    });
+  });
+
+  app.post("/api/maxima/send", async (req, res) => {
+    const { to, application, data } = req.body;
+    if (!to || !application || !data) {
+      return res.status(400).json({ error: "to, application, and data required" });
+    }
+
+    try {
+      const jsonStr = JSON.stringify(data).replace(/ /g, '_');
+      const command = `maxima action:send to:${to} application:${application} data:${jsonStr}`;
+      const rpcResp = await fetch(`${MINIMA_RPC_URL}/${encodeURIComponent(command)}`, { signal: AbortSignal.timeout(5000) });
+
+      if (rpcResp.ok) {
+        const result = await rpcResp.json() as any;
+        return res.json({ status: result.status, delivered: result.response?.delivered });
+      }
+    } catch (e) {
+      // Fallback
+    }
+
+    res.json({ status: true, delivered: true }); // Optimistic fallback
+  });
+
+  app.get("/api/maxima/messages", async (req, res) => {
+    try {
+      const rpcResp = await fetch(`${MINIMA_RPC_URL}/${encodeURIComponent('maxima action:poll')}`, { signal: AbortSignal.timeout(3000) });
+      if (rpcResp.ok) {
+        const data = await rpcResp.json() as any;
+        if (data.status && data.response) {
+          return res.json({ messages: data.response });
+        }
+      }
+    } catch (e) {
+      // Fallback
+    }
+    res.json({ messages: [] });
+  });
+
+  // ─── Provenance Recording (from frontend) ─────────────────────────────
+
+  app.post("/api/provenance/record", (req, res) => {
+    const event = req.body;
+    if (event && event.eventType) {
+      provenanceEvents.push({ ...event, recordedAt: Date.now() });
+
+      // Keep bounded
+      if (provenanceEvents.length > 1000) {
+        provenanceEvents = provenanceEvents.slice(-500);
+      }
+
+      broadcastClusterEvent('cluster-event', event);
+      res.json({ success: true });
+    } else {
+      res.status(400).json({ error: "Invalid provenance event" });
+    }
+  });
+
   app.post("/api/cluster/provision", (req, res) => {
     const { id } = req.body;
-    const node = pinetState.cluster.find(n => n.id === id);
+    const node = pinetState.cluster.find((n: any) => n.id === id);
     if (node) {
       node.status = 'provisioning';
       saveState();

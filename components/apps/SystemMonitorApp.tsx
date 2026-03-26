@@ -4,6 +4,10 @@ import { SystemStats } from '../../types';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { getApiUrl } from '../../utils/api';
 
+// Pi 5 thermal thresholds
+const THERMAL_WARNING = 80;
+const THERMAL_CRITICAL = 85;
+
 interface SystemMonitorAppProps {
   stats: SystemStats;
 }
@@ -18,12 +22,24 @@ const SystemMonitorApp: React.FC<SystemMonitorAppProps> = ({ stats }) => {
     lastHealthCheck: null,
     systemHash: null
   });
+  const [clusterMetrics, setClusterMetrics] = useState<any[]>([]);
 
   const fetchPinet2Status = () => {
     fetch(getApiUrl('/api/pinet2/status'))
       .then(res => res.json())
       .then(data => setPinet2Status(data))
       .catch(err => console.error("Failed to load PiNet 2.0 status", err));
+  };
+
+  const fetchClusterMetrics = () => {
+    fetch(getApiUrl('/api/cluster/state'))
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.nodes) {
+          setClusterMetrics(data.nodes);
+        }
+      })
+      .catch(() => {});
   };
 
   if (!stats) return null;
@@ -41,17 +57,23 @@ const SystemMonitorApp: React.FC<SystemMonitorAppProps> = ({ stats }) => {
       interval = setInterval(fetchStats, 2000);
     }
     fetchPinet2Status();
+    fetchClusterMetrics();
     const pinet2Interval = setInterval(fetchPinet2Status, 5000);
+    const clusterInterval = setInterval(fetchClusterMetrics, 10000);
 
     return () => {
         clearInterval(interval);
         clearInterval(pinet2Interval);
+        clearInterval(clusterInterval);
     };
   }, []);
 
   const displayCpu = realStats ? realStats.cpuUsage * 100 : (stats.cpu ?? 0);
   const displayRam = realStats ? (1 - realStats.freeMem / realStats.totalMem) * 100 : (stats.ram ?? 0);
   const displayTemp = stats.temp ?? 0;
+
+  // Thermal status
+  const thermalStatus = displayTemp >= THERMAL_CRITICAL ? 'critical' : displayTemp >= THERMAL_WARNING ? 'warning' : 'normal';
 
   useEffect(() => {
     setHistory(prev => {
@@ -75,7 +97,7 @@ const SystemMonitorApp: React.FC<SystemMonitorAppProps> = ({ stats }) => {
     <div className="p-8 h-full space-y-8 overflow-y-auto">
       <div>
         <h1 className="text-2xl font-bold text-white tracking-tight">System Performance</h1>
-        <p className="text-slate-400 text-sm">Real-time telemetry for Raspberry Pi Node</p>
+        <p className="text-slate-400 text-sm">Real-time telemetry • Enterprise Edge Node</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -145,8 +167,12 @@ const SystemMonitorApp: React.FC<SystemMonitorAppProps> = ({ stats }) => {
 
         <div className="glass p-6 rounded-2xl border border-white/5 space-y-4 md:col-span-2">
           <div className="flex justify-between items-end">
-             <span className="text-sm font-semibold text-slate-400 uppercase tracking-widest">Thermal Monitoring</span>
-             <span className="text-2xl font-mono text-amber-400">{Math.round(stats.temp ?? 0)}°C</span>
+             <div className="flex items-center gap-3">
+               <span className="text-sm font-semibold text-slate-400 uppercase tracking-widest">Thermal Monitoring</span>
+               {thermalStatus === 'critical' && <span className="text-[9px] px-2 py-1 bg-red-500/20 text-red-400 rounded-full font-bold animate-pulse">⚠ CRITICAL</span>}
+               {thermalStatus === 'warning' && <span className="text-[9px] px-2 py-1 bg-amber-500/20 text-amber-400 rounded-full font-bold">⚠ THROTTLING</span>}
+             </div>
+             <span className={`text-2xl font-mono ${thermalStatus === 'critical' ? 'text-red-400' : thermalStatus === 'warning' ? 'text-amber-400' : 'text-amber-400'}`}>{Math.round(stats.temp ?? 0)}°C</span>
           </div>
           <div className="h-40 w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -155,12 +181,35 @@ const SystemMonitorApp: React.FC<SystemMonitorAppProps> = ({ stats }) => {
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <div className="flex items-center gap-2 text-xs text-slate-500 justify-center">
-             <div className="w-2 h-2 rounded-full bg-amber-500" />
-             <span>Active cooling fan engaged (PWM 60%)</span>
+          <div className="flex items-center gap-4 text-xs text-slate-500 justify-center">
+             <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500" /><span>&lt;{THERMAL_WARNING}°C Normal</span></div>
+             <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-500" /><span>{THERMAL_WARNING}°C Warning</span></div>
+             <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500" /><span>{THERMAL_CRITICAL}°C Critical</span></div>
           </div>
         </div>
       </div>
+
+      {/* Cluster Node Metrics */}
+      {clusterMetrics.length > 1 && (
+        <div className="space-y-4">
+          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-widest">Cluster Node Metrics</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {clusterMetrics.map((node: any) => (
+              <div key={node.nodeId} className="glass p-4 rounded-xl border border-white/5">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-[10px] font-bold text-white truncate">{node.hostname || node.nodeId}</span>
+                  <div className={`w-2 h-2 rounded-full ${node.status === 'active' ? 'bg-emerald-500' : node.status === 'stale' ? 'bg-amber-500' : 'bg-red-500'}`} />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="text-center"><span className="text-[8px] text-slate-500 block">CPU</span><span className="text-[10px] font-mono text-blue-400">{Math.round(node.metrics?.cpu || 0)}%</span></div>
+                  <div className="text-center"><span className="text-[8px] text-slate-500 block">RAM</span><span className="text-[10px] font-mono text-emerald-400">{Math.round(node.metrics?.ram || 0)}%</span></div>
+                  <div className="text-center"><span className="text-[8px] text-slate-500 block">TEMP</span><span className="text-[10px] font-mono text-amber-400">{Math.round(node.metrics?.temp || 0)}°</span></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

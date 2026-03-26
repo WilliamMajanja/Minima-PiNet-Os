@@ -1,15 +1,20 @@
 [Unit]
-Description=Minima Blockchain Node
-After=network.target
+Description=Minima Blockchain Node — PiNet-OS Enterprise Edge
+After=network-online.target
+Wants=network-online.target
+Documentation=https://github.com/WilliamMajanja/Minima-PiNet-Os
 
 [Service]
 Type=simple
 User=pi
-ExecStart=/usr/bin/java -jar /opt/minima/minima.jar
+Environment=PINET_HOME=/home/pi/.pinet
+ExecStart=/usr/bin/java -jar /home/pi/.pinet/bin/minima.jar -data /home/pi/.pinet/minima-data -rpcenable -rpc 9001
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
+SyslogIdentifier=minima-node
+LimitNOFILE=65536
 
 [Install]
 WantedBy=multi-user.target

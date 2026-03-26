@@ -1,13 +1,24 @@
 [Unit]
-Description=PiNet Cluster Manager
-After=network.target minima.service
+Description=PiNet-OS Cluster Manager — Maxima-based Orchestration
+After=network-online.target minima.service
+Wants=network-online.target
+Requires=minima.service
+Documentation=https://github.com/WilliamMajanja/Minima-PiNet-Os
 
 [Service]
 Type=simple
 User=root
+Environment=PINET_NODE_ID=%H
+Environment=PINET_ROLE=worker
+Environment=PINET_MINIMA_RPC_URL=http://127.0.0.1:9001
+Environment=PINET_CLUSTER_API_PORT=9090
+Environment=PINET_MAXIMA_APP=pinet-cluster
 ExecStart=/opt/pinet/cluster-manager
 Restart=always
 RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pinet-cluster
 
 [Install]
 WantedBy=multi-user.target
