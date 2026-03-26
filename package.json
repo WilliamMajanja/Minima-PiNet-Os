@@ -1,6 +1,8 @@
 {
   "name": "pinet-web3-os",
   "version": "1.0.35",
+  "description": "A modern, zero-bloat OS made for Raspberry Pi — Web3-native, AI-accelerated, and enterprise-grade secure.",
+  "keywords": ["raspberry-pi", "pinet", "minima", "web3", "edge-ai", "arm64", "linux", "lxc", "blockchain"],
   "private": true,
   "type": "module",
   "scripts": {
