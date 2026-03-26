@@ -1,0 +1,36 @@
+[Unit]
+Description=PiNetOS HAL Service (Hardware Abstraction Layer)
+Documentation=https://github.com/WilliamMajanja/Minima-PiNet-Os
+After=local-fs.target
+Before=pinet-desktop.service minima.service
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/node /opt/pinetos/hal/hal-daemon.js
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=30
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/run/pinetos /var/lib/pinetos /sys/class/gpio /sys/class/pwm
+SupplementaryGroups=gpio i2c spi dialout
+
+# Resource limits
+MemoryMax=128M
+CPUQuota=10%
+
+# Environment
+Environment=NODE_ENV=production
+Environment=HAL_LOG_LEVEL=info
+EnvironmentFile=-/etc/pinetos/hal.env
+
+RuntimeDirectory=pinetos
+RuntimeDirectoryMode=0755
+StateDirectory=pinetos
+StateDirectoryMode=0750
+
+[Install]
+WantedBy=multi-user.target

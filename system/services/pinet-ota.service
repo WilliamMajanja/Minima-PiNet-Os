@@ -1,0 +1,24 @@
+[Unit]
+Description=PiNetOS OTA Update Service
+Documentation=https://github.com/WilliamMajanja/Minima-PiNet-Os
+After=network-online.target pinet-hal.service
+Wants=network-online.target
+ConditionPathExists=/etc/pinetos/ota.conf
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pinet-ota-update
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pinet-ota
+
+# Security
+NoNewPrivileges=no
+PrivateTmp=yes
+ProtectHome=yes
+
+# Timeout
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target

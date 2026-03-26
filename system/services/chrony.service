@@ -1,0 +1,19 @@
+[Unit]
+Description=PiNetOS chrony NTP Time Synchronization
+Documentation=https://github.com/WilliamMajanja/Minima-PiNet-Os
+After=network.target nss-lookup.target
+
+[Service]
+Type=forking
+PIDFile=/run/chrony/chronyd.pid
+EnvironmentFile=-/etc/default/chrony
+ExecStart=/usr/sbin/chronyd $DAEMON_OPTS
+ExecStopPost=/bin/rm -f /run/chrony/chronyd.pid
+Restart=on-failure
+
+PrivateTmp=yes
+ProtectHome=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

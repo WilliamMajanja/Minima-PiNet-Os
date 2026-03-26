@@ -1,0 +1,132 @@
+# PiNetOS Raspberry Pi 5 Boot Configuration
+# /boot/config.txt
+#
+# Documentation: https://www.raspberrypi.com/documentation/computers/config_txt.html
+
+# ===========================================================================
+# MEMORY SPLIT
+# ===========================================================================
+# Reserve 256 MB for VideoCore GPU (needed for dual HDMI @ 4K)
+gpu_mem=256
+
+# ===========================================================================
+# KERNEL SELECTION
+# ===========================================================================
+kernel=kernel8.img
+arm_64bit=1
+
+# ===========================================================================
+# CPU OVERCLOCK (Conservative — safe for all RPi 5 units with active cooling)
+# WARNING: Overclocking may void your warranty. Ensure you have adequate
+# cooling (e.g. Official Active Cooler) before enabling. Not all units
+# are stable at 2600 MHz — reduce to arm_freq=2400 if instability occurs.
+# ===========================================================================
+# Default: 2400 MHz; mild overclock to 2600 MHz
+over_voltage=2
+arm_freq=2600
+
+# Disable CPU frequency scaling floor (let schedutil manage)
+# arm_freq_min=1500
+
+# ===========================================================================
+# HDMI OUTPUT (micro-HDMI port 0)
+# ===========================================================================
+# Force HDMI even if no display is detected at boot
+hdmi_force_hotplug=1
+hdmi_safe=0
+
+# HDMI group: 1=CEA (TV), 2=DMT (monitor)
+hdmi_group=2
+# HDMI mode: 82 = 1920x1080 @ 60Hz (DMT)
+hdmi_mode=82
+
+# Enable 4K @ 60Hz on HDMI port 0 (requires HDMI 2.0 cable)
+# hdmi_enable_4kp60=1
+
+# ===========================================================================
+# HDMI AUDIO
+# ===========================================================================
+dtparam=audio=on
+hdmi_drive=2
+
+# ===========================================================================
+# DISPLAY ROTATE
+# ===========================================================================
+# display_rotate=0  # 0=normal, 1=90°, 2=180°, 3=270°
+
+# ===========================================================================
+# USB BOOT
+# ===========================================================================
+# Allow boot from USB mass storage (NVMe via PCIe adapter)
+program_usb_boot_mode=1
+otg_mode=1
+
+# ===========================================================================
+# PCIe / NVMe
+# ===========================================================================
+# Enable PCIe Gen 3 (experimental on RPi 5)
+dtparam=pciex1_gen=3
+
+# ===========================================================================
+# UART / SERIAL CONSOLE
+# ===========================================================================
+enable_uart=1
+# Redirect primary UART to GPIO 14/15 (pins 8/10)
+dtoverlay=disable-bt
+
+# ===========================================================================
+# I2C
+# ===========================================================================
+dtparam=i2c_arm=on
+dtparam=i2c1=on
+# Increase I2C speed to 400 kHz (fast mode)
+dtparam=i2c_arm_baudrate=400000
+
+# ===========================================================================
+# SPI
+# ===========================================================================
+dtparam=spi=on
+
+# ===========================================================================
+# GPIO / PWM
+# ===========================================================================
+# PWM on GPIO 18 (hardware PWM channel 0)
+# dtoverlay=pwm,pin=18,func=2
+
+# ===========================================================================
+# CAMERA / ISP
+# ===========================================================================
+# camera_auto_detect=1
+# dtoverlay=imx708      # RPi Camera Module 3
+
+# ===========================================================================
+# WATCHDOG
+# ===========================================================================
+dtparam=watchdog=on
+
+# ===========================================================================
+# REAL-TIME CLOCK (add-on HAT)
+# ===========================================================================
+# dtoverlay=i2c-rtc,ds3231
+
+# ===========================================================================
+# 1-WIRE (temperature sensor GPIO 4)
+# ===========================================================================
+# dtoverlay=w1-gpio
+
+# ===========================================================================
+# HAT+ / EEPROM
+# ===========================================================================
+force_eeprom_read=0
+
+# ===========================================================================
+# CONDITIONAL OVERCLOCKS (RPi 5 only)
+# ===========================================================================
+[pi5]
+dtparam=nvme
+dtoverlay=rpi-poe-plus
+arm_freq=2600
+over_voltage=2
+
+[all]
+# Re-enable all settings unconditionally below this line

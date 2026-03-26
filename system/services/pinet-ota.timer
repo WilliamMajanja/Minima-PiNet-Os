@@ -1,0 +1,13 @@
+[Unit]
+Description=PiNetOS OTA Update Timer (daily check)
+Documentation=https://github.com/WilliamMajanja/Minima-PiNet-Os
+
+[Timer]
+# Check for updates every day at 03:00 local time
+OnCalendar=*-*-* 03:00:00
+RandomizedDelaySec=1800
+Persistent=true
+Unit=pinet-ota.service
+
+[Install]
+WantedBy=timers.target
