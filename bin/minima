@@ -1,16 +1,78 @@
-#!/bin/bash
-echo -e "\033[1;33mMinima Node CLI v1.0.35\033[0m"
+#!/bin/sh
+# Minima Node CLI — PiNet-OS Enterprise Edge
+# Direct interface to the local Minima node RPC
+
+PINET_MINIMA_RPC_PORT="${PINET_MINIMA_RPC_PORT:-9001}"
+MINIMA_RPC_URL="http://127.0.0.1:$PINET_MINIMA_RPC_PORT"
+
+CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m'
+
+printf "${WHITE}Minima Node CLI v3.0.0${NC} (RPC: $MINIMA_RPC_URL)\n"
+
 case "$1" in
   status)
-    curl -s http://localhost:3000/api/minima/status | grep -o '"status":"[^"]*"' | cut -d'"' -f4 | sed 's/^/Status: /'
-    curl -s http://localhost:3000/api/minima/status | grep -o '"blockHeight":[^,]*' | cut -d':' -f2 | sed 's/^/Block: /'
-    curl -s http://localhost:3000/api/minima/status | grep -o '"peers":[^,]*' | cut -d':' -f2 | sed 's/^/Connections: /'
+    _data=$(curl -s "$MINIMA_RPC_URL/status" 2>/dev/null)
+    if [ -n "$_data" ] && echo "$_data" | grep -q '"status":true'; then
+      printf "${GREEN}● Node is running${NC}\n"
+      echo "$_data" | grep -o '"block":[0-9]*' | head -1 | sed "s/.*:\(.*\)/  Block:       \1/"
+      echo "$_data" | grep -o '"connected":[0-9]*' | head -1 | sed "s/.*:\(.*\)/  Peers:       \1/"
+      echo "$_data" | grep -o '"version":"[^"]*"' | head -1 | sed 's/.*:"\(.*\)"/  Version:     \1/'
+      echo "$_data" | grep -o '"uptime":"[^"]*"' | head -1 | sed 's/.*:"\(.*\)"/  Uptime:      \1/'
+    else
+      printf "${YELLOW}○ Node is not responding${NC}\n"
+      printf "  Trying fallback API...\n"
+      curl -s http://localhost:3000/api/minima/status 2>/dev/null | grep -o '"status":"[^"]*"' | cut -d'"' -f4 | sed 's/^/  Status: /'
+      curl -s http://localhost:3000/api/minima/status 2>/dev/null | grep -o '"blockHeight":[^,]*' | cut -d':' -f2 | sed 's/^/  Block: /'
+      curl -s http://localhost:3000/api/minima/status 2>/dev/null | grep -o '"peers":[^,]*' | cut -d':' -f2 | sed 's/^/  Peers: /'
+    fi
     ;;
   peers)
-    echo "Connected Peers:"
-    curl -s http://localhost:3000/api/minima/status | grep -o '"peers":[^,]*' | cut -d':' -f2
+    printf "${CYAN}Connected Peers:${NC}\n"
+    curl -s "$MINIMA_RPC_URL/status" 2>/dev/null | grep -o '"connected":[0-9]*' | head -1 | sed "s/.*:\(.*\)/  Count: \1/"
+    ;;
+  balance)
+    printf "${CYAN}Token Balance:${NC}\n"
+    _data=$(curl -s "$MINIMA_RPC_URL/balance" 2>/dev/null)
+    if [ -n "$_data" ]; then
+      echo "$_data" | grep -o '"confirmed":"[^"]*"' | head -1 | sed 's/.*:"\(.*\)"/  Confirmed: \1 MIN/'
+      echo "$_data" | grep -o '"sendable":"[^"]*"' | head -1 | sed 's/.*:"\(.*\)"/  Sendable:  \1 MIN/'
+    else
+      printf "  Cannot connect to Minima RPC\n"
+    fi
+    ;;
+  maxima)
+    printf "${CYAN}Maxima Info:${NC}\n"
+    curl -s "$MINIMA_RPC_URL/maxima" 2>/dev/null
+    printf "\n"
+    ;;
+  contacts)
+    printf "${CYAN}Maxima Contacts:${NC}\n"
+    curl -s "$MINIMA_RPC_URL/maxima%20action:contacts" 2>/dev/null
+    printf "\n"
+    ;;
+  cmd)
+    shift
+    _cmd="$*"
+    if [ -z "$_cmd" ]; then
+      printf "Usage: minima cmd <command>\n"
+      exit 1
+    fi
+    curl -s "$MINIMA_RPC_URL/$(echo "$_cmd" | sed 's/ /%20/g')" 2>/dev/null
+    printf "\n"
     ;;
   *)
-    echo "Usage: minima [status|peers|info|help]"
+    printf "\nUsage: ${CYAN}minima${NC} <command>\n\n"
+    printf "Commands:\n"
+    printf "  ${CYAN}status${NC}     Show node status\n"
+    printf "  ${CYAN}peers${NC}      Show connected peers\n"
+    printf "  ${CYAN}balance${NC}    Show token balance\n"
+    printf "  ${CYAN}maxima${NC}     Show Maxima identity\n"
+    printf "  ${CYAN}contacts${NC}   List Maxima contacts\n"
+    printf "  ${CYAN}cmd${NC} <cmd>  Execute arbitrary Minima command\n"
+    printf "\n"
     ;;
 esac

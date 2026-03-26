@@ -1,22 +1,107 @@
 # PiNetOS Deployment Guide
 
-## Prerequisites
-- Raspberry Pi 4 or 5
-- MicroSD Card (16GB+ recommended)
-- Linux/macOS host machine for flashing
+## Spawnable Runtime (Recommended)
 
-## Installation
-1. Download the `PiNetOS.img` file.
-2. Flash the image to your MicroSD card using `dd` or Raspberry Pi Imager.
+PiNet-OS runs as a contained environment on **any existing Linux distro** on Raspberry Pi 5.
+No dedicated image flashing required.
+
+### Prerequisites
+
+- Raspberry Pi 5 (4GB+ RAM recommended)
+- Any Linux distro (Raspberry Pi OS, Ubuntu, Debian, etc.)
+- Internet access for initial setup
+
+### Installation
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/WilliamMajanja/Minima-PiNet-Os.git
+cd Minima-PiNet-Os
+
+# 2. Run the setup script (installs Java, Node.js, downloads Minima)
+bin/pinet setup
+
+# 3. Start PiNet-OS
+bin/pinet start --role master    # For the first node (master)
+# OR
+bin/pinet start --role worker --master <address>  # For worker nodes
+```
+
+### What Setup Does
+
+1. Checks and installs **Java 17+** (for the Minima node)
+2. Checks and installs **Node.js 18+** (for the web desktop)
+3. Downloads the **Minima JAR** to `~/.pinet/bin/minima.jar`
+4. Installs web desktop npm dependencies
+5. Generates node identity and initial configuration
+
+### Runtime Directory
+
+After setup, the PiNet-OS runtime lives at `~/.pinet/`:
+
+```
+~/.pinet/
+├── config.json          # Node config (role, ports, master address)
+├── pinet.pid            # Master PID file
+├── bin/minima.jar       # Minima blockchain node
+├── minima-data/         # Blockchain data
+├── logs/                # Service logs
+├── state/
+│   ├── cluster.json     # Cluster state cache
+│   └── identity.json    # Node identity
+└── modules/             # Plugin modules
+```
+
+### Managing the Runtime
+
+```bash
+pinet status             # Show runtime status
+pinet stop               # Stop all services
+pinet logs --follow      # Tail service logs
+pinet shell              # Attach to PiNet-OS session
+pinet cluster            # Show cluster topology
+pinet open               # List available apps
+```
+
+### Accessing the Desktop
+
+Open a browser and navigate to:
+```
+http://<pi-ip>:3000
+```
+
+## Image-Based Installation (Legacy)
+
+For a dedicated installation using a pre-built image:
+
+1. Download the `PiNetOS.img` file from the releases page
+2. Flash to MicroSD:
    ```bash
    sudo dd if=PiNetOS.img of=/dev/sdX bs=4M status=progress
    ```
-3. Insert the MicroSD card into your Raspberry Pi and power it on.
-4. The system will automatically resize the root partition, generate device identities, and start the Minima node.
+3. Boot the Pi and access via SSH:
+   ```bash
+   ssh pi@<pi-ip>
+   ```
+   Default password: `pinet` (change immediately)
 
-## Post-Installation
-Access the node via SSH:
+## Systemd Services (Production)
+
+For production deployments, install the systemd services:
+
 ```bash
-ssh pi@<raspberry-pi-ip>
+sudo cp PiNetOS/services/minima.service /etc/systemd/system/
+sudo cp PiNetOS/services/pinet-cluster-manager.service /etc/systemd/system/
+sudo cp PiNetOS/services/pinet-desktop.service /etc/systemd/system/
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now minima pinet-cluster-manager pinet-desktop
 ```
-Default password is `pinet`. Please change it immediately.
+
+## Port Reference
+
+| Port | Service | Description |
+|------|---------|-------------|
+| 3000 | Web Desktop | Browser-based control plane |
+| 9001 | Minima RPC | Blockchain node API |
+| 9090 | Cluster API | Go cluster manager API |
