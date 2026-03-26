@@ -135,7 +135,7 @@ class MinimaServiceImpl {
   }
 
   async initiateM402Stream(rate: number): Promise<string> {
-    const sessionId = `M402-${Math.random().toString(36).substr(2, 9)}`;
+    const sessionId = `M402-${Math.random().toString(36).slice(2, 11)}`;
     await this.cmd(`m402 create session:${sessionId} rate:${rate} target:cluster_pool`);
     return sessionId;
   }

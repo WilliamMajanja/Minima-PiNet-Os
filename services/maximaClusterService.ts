@@ -336,7 +336,7 @@ class MaximaClusterServiceImpl {
     if (!targetNode) return;
 
     const execRequest = this.createMessage<ExecRequestPayload>(MsgType.EXEC_REQUEST, {
-      workloadId: `wl-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      workloadId: `wl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       command,
       args,
       env: {},
@@ -463,14 +463,14 @@ class MaximaClusterServiceImpl {
       sender: this.localNodeId,
       senderAddress: this.localAddress,
       timestamp: Date.now(),
-      nonce: `${Date.now()}-${Math.random().toString(36).substr(2, 8)}`,
+      nonce: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       clusterId: this.clusterState?.clusterId || '',
       payload,
     };
   }
 
   private generateClusterId(): string {
-    return `cluster-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`;
+    return `cluster-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   }
 
   private async getLocalMetrics(): Promise<NodeMetrics> {

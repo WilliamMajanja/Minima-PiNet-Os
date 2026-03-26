@@ -806,7 +806,7 @@ async function startServer() {
         sender: 'local-node',
         senderAddress: '',
         timestamp: Date.now(),
-        nonce: `${Date.now()}-${Math.random().toString(36).substr(2, 8)}`,
+        nonce: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
         clusterId: '',
         payload: {
           nodeId: 'local-node',

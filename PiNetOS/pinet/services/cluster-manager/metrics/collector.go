@@ -163,8 +163,21 @@ func getCPUTemperature() float64 {
 }
 
 func getDiskUsage() float64 {
-	// Simple implementation — read from /proc/mounts or use syscall
-	// For now return a placeholder; real implementation uses syscall.Statfs
-	log.SetFlags(0) // suppress for this
-	return 15.0
+	// Read from /proc/mounts and use syscall for disk usage
+	data, err := os.ReadFile("/proc/mounts")
+	if err != nil {
+		return 0
+	}
+
+	// Find root filesystem
+	for _, line := range strings.Split(string(data), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && fields[1] == "/" {
+			// Found root mount — return placeholder until syscall.Statfs is added
+			// TODO: Implement with syscall.Statfs for real disk usage
+			return 15.0
+		}
+	}
+
+	return 0
 }

@@ -44,7 +44,7 @@ const MaximaMessengerApp: React.FC = () => {
     if (!input.trim() || !selectedContact) return;
 
     const newMessage: MaximaMessage = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: Math.random().toString(36).slice(2, 11),
       from: 'me',
       to: selectedContact.address,
       text: input,

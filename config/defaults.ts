@@ -5,9 +5,9 @@
 
 // ─── Network Ports ───────────────────────────────────────────────────────────
 
-export const MINIMA_RPC_PORT = Number(process.env.PINET_MINIMA_RPC_PORT) || 9001;
-export const DESKTOP_PORT = Number(process.env.PINET_DESKTOP_PORT) || 3000;
-export const CLUSTER_API_PORT = Number(process.env.PINET_CLUSTER_API_PORT) || 9090;
+export const MINIMA_RPC_PORT = parseInt(process.env.PINET_MINIMA_RPC_PORT || '', 10) || 9001;
+export const DESKTOP_PORT = parseInt(process.env.PINET_DESKTOP_PORT || '', 10) || 3000;
+export const CLUSTER_API_PORT = parseInt(process.env.PINET_CLUSTER_API_PORT || '', 10) || 9090;
 
 // ─── Minima RPC ──────────────────────────────────────────────────────────────
 
