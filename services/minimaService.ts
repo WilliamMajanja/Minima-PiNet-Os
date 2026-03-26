@@ -1,7 +1,15 @@
+/**
+ * Minima Service
+ *
+ * Frontend service that manages Minima node state and provides
+ * a reactive interface for UI components. Uses minimaRpcClient
+ * for actual RPC communication.
+ */
 
 import { NodeStats } from '../types';
 import { ExceptionFilter } from '../utils/core';
 import { getApiUrl } from '../utils/api';
+import { PINET_VERSION } from '../config/defaults';
 
 type Listener = () => void;
 
@@ -21,17 +29,20 @@ export interface MinimaStatusResponse {
   status: string;
 }
 
+export type ConnectionState = 'connected' | 'disconnected' | 'reconnecting';
+
 class MinimaServiceImpl {
   private listeners: Listener[] = [];
-  private _balance = 1250.45;
-  private _blockHeight = 1245091;
+  private _balance = 0;
+  private _blockHeight = 0;
   private _transactions: MinimaTransaction[] = [];
+  private _connectionState: ConnectionState = 'disconnected';
   private _stats: NodeStats = {
-    blockHeight: 1245091,
-    peers: 14,
-    status: 'Synced',
-    uptime: '14d 05h 22m',
-    version: '1.0.35'
+    blockHeight: 0,
+    peers: 0,
+    status: 'Offline',
+    uptime: '0s',
+    version: PINET_VERSION
   };
 
   constructor() {
@@ -47,6 +58,7 @@ class MinimaServiceImpl {
         this._balance = data.balance;
         this._blockHeight = data.blockHeight;
         this._transactions = data.transactions;
+        this._connectionState = 'connected';
         this._stats = {
           ...this._stats,
           blockHeight: data.blockHeight,
@@ -55,9 +67,11 @@ class MinimaServiceImpl {
         };
         this.emit();
       } else {
+        this._connectionState = 'reconnecting';
         throw new Error(`HTTP error! status: ${response.status}`);
       }
     } catch (e) {
+      this._connectionState = 'disconnected';
       ExceptionFilter.handle(e, 'minimaService.fetchUpdates');
     }
   }
@@ -72,6 +86,7 @@ class MinimaServiceImpl {
   get balance(): number { return this._balance; }
   get transactions(): MinimaTransaction[] { return this._transactions; }
   get stats(): NodeStats { return this._stats; }
+  get connectionState(): ConnectionState { return this._connectionState; }
 
   async burn(amount: number, description: string): Promise<void> {
     try {
@@ -129,11 +144,54 @@ class MinimaServiceImpl {
     await this.cmd(`m402 close session:${sessionId}`);
   }
 
+  /** Send a Maxima message via the backend API */
   async sendMaximaMessage(to: string, application: string, data: any): Promise<boolean> {
+    try {
+      const response = await fetch(getApiUrl('/api/maxima/send'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to, application, data })
+      });
+      if (response.ok) {
+        const result = await response.json() as { status: boolean };
+        return result.status;
+      }
+    } catch (e) {
+      ExceptionFilter.handle(e, 'minimaService.sendMaximaMessage');
+    }
+
+    // Fallback to direct command
     const jsonStr = JSON.stringify(data);
     const command = `maxima send to:${to} application:${application} data:${jsonStr}`;
     const result = await this.cmd(command);
     return result.status;
+  }
+
+  /** Get Maxima contacts from the backend */
+  async getMaximaContacts(): Promise<any[]> {
+    try {
+      const response = await fetch(getApiUrl('/api/maxima/contacts'));
+      if (response.ok) {
+        const data = await response.json() as { contacts: any[] };
+        return data.contacts || [];
+      }
+    } catch (e) {
+      ExceptionFilter.handle(e, 'minimaService.getMaximaContacts');
+    }
+    return [];
+  }
+
+  /** Get cluster provenance history */
+  async getProvenanceHistory(): Promise<any[]> {
+    try {
+      const response = await fetch(getApiUrl('/api/cluster/provenance'));
+      if (response.ok) {
+        return await response.json() as any[];
+      }
+    } catch (e) {
+      ExceptionFilter.handle(e, 'minimaService.getProvenanceHistory');
+    }
+    return [];
   }
 }
 
