@@ -841,7 +841,31 @@ async function startServer() {
     res.json({ success: true, message: "Exec request queued" });
   });
 
+  // ─── Rate limiter for command execution endpoints ──────────────────────
+  const execRateLimiter = {
+    requests: new Map<string, number[]>(),
+    maxRequests: 10,
+    windowMs: 60000, // 1 minute window
+    check(key: string): boolean {
+      const now = Date.now();
+      const timestamps = this.requests.get(key) || [];
+      const recent = timestamps.filter(t => now - t < this.windowMs);
+      if (recent.length >= this.maxRequests) {
+        return false;
+      }
+      recent.push(now);
+      this.requests.set(key, recent);
+      return true;
+    }
+  };
+
   app.post("/api/cluster/exec-local", (req, res) => {
+    // Rate limit: max 10 exec requests per minute per IP
+    const clientIp = req.ip || 'unknown';
+    if (!execRateLimiter.check(clientIp)) {
+      return res.status(429).json({ error: "Too many exec requests. Try again later." });
+    }
+
     const { workloadId, command: cmd, args = [], timeout: cmdTimeout = 30000 } = req.body;
     const start = Date.now();
 
