@@ -1,5 +1,6 @@
 # Minima-PiNet-OS
 
+![Made for Raspberry Pi](https://img.shields.io/badge/Made%20for-Raspberry%20Pi-C51A4A?logo=raspberry-pi&logoColor=white)
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
 ![Architecture](https://img.shields.io/badge/arch-ARM64-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -7,7 +8,7 @@
 ![Security](https://img.shields.io/badge/security-Zero--Trust--Attestation-red)
 ![Virtualization](https://img.shields.io/badge/virt-LXC--Enterprise-blue)
 
-> **An ultra-minimalist, AI-ready operating system built specifically for the Raspberry Pi community, empowering makers to run decentralized edge computing and neural networks right from their desks.**
+> **A modern, zero-bloat operating system made for Raspberry Pi — combining decentralized Web3 infrastructure, AI acceleration, and enterprise-grade security into a single, maker-ready platform.**
 
 ## Executive Summary
 
