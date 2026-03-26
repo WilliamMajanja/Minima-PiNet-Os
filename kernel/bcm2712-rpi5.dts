@@ -1,0 +1,466 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree Source for Raspberry Pi 5 (BCM2712)
+ * PiNetOS - Production ARM64 Device Tree
+ *
+ * Based on upstream Linux kernel RPi device trees.
+ * Target: Broadcom BCM2712 SoC, ARM Cortex-A76 quad-core
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/bcm2712.h>
+#include <dt-bindings/pinctrl/bcm2712.h>
+
+/ {
+	model = "Raspberry Pi 5";
+	compatible = "raspberrypi,5-model-b", "brcm,bcm2712";
+	interrupt-parent = <&gicv2>;
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	/* ------------------------------------------ */
+	/* CPU cluster: Cortex-A76 quad-core @ 2.4 GHz */
+	/* ------------------------------------------ */
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a76";
+			reg = <0x000>;
+			enable-method = "psci";
+			next-level-cache = <&l2>;
+			cpu-idle-states = <&CPU_SLEEP_0>;
+			clocks = <&clk_cpu>;
+			clock-names = "cpu";
+		};
+
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a76";
+			reg = <0x100>;
+			enable-method = "psci";
+			next-level-cache = <&l2>;
+			cpu-idle-states = <&CPU_SLEEP_0>;
+			clocks = <&clk_cpu>;
+			clock-names = "cpu";
+		};
+
+		cpu2: cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a76";
+			reg = <0x200>;
+			enable-method = "psci";
+			next-level-cache = <&l2>;
+			cpu-idle-states = <&CPU_SLEEP_0>;
+			clocks = <&clk_cpu>;
+			clock-names = "cpu";
+		};
+
+		cpu3: cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a76";
+			reg = <0x300>;
+			enable-method = "psci";
+			next-level-cache = <&l2>;
+			cpu-idle-states = <&CPU_SLEEP_0>;
+			clocks = <&clk_cpu>;
+			clock-names = "cpu";
+		};
+
+		l2: l2-cache {
+			compatible = "cache";
+			cache-level = <2>;
+			cache-size = <0x200000>; /* 2 MB L2 */
+		};
+
+		idle-states {
+			entry-method = "psci";
+			CPU_SLEEP_0: cpu-sleep-0 {
+				compatible = "arm,idle-state";
+				local-timer-stop;
+				arm,psci-suspend-param = <0x0010000>;
+				entry-latency-us = <300>;
+				exit-latency-us = <500>;
+				min-residency-us = <2000>;
+			};
+		};
+	};
+
+	/* PSCI */
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
+	/* ------------------------------------------ */
+	/* Memory                                      */
+	/* ------------------------------------------ */
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x00000000 0x2 0x00000000>; /* 8 GB */
+	};
+
+	/* ------------------------------------------ */
+	/* Clocks                                      */
+	/* ------------------------------------------ */
+	clocks {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		clk_osc: clk-osc {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <54000000>;
+			clock-output-names = "osc";
+		};
+
+		clk_cpu: clk-cpu {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <2400000000>;
+			clock-output-names = "cpu";
+		};
+
+		clk_uart: clk-uart {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <48000000>;
+			clock-output-names = "uart-clk";
+		};
+	};
+
+	/* ------------------------------------------ */
+	/* Interrupt Controller (GICv2)                */
+	/* ------------------------------------------ */
+	gicv2: interrupt-controller@107fff9000 {
+		compatible = "arm,gic-400";
+		reg = <0x10 0x7fff9000 0x0 0x1000>,
+		      <0x10 0x7fffa000 0x0 0x2000>,
+		      <0x10 0x7fffc000 0x0 0x2000>,
+		      <0x10 0x7fffe000 0x0 0x2000>;
+		#interrupt-cells = <3>;
+		interrupt-controller;
+		#address-cells = <0>;
+	};
+
+	/* ------------------------------------------ */
+	/* Timer                                       */
+	/* ------------------------------------------ */
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
+		             <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
+		             <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
+		             <GIC_PPI 10 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>;
+		arm,no-tick-in-suspend;
+	};
+
+	/* ------------------------------------------ */
+	/* SoC Peripherals (AXI addresses)             */
+	/* ------------------------------------------ */
+	soc: soc@107c000000 {
+		compatible = "simple-bus";
+		ranges = <0x0 0x00 0x107c000000 0x0 0x4000000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		/* UART0 (PL011) - Primary Console */
+		uart0: serial@7d001000 {
+			compatible = "arm,pl011", "arm,primecell";
+			reg = <0x7d001000 0x1000>;
+			interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_uart>, <&clk_uart>;
+			clock-names = "uartclk", "apb_pclk";
+			status = "okay";
+		};
+
+		/* I2C0 */
+		i2c0: i2c@7d205000 {
+			compatible = "brcm,bcm2835-i2c";
+			reg = <0x7d205000 0x1000>;
+			interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_osc>;
+			clock-frequency = <100000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+		};
+
+		/* I2C1 */
+		i2c1: i2c@7d205800 {
+			compatible = "brcm,bcm2835-i2c";
+			reg = <0x7d205800 0x1000>;
+			interrupts = <GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_osc>;
+			clock-frequency = <400000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+		};
+
+		/* SPI0 */
+		spi0: spi@7d204000 {
+			compatible = "brcm,bcm2835-spi";
+			reg = <0x7d204000 0x1000>;
+			interrupts = <GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_osc>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+			cs-gpios = <&gpio 8 GPIO_ACTIVE_LOW>,
+			           <&gpio 7 GPIO_ACTIVE_LOW>;
+
+			spidev0: spidev@0 {
+				compatible = "spidev";
+				reg = <0>;
+				spi-max-frequency = <500000>;
+			};
+		};
+
+		/* SPI1 */
+		spi1: spi@7d215000 {
+			compatible = "brcm,bcm2835-aux-spi";
+			reg = <0x7d215000 0x100>;
+			interrupts = <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_osc>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		/* GPIO */
+		gpio: gpio@7d517c00 {
+			compatible = "brcm,bcm2712-gpio";
+			reg = <0x7d517c00 0x100>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupts = <GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH>,
+			             <GIC_SPI 146 IRQ_TYPE_LEVEL_HIGH>,
+			             <GIC_SPI 147 IRQ_TYPE_LEVEL_HIGH>,
+			             <GIC_SPI 148 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		/* PWM */
+		pwm0: pwm@7d20c000 {
+			compatible = "brcm,bcm2835-pwm";
+			reg = <0x7d20c000 0x1000>;
+			assigned-clocks = <&clk_osc>;
+			assigned-clock-rates = <100000000>;
+			#pwm-cells = <2>;
+			status = "okay";
+		};
+
+		/* SD/MMC (SDIO) */
+		mmc0: mmc@7d000000 {
+			compatible = "brcm,bcm2712-sdhci",
+			             "brcm,sdhci-iproc";
+			reg = <0x7d000000 0x1000>;
+			interrupts = <GIC_SPI 272 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_osc>;
+			sdhci,auto-cmd12;
+			bus-width = <8>;
+			non-removable;
+			status = "okay";
+		};
+
+		/* SD Card (microSD slot) */
+		mmc1: mmc@7d100000 {
+			compatible = "brcm,bcm2712-sdhci",
+			             "brcm,sdhci-iproc";
+			reg = <0x7d100000 0x1000>;
+			interrupts = <GIC_SPI 273 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_osc>;
+			sdhci,auto-cmd12;
+			bus-width = <4>;
+			cd-gpios = <&gpio 22 GPIO_ACTIVE_LOW>;
+			status = "okay";
+		};
+
+		/* Gigabit Ethernet (Genet) */
+		ethernet0: ethernet@7d580000 {
+			compatible = "brcm,bcm2711-genet-v5";
+			reg = <0x7d580000 0x10000>;
+			interrupts = <GIC_SPI 0x114 IRQ_TYPE_LEVEL_HIGH>,
+			             <GIC_SPI 0x115 IRQ_TYPE_LEVEL_HIGH>;
+			phy-mode = "rgmii-rxid";
+			phy-handle = <&eth_phy1>;
+			status = "okay";
+
+			mdio {
+				compatible = "simple-bus";
+				#address-cells = <0x1>;
+				#size-cells = <0x0>;
+
+				eth_phy1: ethernet-phy@1 {
+					reg = <0x1>;
+					/* BCM54213PE */
+					compatible = "ethernet-phy-ieee802.3-c22";
+				};
+			};
+		};
+
+		/* USB Host Controller (xHCI) */
+		usb: usb@7d400000 {
+			compatible = "generic-xhci";
+			reg = <0x7d400000 0x10000>;
+			interrupts = <GIC_SPI 176 IRQ_TYPE_LEVEL_HIGH>;
+			dr_mode = "host";
+			status = "okay";
+		};
+
+		/* Thermal Sensor */
+		thermal: thermal@7d5d2200 {
+			compatible = "brcm,bcm2712-thermal";
+			reg = <0x7d5d2200 0x10>;
+			interrupts = <GIC_SPI 215 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_osc>;
+			#thermal-sensor-cells = <0>;
+		};
+
+		/* Watchdog */
+		watchdog: watchdog@7d15c200 {
+			compatible = "brcm,bcm2835-pm-wdog";
+			reg = <0x7d15c200 0x1c>;
+			clocks = <&clk_osc>;
+			timeout-sec = <10>;
+			status = "okay";
+		};
+
+		/* RNG */
+		rng: rng@7d408000 {
+			compatible = "brcm,bcm2711-rng200";
+			reg = <0x7d408000 0x28>;
+			status = "okay";
+		};
+
+		/* Mailbox (VideoCore IPC) */
+		mailbox: mailbox@7d00b880 {
+			compatible = "brcm,bcm2835-mbox";
+			reg = <0x7d00b880 0x40>;
+			interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
+			#mbox-cells = <0>;
+		};
+
+		/* VideoCore Firmware (for clocks, voltage, etc.) */
+		firmware: firmware {
+			compatible = "raspberrypi,bcm2835-firmware", "simple-mfd";
+			mboxes = <&mailbox>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			firmware_clocks: clocks {
+				compatible = "raspberrypi,firmware-clocks";
+				#clock-cells = <1>;
+			};
+
+			expgpio: gpio {
+				compatible = "raspberrypi,firmware-gpio";
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+		};
+	};
+
+	/* ------------------------------------------ */
+	/* PCIe (Gen 3, x1)                            */
+	/* ------------------------------------------ */
+	pcie0: pcie@110000000 {
+		compatible = "brcm,bcm2712-pcie";
+		reg = <0x01 0x10000000 0x0 0x9310>;
+		#address-cells = <3>;
+		#size-cells = <2>;
+		interrupts = <GIC_SPI 213 IRQ_TYPE_LEVEL_HIGH>,
+		             <GIC_SPI 214 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "pcie", "msi";
+		interrupt-map-mask = <0x0 0x0 0x0 0x7>;
+		interrupt-map = <0 0 0 1 &gicv2 GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>,
+		                <0 0 0 2 &gicv2 GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>,
+		                <0 0 0 3 &gicv2 GIC_SPI 211 IRQ_TYPE_LEVEL_HIGH>,
+		                <0 0 0 4 &gicv2 GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH>;
+		device_type = "pci";
+		ranges = <0x2000000 0x0 0xe0000000  0x6 0x00000000  0x0 0x10000000>;
+		msi-parent = <&pcie0>;
+		msi-controller;
+		status = "okay";
+	};
+
+	/* ------------------------------------------ */
+	/* Thermal Zones                               */
+	/* ------------------------------------------ */
+	thermal-zones {
+		cpu-thermal {
+			polling-delay-passive = <2000>;
+			polling-delay = <10000>;
+			thermal-sensors = <&thermal>;
+
+			trips {
+				cpu_alert0: trip0 {
+					temperature = <70000>;
+					hysteresis = <2000>;
+					type = "passive";
+				};
+				cpu_alert1: trip1 {
+					temperature = <80000>;
+					hysteresis = <2000>;
+					type = "hot";
+				};
+				cpu_crit: trip2 {
+					temperature = <90000>;
+					hysteresis = <2000>;
+					type = "critical";
+				};
+			};
+
+			cooling-maps {
+				map0 {
+					trip = <&cpu_alert0>;
+					cooling-device = <&cpu0 0 2>;
+				};
+				map1 {
+					trip = <&cpu_alert1>;
+					cooling-device = <&cpu0 2 4>;
+				};
+			};
+		};
+	};
+
+	/* ------------------------------------------ */
+	/* HDMI (micro-HDMI x2)                        */
+	/* ------------------------------------------ */
+	hdmi0: hdmi@7ef00700 {
+		compatible = "brcm,bcm2712-hdmi0";
+		reg = <0x0 0x7ef00700 0x0 0x300>,
+		      <0x0 0x7ef05300 0x0 0x200>;
+		reg-names = "hdmi", "dvp";
+		clocks = <&firmware_clocks 13>, <&firmware_clocks 14>;
+		clock-names = "hdmi", "bvb";
+		interrupt-parent = <&gpio>;
+		interrupts = <96 IRQ_TYPE_LEVEL_HIGH>;
+		status = "okay";
+	};
+
+	hdmi1: hdmi@7ef05700 {
+		compatible = "brcm,bcm2712-hdmi1";
+		reg = <0x0 0x7ef05700 0x0 0x300>,
+		      <0x0 0x7ef09300 0x0 0x200>;
+		reg-names = "hdmi", "dvp";
+		clocks = <&firmware_clocks 13>, <&firmware_clocks 14>;
+		clock-names = "hdmi", "bvb";
+		status = "okay";
+	};
+
+	/* ------------------------------------------ */
+	/* chosen (boot args, initramfs)               */
+	/* ------------------------------------------ */
+	chosen {
+		stdout-path = "serial0:115200n8";
+		bootargs = "console=ttyAMA0,115200 root=/dev/mmcblk0p2 rootfstype=ext4 rootwait quiet splash";
+	};
+};
