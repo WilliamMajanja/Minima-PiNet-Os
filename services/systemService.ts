@@ -1,5 +1,5 @@
 
-import { ClusterNode, HatType, OSMode } from '../types';
+import { ClusterNode, HatType, HypervisorSwitchResult, OSMode } from '../types';
 import { ExceptionFilter } from '../utils/core';
 import { getApiUrl } from '../utils/api';
 
@@ -23,7 +23,7 @@ export const systemService = {
     }
   },
 
-  async executeHypervisorSwitch(targetOS: OSMode, nodeId?: string): Promise<void> {
+  async executeHypervisorSwitch(targetOS: OSMode, nodeId?: string): Promise<HypervisorSwitchResult> {
     console.log(`[HV] Context Switch Initiated -> Target: ${targetOS} on ${nodeId || 'localhost'}`);
     try {
       const response = await fetch(getApiUrl('/api/system/switch-os'), {
@@ -31,17 +31,17 @@ export const systemService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ targetOS, nodeId })
       });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+
+      const result = await response.json() as HypervisorSwitchResult & { error?: string };
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || `Hypervisor switch failed with status ${response.status}`);
       }
-      
-      const result = await response.json();
+
       console.log(`[HV] Switch complete:`, result);
+      return result;
     } catch (error) {
       ExceptionFilter.handle(error, 'systemService.executeHypervisorSwitch');
-      // Fallback to delay if network fails
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      throw error;
     }
   }
 };

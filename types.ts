@@ -30,6 +30,17 @@ export type HatType = 'AI_NPU' | 'SENSE' | 'SSD_NVME' | 'NONE';
 
 export type OSMode = 'pinet' | 'raspbian' | 'ubuntu' | 'debian';
 
+export interface HypervisorSwitchResult {
+  success: boolean;
+  targetOS: OSMode;
+  nodeId: string;
+  transport: 'local-systemd' | 'rpi-connect';
+  action: 'restart' | 'isolate';
+  unit: string;
+  stdout: string;
+  stderr: string;
+}
+
 export interface ClusterNode {
   id: string;
   name: string;

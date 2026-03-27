@@ -17,8 +17,40 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
   const wss = new WebSocketServer({ server });
+  const supportedOSModes = new Set(['pinet', 'raspbian', 'ubuntu', 'debian']);
+  const localNodeIds = new Set(['n1', 'localhost']);
 
   const PORT = 3000;
+
+  const runCommand = (command: string, args: string[]) => new Promise<{
+    code: number | null;
+    stdout: string;
+    stderr: string;
+  }>((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    child.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    child.on('error', reject);
+    child.on('close', (code) => {
+      resolve({
+        code,
+        stdout: stdout.trim(),
+        stderr: stderr.trim(),
+      });
+    });
+  });
+
+  const isSafeNodeId = (value: unknown): value is string =>
+    typeof value === 'string' && /^[a-zA-Z0-9._:@-]+$/.test(value);
 
   // Global JSON middleware - move to top
   app.use(express.json());
@@ -238,29 +270,71 @@ async function startServer() {
   });
 
   // --- Real Hypervisor / OS Switch Endpoint ---
-  app.post("/api/system/switch-os", express.json(), (req, res) => {
+  app.post("/api/system/switch-os", express.json(), async (req, res) => {
     const { targetOS, nodeId } = req.body;
     console.log(`[HV] Executing system switch to: ${targetOS} on node: ${nodeId || 'localhost'}`);
-    
-    // Use rpi-connect for hypervisor contextualization and cluster orchestration
-    let cmd = '';
-    if (nodeId && nodeId !== 'n1' && nodeId !== 'localhost') {
-      // Remote node orchestration via rpi-connect
-      const targetState = targetOS === 'pinet' ? 'pinet-kiosk.target' : 'graphical.target';
-      cmd = `rpi-connect shell ${nodeId} "sudo systemctl isolate ${targetState}" || sleep 3`;
-    } else {
-      // Local node switch
-      cmd = targetOS === 'pinet' 
-        ? 'sudo systemctl isolate pinet-kiosk.target || sleep 3'
-        : 'sudo systemctl isolate graphical.target || sleep 3';
+
+    if (!supportedOSModes.has(targetOS)) {
+      return res.status(400).json({ success: false, error: `Unsupported target OS: ${targetOS}` });
     }
 
-    exec(cmd, (error, stdout, stderr) => {
-      if (error) {
-        console.warn(`[HV] Command failed (expected in container), fallback used. Error: ${error.message}`);
+    if (nodeId && !isSafeNodeId(nodeId)) {
+      return res.status(400).json({ success: false, error: 'Invalid node identifier supplied.' });
+    }
+
+    const action = targetOS === 'pinet' ? 'restart' : 'isolate';
+    const unit = targetOS === 'pinet' ? 'pinet-desktop.service' : 'graphical.target';
+    const isRemoteNode = Boolean(nodeId) && !localNodeIds.has(nodeId);
+    const transport = isRemoteNode ? 'rpi-connect' : 'local-systemd';
+
+    try {
+      const command = ['systemctl', action, unit];
+      const result = isRemoteNode
+        ? await runCommand('rpi-connect', ['shell', nodeId, `sudo ${command.join(' ')}`])
+        : await runCommand('sudo', command);
+
+      if (result.code !== 0) {
+        return res.status(502).json({
+          success: false,
+          error: result.stderr || `Context switch command exited with status ${result.code}`,
+          targetOS,
+          nodeId: nodeId || 'localhost',
+          transport,
+          action,
+          unit,
+          stdout: result.stdout,
+          stderr: result.stderr,
+        });
       }
-      res.json({ success: true, targetOS, stdout, stderr });
-    });
+
+      res.json({
+        success: true,
+        targetOS,
+        nodeId: nodeId || 'localhost',
+        transport,
+        action,
+        unit,
+        stdout: result.stdout,
+        stderr: result.stderr,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const missingToolMessage = message.includes('ENOENT')
+        ? (isRemoteNode ? 'rpi-connect is not installed or not on PATH.' : 'sudo/systemctl is not available in this environment.')
+        : message;
+
+      res.status(500).json({
+        success: false,
+        error: missingToolMessage,
+        targetOS,
+        nodeId: nodeId || 'localhost',
+        transport,
+        action,
+        unit,
+        stdout: '',
+        stderr: '',
+      });
+    }
   });
 
   // --- Real Subnet Scanning ---
