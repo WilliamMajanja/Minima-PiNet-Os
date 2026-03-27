@@ -93,6 +93,9 @@ import pathlib
 import re
 import sys
 
+if len(sys.argv) != 3:
+    raise SystemExit("Expected cmdline path and root override.")
+
 cmdline_path = pathlib.Path(sys.argv[1])
 root_value = sys.argv[2]
 content = cmdline_path.read_text(encoding='utf-8').strip()
@@ -113,10 +116,12 @@ snapshot_host_profile() {
 
   rm -rf "${HOST_PROFILE_DIR}"
   mkdir -p "${HOST_PROFILE_DIR}"
+  local state_dir_name
+  state_dir_name="$(basename "${STATE_DIR}")"
   (
     cd "${BOOT_MOUNT}"
     # Keep the shared switch state out of the snapshot to avoid recursive copies.
-    tar --exclude='./pinet-switch' -cf - .
+    tar --exclude="./${state_dir_name}" -cf - .
   ) | (
     cd "${HOST_PROFILE_DIR}"
     tar -xf -
@@ -155,7 +160,7 @@ if [[ "${TARGET_OS}" == "pinet" ]]; then
   PROFILE_DIR="${PINET_PROFILE_DIR}"
 else
   if [[ ! -f "${HOST_PROFILE_DIR}/config.txt" || ! -f "${HOST_PROFILE_DIR}/cmdline.txt" ]]; then
-    echo "Host boot profile not found at ${HOST_PROFILE_DIR}. Switch into PiNet from your current OS once first, or seed that directory manually." >&2
+    echo "Host boot profile not found at ${HOST_PROFILE_DIR}. To switch back later, first switch to PiNet from your current OS once so the host snapshot is created, or seed that directory manually." >&2
     exit 65
   fi
 fi

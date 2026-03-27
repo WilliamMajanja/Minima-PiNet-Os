@@ -65,7 +65,10 @@ async function startServer() {
       return acc;
     }, {});
 
+  // Escape for POSIX single-quoted shell contexts by closing the quote, inserting an escaped quote, then reopening it.
   const quoteShellArg = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
+  const isProfileLabel = (value: string | undefined): value is 'host' | 'pinet' =>
+    value === 'host' || value === 'pinet';
 
   const stageLocalBootProfileSwitch = async (targetOS: string) => {
     const command = ['-n', 'env', `PINET_REPO_ROOT=${__dirname}`];
@@ -101,7 +104,15 @@ async function startServer() {
   };
 
   const scheduleLocalReboot = async () => {
-    const result = await runCommand('sudo', ['-n', 'shutdown', '-r', '+0', 'PiNet boot-profile switch']);
+    const result = await runCommand('sudo', [
+      '-n',
+      'systemd-run',
+      '--quiet',
+      '--on-active=2s',
+      '--unit=pinet-os-switch-reboot',
+      '/usr/bin/systemctl',
+      'reboot',
+    ]);
     if (result.code !== 0) {
       throw new Error(result.stderr || `Unable to schedule reboot (status ${result.code})`);
     }
@@ -347,7 +358,9 @@ async function startServer() {
       if (bootProfileAvailable) {
         const staged = await stageLocalBootProfileSwitch(targetOS);
         const defaultProfileLabel = targetOS === 'pinet' ? 'pinet' : 'host';
-        const profileLabel = (staged.metadata.profile_label || defaultProfileLabel) as 'host' | 'pinet';
+        const profileLabel = isProfileLabel(staged.metadata.profile_label)
+          ? staged.metadata.profile_label
+          : defaultProfileLabel;
         await scheduleLocalReboot();
 
         return res.json({
