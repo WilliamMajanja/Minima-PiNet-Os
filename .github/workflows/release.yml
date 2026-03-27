@@ -30,34 +30,46 @@ jobs:
             echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Create zip archive
+      - name: Create source zip archive
         run: |
           zip -r "Minima-PiNet-Os-${{ steps.version.outputs.tag }}.zip" . \
-            -x ".git/*"
+            -x ".git/*" "*.zip" "*.tar.gz"
 
-      - name: Create tar.gz archive
+      - name: Create source tar.gz archive
         run: |
           tar czf "Minima-PiNet-Os-${{ steps.version.outputs.tag }}.tar.gz" \
-            --exclude='.git' .
+            --exclude='.git' \
+            --exclude='*.zip' \
+            --exclude='*.tar.gz' \
+            .
 
-      - name: Prepare release body
-        id: release_body
+      - name: Generate SHA256 checksums
         run: |
-          if [ -f RELEASE_NOTES.md ]; then
-            echo "body_path=RELEASE_NOTES.md" >> "$GITHUB_OUTPUT"
-          else
-            echo "body=Release ${{ steps.version.outputs.tag }}" >> "$GITHUB_OUTPUT"
-          fi
+          sha256sum \
+            "Minima-PiNet-Os-${{ steps.version.outputs.tag }}.zip" \
+            "Minima-PiNet-Os-${{ steps.version.outputs.tag }}.tar.gz" \
+            PiNetOS-RaspberryPi.img \
+            PiNetOS-Enterprise.zip \
+            PiNetOS-Electron-Desktop.zip \
+            PiNetOS-Build-System.zip \
+            PiNetOS-Documentation.zip \
+            > SHA256SUMS.txt
+          cat SHA256SUMS.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: Minima-PiNet-Os ${{ steps.version.outputs.tag }}
-          body_path: ${{ steps.release_body.outputs.body_path || '' }}
-          body: ${{ steps.release_body.outputs.body || '' }}
+          body_path: RELEASE_NOTES.md
           draft: false
           prerelease: false
           files: |
             Minima-PiNet-Os-${{ steps.version.outputs.tag }}.zip
             Minima-PiNet-Os-${{ steps.version.outputs.tag }}.tar.gz
+            PiNetOS-RaspberryPi.img
+            PiNetOS-Enterprise.zip
+            PiNetOS-Electron-Desktop.zip
+            PiNetOS-Build-System.zip
+            PiNetOS-Documentation.zip
+            SHA256SUMS.txt
