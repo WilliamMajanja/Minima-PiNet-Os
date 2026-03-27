@@ -5,7 +5,7 @@ import Desktop from './components/Desktop';
 import Taskbar from './components/Taskbar';
 import TopBar from './components/TopBar';
 import BootSplashScreen from './components/apps/BootSplashScreen';
-import { AppId, WindowState, NodeStats, SystemStats, ClusterNode, OSMode } from './types';
+import { AppId, WindowState, NodeStats, SystemStats, ClusterNode, HypervisorSwitchResult, OSMode } from './types';
 import MinimaNodeApp from './components/apps/MinimaNodeApp';
 import SystemMonitorApp from './components/apps/SystemMonitorApp';
 import TerminalApp from './components/apps/TerminalApp';
@@ -224,44 +224,46 @@ const App: React.FC = () => {
 
     // 1. Initiate Shutdown Sequence
     setTransitionState('shutting-down');
+    setBootLog([
+      `ORCH: Preparing ${target === 'pinet' ? 'PiNet desktop' : `${target} desktop`} context switch`,
+    ]);
     await new Promise(r => setTimeout(r, 1000));
 
-    // 2. Start Boot Sequence (Hypervisor Logic)
+    // 2. Execute real orchestration
     setTransitionState('booting');
+    const expectedResult: Pick<HypervisorSwitchResult, 'action' | 'unit'> = target === 'pinet'
+      ? { action: 'restart', unit: 'pinet-desktop.service' }
+      : { action: 'isolate', unit: 'graphical.target' };
+
     setBootLog([
-      "ACPI: Initiating Hypervisor Context Switch",
-      "XEN: Suspending DomU [" + (currentOS === 'pinet' ? 'PiNet_Web3_OS' : 'Host_OS') + "]",
-      "VMM: Saving CPU State to NVMe Region 0x8000...",
+      `SYSTEMD: Requesting ${expectedResult.action} ${expectedResult.unit}`,
+      `ORCH: Waiting for ${target === 'pinet' ? 'PiNet desktop' : `${target} desktop`} to become active`,
     ]);
-    
-    // Animate loglines
-    const hostOSName = osInfo?.osName === 'raspbian' ? 'Debian 13 (Trixie) Pixel Desktop' : 
-                       osInfo?.osName === 'ubuntu' ? 'Ubuntu 20.04 LTS' : 
-                       osInfo?.osName === 'debian' ? 'Debian GNU/Linux' : 'Host OS';
 
-    const logs = [
-        "VMM: CPU State Saved. (128ms)",
-        `HYPERVISOR: Loading Kernel Image: ${target}_kernel.img`,
-        "BOOT: Verifying SHA256 Checksum... OK",
-        `INIT: Starting ${target !== 'pinet' ? hostOSName : 'PiNet Web3 Compositor'}...`,
-        "SYSTEMD: Mounting /dev/nvme0n1p2 to /",
-        "SYSTEMD: Starting Network Manager...",
-        "SYSTEMD: Starting Graphical Interface..."
-    ];
+    let switched = false;
+    try {
+      const result = await systemService.executeHypervisorSwitch(target);
+      setBootLog(prev => [
+        ...prev,
+        result.transport === 'rpi-connect'
+          ? `RPIC: Remote shell executed on ${result.nodeId}`
+          : 'LOCAL: systemd command executed on localhost',
+        `SYSTEMD: ${result.action} ${result.unit} completed`,
+      ]);
 
-    for (const log of logs) {
-        await new Promise(r => setTimeout(r, 400));
-        setBootLog(prev => [...prev, log]);
+      setCurrentOS(target);
+      setRaspMenuOpen(false);
+      setRaspTermOpen(target !== 'pinet');
+      switched = true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Hypervisor switch failed';
+      setBootLog(prev => [...prev, `ERROR: ${message}`]);
+      ExceptionFilter.handle(error, 'App.switchOS');
     }
 
-    await systemService.executeHypervisorSwitch(target);
-    
-    // 3. Complete Switch
-    setCurrentOS(target);
+    await new Promise(r => setTimeout(r, switched ? 600 : 1600));
     setTransitionState('idle');
     setBootLog([]);
-    setRaspMenuOpen(false);
-    if (target !== 'pinet') setRaspTermOpen(true);
   };
 
   const toggleOS = () => {
