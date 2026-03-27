@@ -24,7 +24,7 @@ jobs:
       - name: Determine tag name
         id: tag
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo "TAG_NAME=${{ github.event.inputs.tag_name }}" >> "$GITHUB_OUTPUT"
           else
             echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
@@ -41,6 +41,12 @@ jobs:
 
           echo "Created ${ARCHIVE_NAME}.zip and ${ARCHIVE_NAME}.tar.gz"
           ls -lh "${ARCHIVE_NAME}".{zip,tar.gz}
+
+      - name: Prepare release body
+        run: |
+          if [ ! -f RELEASE_NOTES.md ]; then
+            echo "Release of Minima-PiNet-Os ${{ steps.tag.outputs.TAG_NAME }}" > RELEASE_NOTES.md
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
