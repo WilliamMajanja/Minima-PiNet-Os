@@ -1,0 +1,55 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine tag name
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "TAG_NAME=${{ github.event.inputs.tag_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create release archives
+        run: |
+          TAG="${{ steps.tag.outputs.TAG_NAME }}"
+          ARCHIVE_NAME="Minima-PiNet-Os-${TAG}"
+
+          # Create a clean export of the repository (excludes .git)
+          git archive --format=zip --prefix="${ARCHIVE_NAME}/" HEAD -o "${ARCHIVE_NAME}.zip"
+          git archive --format=tar.gz --prefix="${ARCHIVE_NAME}/" HEAD -o "${ARCHIVE_NAME}.tar.gz"
+
+          echo "Created ${ARCHIVE_NAME}.zip and ${ARCHIVE_NAME}.tar.gz"
+          ls -lh "${ARCHIVE_NAME}".{zip,tar.gz}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.TAG_NAME }}
+          name: Minima-PiNet-Os ${{ steps.tag.outputs.TAG_NAME }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+          files: |
+            Minima-PiNet-Os-${{ steps.tag.outputs.TAG_NAME }}.zip
+            Minima-PiNet-Os-${{ steps.tag.outputs.TAG_NAME }}.tar.gz
