@@ -150,7 +150,7 @@ if [[ "${TARGET_OS}" == "pinet" ]]; then
   PROFILE_DIR="${PINET_PROFILE_DIR}"
 else
   if [[ ! -f "${HOST_PROFILE_DIR}/config.txt" || ! -f "${HOST_PROFILE_DIR}/cmdline.txt" ]]; then
-    echo "Host boot profile not found. Switch from your current OS into PiNet once first so PiNet can snapshot it to ${HOST_PROFILE_DIR}, or seed that directory manually." >&2
+    echo "Host boot profile not found at ${HOST_PROFILE_DIR}. Switch into PiNet from your current OS once first, or seed that directory manually." >&2
     exit 65
   fi
 fi

@@ -22,6 +22,8 @@ async function startServer() {
   const bootSwitchScript = path.join(__dirname, 'scripts', 'pinet-boot-switch.sh');
   const bootMountCandidates = ['/boot/firmware', '/boot'];
   const bootProfileFallbackReason = 'Boot-profile switching is unavailable in this environment.';
+  const bootProfileSwitchAvailable = fs.existsSync(bootSwitchScript)
+    && bootMountCandidates.some((candidate) => fs.existsSync(candidate));
 
   const PORT = 3000;
 
@@ -58,15 +60,12 @@ async function startServer() {
   const parseKeyValueOutput = (output: string) =>
     output.split('\n').reduce<Record<string, string>>((acc, line) => {
       const separator = line.indexOf('=');
-      if (separator <= 0) return acc;
+      if (separator < 0) return acc;
       acc[line.slice(0, separator).trim()] = line.slice(separator + 1).trim();
       return acc;
     }, {});
 
   const quoteShellArg = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
-
-  const hasLocalBootProfileSwitch = () =>
-    fs.existsSync(bootSwitchScript) && bootMountCandidates.some((candidate) => fs.existsSync(candidate));
 
   const stageLocalBootProfileSwitch = async (targetOS: string) => {
     const command = ['-n', 'env', `PINET_REPO_ROOT=${__dirname}`];
@@ -342,12 +341,13 @@ async function startServer() {
     const unit = targetOS === 'pinet' ? 'pinet-desktop.service' : 'graphical.target';
     const isRemoteNode = Boolean(nodeId) && !localNodeIds.has(nodeId);
     const transport = isRemoteNode ? 'rpi-connect' : 'local-systemd';
-    const bootProfileAvailable = !isRemoteNode && hasLocalBootProfileSwitch();
+    const bootProfileAvailable = !isRemoteNode && bootProfileSwitchAvailable;
 
     try {
       if (bootProfileAvailable) {
         const staged = await stageLocalBootProfileSwitch(targetOS);
-        const profileLabel = staged.metadata.profile_label || (targetOS === 'pinet' ? 'pinet' : 'host');
+        const defaultProfileLabel = targetOS === 'pinet' ? 'pinet' : 'host';
+        const profileLabel = (staged.metadata.profile_label || defaultProfileLabel) as 'host' | 'pinet';
         await scheduleLocalReboot();
 
         return res.json({
@@ -361,7 +361,7 @@ async function startServer() {
           requiresReboot: true,
           rebootScheduled: true,
           bootMount: staged.metadata.boot_mount,
-          profileLabel: profileLabel === 'pinet' ? 'pinet' : 'host',
+          profileLabel,
           stdout: staged.stdout,
           stderr: staged.stderr,
         });

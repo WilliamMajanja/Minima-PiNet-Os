@@ -133,7 +133,8 @@ export PINET_SWITCH_PINET_ROOT=/dev/mmcblk0p3
 npm run dev
 ```
 
-If PiNet uses a dedicated boot asset directory, point `PINET_SWITCH_PINET_PROFILE_DIR` at that directory. To return to your original OS from PiNet, the switcher restores the saved host boot snapshot from `/boot/pinet-switch/host-profile` (or `/boot/firmware/pinet-switch/host-profile`).
+If PiNet uses a dedicated boot asset directory, point `PINET_SWITCH_PINET_PROFILE_DIR` at that directory.
+To return to your original OS from PiNet, the switcher restores the saved host boot snapshot from `/boot/pinet-switch/host-profile` (or `/boot/firmware/pinet-switch/host-profile`).
 
 ---
 
