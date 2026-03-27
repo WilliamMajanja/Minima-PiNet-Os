@@ -88,6 +88,7 @@ apply_root_override() {
     exit 69
   fi
 
+  # Python keeps the root= rewrite reliable even when the cmdline contains many space-delimited kernel flags.
   python3 - "${cmdline_file}" "${root_override}" <<'PY'
 import pathlib
 import re

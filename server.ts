@@ -65,8 +65,6 @@ async function startServer() {
       return acc;
     }, {});
 
-  // Escape for POSIX single-quoted shell contexts by closing the quote, inserting an escaped quote, then reopening it.
-  const quoteShellArg = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
   const isProfileLabel = (value: string | undefined): value is 'host' | 'pinet' =>
     value === 'host' || value === 'pinet';
 
@@ -381,8 +379,9 @@ async function startServer() {
       }
 
       const command = ['systemctl', action, unit];
-      // rpi-connect executes a remote shell string, so every fixed argument is quoted for POSIX single-quote contexts.
-      const remoteCommand = ['sudo', '-n', ...command].map(quoteShellArg).join(' ');
+      const remoteCommand = targetOS === 'pinet'
+        ? 'sudo -n systemctl restart pinet-desktop.service'
+        : 'sudo -n systemctl isolate graphical.target';
       const result = isRemoteNode
         ? await runCommand('rpi-connect', ['shell', nodeId, remoteCommand])
         : await runCommand('sudo', ['-n', ...command]);

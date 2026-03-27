@@ -242,12 +242,14 @@ const App: React.FC = () => {
     let switched = false;
     try {
       const result = await systemService.executeHypervisorSwitch(target);
+      const profileLabel = result.profileLabel || (target === 'pinet' ? 'pinet' : 'host');
+      const bootMount = result.bootMount || '/boot';
       setBootLog(prev => [
         ...prev,
         result.transport === 'rpi-connect'
           ? `RPIC: Remote shell executed on ${result.nodeId}`
           : result.transport === 'local-boot-profile'
-            ? `BOOT: Profile ${result.profileLabel || (target === 'pinet' ? 'pinet' : 'host')} staged on ${result.bootMount || '/boot'}`
+            ? `BOOT: Profile ${profileLabel} staged on ${bootMount}`
             : 'LOCAL: systemd command executed on localhost',
         result.strategy === 'boot-profile'
           ? `BOOT: ${result.action} ${result.unit} complete`
