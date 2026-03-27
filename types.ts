@@ -34,9 +34,15 @@ export interface HypervisorSwitchResult {
   success: boolean;
   targetOS: OSMode;
   nodeId: string;
-  transport: 'local-systemd' | 'rpi-connect';
-  action: 'restart' | 'isolate';
+  transport: 'local-systemd' | 'rpi-connect' | 'local-boot-profile';
+  strategy: 'systemd' | 'boot-profile';
+  action: 'restart' | 'isolate' | 'stage-reboot';
   unit: string;
+  requiresReboot: boolean;
+  rebootScheduled: boolean;
+  bootMount?: string;
+  profileLabel?: 'host' | 'pinet';
+  fallbackReason?: string;
   stdout: string;
   stderr: string;
 }

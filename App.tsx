@@ -221,23 +221,22 @@ const App: React.FC = () => {
 
   const switchOS = async (target: OSMode) => {
     if (currentOS === target) return;
+    const targetLabel = target === 'pinet' ? 'PiNet' : target;
 
     // 1. Initiate Shutdown Sequence
     setTransitionState('shutting-down');
     setBootLog([
-      `ORCH: Preparing ${target === 'pinet' ? 'PiNet desktop' : `${target} desktop`} context switch`,
+      `ORCH: Preparing ${targetLabel} context switch`,
     ]);
     await new Promise(r => setTimeout(r, 1000));
 
     // 2. Execute real orchestration
     setTransitionState('booting');
-    const expectedResult: Pick<HypervisorSwitchResult, 'action' | 'unit'> = target === 'pinet'
-      ? { action: 'restart', unit: 'pinet-desktop.service' }
-      : { action: 'isolate', unit: 'graphical.target' };
-
     setBootLog([
-      `SYSTEMD: Requesting ${expectedResult.action} ${expectedResult.unit}`,
-      `ORCH: Waiting for ${target === 'pinet' ? 'PiNet desktop' : `${target} desktop`} to become active`,
+      `ORCH: Requesting ${targetLabel} switch strategy`,
+      target === 'pinet'
+        ? 'BOOT: Staging PiNet boot profile or runtime desktop context'
+        : `BOOT: Restoring ${targetLabel} host profile or graphical target`,
     ]);
 
     let switched = false;
@@ -247,8 +246,15 @@ const App: React.FC = () => {
         ...prev,
         result.transport === 'rpi-connect'
           ? `RPIC: Remote shell executed on ${result.nodeId}`
-          : 'LOCAL: systemd command executed on localhost',
-        `SYSTEMD: ${result.action} ${result.unit} completed`,
+          : result.transport === 'local-boot-profile'
+            ? `BOOT: Profile ${result.profileLabel || (target === 'pinet' ? 'pinet' : 'host')} staged on ${result.bootMount || '/boot'}`
+            : 'LOCAL: systemd command executed on localhost',
+        result.strategy === 'boot-profile'
+          ? `BOOT: ${result.action} ${result.unit} complete`
+          : `SYSTEMD: ${result.action} ${result.unit} completed`,
+        result.requiresReboot
+          ? `SYSTEM: Reboot scheduled into ${targetLabel}`
+          : `ORCH: ${targetLabel} context is now active`,
       ]);
 
       setCurrentOS(target);
