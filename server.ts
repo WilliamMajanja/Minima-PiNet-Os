@@ -21,6 +21,7 @@ async function startServer() {
   const localNodeIds = new Set(['n1', 'localhost']);
   const bootSwitchScript = path.join(__dirname, 'scripts', 'pinet-boot-switch.sh');
   const bootMountCandidates = ['/boot/firmware', '/boot'];
+  const bootProfileFallbackReason = 'Boot-profile switching is unavailable in this environment.';
 
   const PORT = 3000;
 
@@ -61,6 +62,8 @@ async function startServer() {
       acc[line.slice(0, separator).trim()] = line.slice(separator + 1).trim();
       return acc;
     }, {});
+
+  const quoteShellArg = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
 
   const hasLocalBootProfileSwitch = () =>
     fs.existsSync(bootSwitchScript) && bootMountCandidates.some((candidate) => fs.existsSync(candidate));
@@ -344,6 +347,7 @@ async function startServer() {
     try {
       if (bootProfileAvailable) {
         const staged = await stageLocalBootProfileSwitch(targetOS);
+        const profileLabel = staged.metadata.profile_label || (targetOS === 'pinet' ? 'pinet' : 'host');
         await scheduleLocalReboot();
 
         return res.json({
@@ -353,19 +357,20 @@ async function startServer() {
           transport: 'local-boot-profile',
           strategy: 'boot-profile',
           action: 'stage-reboot',
-          unit: `boot-profile:${staged.metadata.profile_label || (targetOS === 'pinet' ? 'pinet' : 'host')}`,
+          unit: `boot-profile:${profileLabel}`,
           requiresReboot: true,
           rebootScheduled: true,
           bootMount: staged.metadata.boot_mount,
-          profileLabel: staged.metadata.profile_label === 'pinet' ? 'pinet' : 'host',
+          profileLabel: profileLabel === 'pinet' ? 'pinet' : 'host',
           stdout: staged.stdout,
           stderr: staged.stderr,
         });
       }
 
       const command = ['systemctl', action, unit];
+      const remoteCommand = ['sudo', '-n', ...command].map(quoteShellArg).join(' ');
       const result = isRemoteNode
-        ? await runCommand('rpi-connect', ['shell', nodeId, `sudo -n ${command.join(' ')}`])
+        ? await runCommand('rpi-connect', ['shell', nodeId, remoteCommand])
         : await runCommand('sudo', ['-n', ...command]);
 
       if (result.code !== 0) {
@@ -380,7 +385,7 @@ async function startServer() {
           unit,
           requiresReboot: false,
           rebootScheduled: false,
-          fallbackReason: !isRemoteNode ? 'Boot-profile switching is unavailable in this environment.' : undefined,
+          fallbackReason: !isRemoteNode ? bootProfileFallbackReason : undefined,
           stdout: result.stdout,
           stderr: result.stderr,
         });
@@ -396,7 +401,7 @@ async function startServer() {
         unit,
         requiresReboot: false,
         rebootScheduled: false,
-        fallbackReason: !isRemoteNode ? 'Boot-profile switching is unavailable in this environment.' : undefined,
+        fallbackReason: !isRemoteNode ? bootProfileFallbackReason : undefined,
         stdout: result.stdout,
         stderr: result.stderr,
       });
@@ -417,7 +422,7 @@ async function startServer() {
         unit,
         requiresReboot: false,
         rebootScheduled: false,
-        fallbackReason: !isRemoteNode ? 'Boot-profile switching is unavailable in this environment.' : undefined,
+        fallbackReason: !isRemoteNode ? bootProfileFallbackReason : undefined,
         stdout: '',
         stderr: '',
       });

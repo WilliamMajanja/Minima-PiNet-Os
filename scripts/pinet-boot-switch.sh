@@ -7,14 +7,14 @@ MODE="${2:-}"
 
 if [[ -z "${TARGET_OS}" ]]; then
   echo "Usage: $0 <pinet|raspbian|ubuntu|debian> [--stage-only]" >&2
-  exit 64
+  exit 2
 fi
 
 case "${TARGET_OS}" in
   pinet|raspbian|ubuntu|debian) ;;
   *)
     echo "Unsupported target OS: ${TARGET_OS}" >&2
-    exit 64
+    exit 2
     ;;
 esac
 
@@ -110,6 +110,7 @@ snapshot_host_profile() {
   mkdir -p "${HOST_PROFILE_DIR}"
   (
     cd "${BOOT_MOUNT}"
+    # Keep the shared switch state out of the snapshot to avoid recursive copies.
     tar --exclude='./pinet-switch' -cf - .
   ) | (
     cd "${HOST_PROFILE_DIR}"
@@ -149,7 +150,7 @@ if [[ "${TARGET_OS}" == "pinet" ]]; then
   PROFILE_DIR="${PINET_PROFILE_DIR}"
 else
   if [[ ! -f "${HOST_PROFILE_DIR}/config.txt" || ! -f "${HOST_PROFILE_DIR}/cmdline.txt" ]]; then
-    echo "No host boot profile is available yet. Switch from your current OS into PiNet once first, or seed ${HOST_PROFILE_DIR} manually." >&2
+    echo "Host boot profile not found. Switch from your current OS into PiNet once first so PiNet can snapshot it to ${HOST_PROFILE_DIR}, or seed that directory manually." >&2
     exit 65
   fi
 fi
