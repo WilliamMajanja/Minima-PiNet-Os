@@ -40,12 +40,22 @@ jobs:
           tar czf "Minima-PiNet-Os-${{ steps.version.outputs.tag }}.tar.gz" \
             --exclude='.git' .
 
+      - name: Prepare release body
+        id: release_body
+        run: |
+          if [ -f RELEASE_NOTES.md ]; then
+            echo "body_path=RELEASE_NOTES.md" >> "$GITHUB_OUTPUT"
+          else
+            echo "body=Release ${{ steps.version.outputs.tag }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: Minima-PiNet-Os ${{ steps.version.outputs.tag }}
-          body_path: RELEASE_NOTES.md
+          body_path: ${{ steps.release_body.outputs.body_path || '' }}
+          body: ${{ steps.release_body.outputs.body || '' }}
           draft: false
           prerelease: false
           files: |
