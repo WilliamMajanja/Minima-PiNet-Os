@@ -119,6 +119,23 @@ If you need a custom build with specific cluster secrets:
 2.  Click **Execute Enterprise Build** to generate a hardware-verified image.
 3.  Flash the resulting file using the Raspberry Pi Imager.
 
+### 🔁 Real OS Switching Between Your Host OS and PiNet
+The desktop hypervisor switch now supports a real local boot-profile handoff instead of only restarting services. On Raspberry Pi systems with a writable `/boot` or `/boot/firmware` partition, PiNet will:
+
+1. Snapshot the current host boot profile the first time you switch into PiNet.
+2. Stage the PiNet boot profile onto the shared boot partition.
+3. Schedule a reboot so the board comes back in the requested OS context.
+
+For dual-root installs, set `PINET_SWITCH_PINET_ROOT` to the PiNet root partition before starting the server, for example:
+
+```bash
+export PINET_SWITCH_PINET_ROOT=/dev/mmcblk0p3
+npm run dev
+```
+
+If PiNet uses a dedicated boot asset directory, point `PINET_SWITCH_PINET_PROFILE_DIR` at that directory.
+To return to your original OS from PiNet, the switcher restores the saved host boot snapshot from `/boot/pinet-switch/host-profile` (or `/boot/firmware/pinet-switch/host-profile`).
+
 ---
 
 ## Awesome Raspberry Pi Use Cases

@@ -19,6 +19,11 @@ async function startServer() {
   const wss = new WebSocketServer({ server });
   const supportedOSModes = new Set(['pinet', 'raspbian', 'ubuntu', 'debian']);
   const localNodeIds = new Set(['n1', 'localhost']);
+  const bootSwitchScript = path.join(__dirname, 'scripts', 'pinet-boot-switch.sh');
+  const bootMountCandidates = ['/boot/firmware', '/boot'];
+  const bootProfileFallbackReason = 'Boot-profile switching is unavailable in this environment.';
+  const bootProfileSwitchAvailable = fs.existsSync(bootSwitchScript)
+    && bootMountCandidates.some((candidate) => fs.existsSync(candidate));
 
   const PORT = 3000;
 
@@ -51,6 +56,65 @@ async function startServer() {
 
   const isSafeNodeId = (value: unknown): value is string =>
     typeof value === 'string' && /^[a-zA-Z0-9._:@-]+$/.test(value);
+
+  const parseKeyValueOutput = (output: string) =>
+    output.split('\n').reduce<Record<string, string>>((acc, line) => {
+      const separator = line.indexOf('=');
+      if (separator < 0) return acc;
+      acc[line.slice(0, separator).trim()] = line.slice(separator + 1).trim();
+      return acc;
+    }, {});
+
+  const isProfileLabel = (value: string | undefined): value is 'host' | 'pinet' =>
+    value === 'host' || value === 'pinet';
+
+  const stageLocalBootProfileSwitch = async (targetOS: string) => {
+    const command = ['-n', 'env', `PINET_REPO_ROOT=${__dirname}`];
+
+    if (process.env.PINET_BOOT_MOUNT) {
+      command.push(`PINET_BOOT_MOUNT=${process.env.PINET_BOOT_MOUNT}`);
+    }
+    if (process.env.PINET_SWITCH_STATE_DIR) {
+      command.push(`PINET_SWITCH_STATE_DIR=${process.env.PINET_SWITCH_STATE_DIR}`);
+    }
+    if (process.env.PINET_SWITCH_HOST_PROFILE_DIR) {
+      command.push(`PINET_SWITCH_HOST_PROFILE_DIR=${process.env.PINET_SWITCH_HOST_PROFILE_DIR}`);
+    }
+    if (process.env.PINET_SWITCH_PINET_PROFILE_DIR) {
+      command.push(`PINET_SWITCH_PINET_PROFILE_DIR=${process.env.PINET_SWITCH_PINET_PROFILE_DIR}`);
+    }
+    if (process.env.PINET_SWITCH_PINET_ROOT) {
+      command.push(`PINET_SWITCH_PINET_ROOT=${process.env.PINET_SWITCH_PINET_ROOT}`);
+    }
+
+    command.push(bootSwitchScript, targetOS, '--stage-only');
+
+    const result = await runCommand('sudo', command);
+    if (result.code !== 0) {
+      throw new Error(result.stderr || `Boot profile staging exited with status ${result.code}`);
+    }
+
+    return {
+      stdout: result.stdout,
+      stderr: result.stderr,
+      metadata: parseKeyValueOutput(result.stdout),
+    };
+  };
+
+  const scheduleLocalReboot = async () => {
+    const result = await runCommand('sudo', [
+      '-n',
+      'systemd-run',
+      '--quiet',
+      '--on-active=2s',
+      '--unit=pinet-os-switch-reboot',
+      '/usr/bin/systemctl',
+      'reboot',
+    ]);
+    if (result.code !== 0) {
+      throw new Error(result.stderr || `Unable to schedule reboot (status ${result.code})`);
+    }
+  };
 
   // Global JSON middleware - move to top
   app.use(express.json());
@@ -286,12 +350,41 @@ async function startServer() {
     const unit = targetOS === 'pinet' ? 'pinet-desktop.service' : 'graphical.target';
     const isRemoteNode = Boolean(nodeId) && !localNodeIds.has(nodeId);
     const transport = isRemoteNode ? 'rpi-connect' : 'local-systemd';
+    const bootProfileAvailable = !isRemoteNode && bootProfileSwitchAvailable;
 
     try {
+      if (bootProfileAvailable) {
+        const staged = await stageLocalBootProfileSwitch(targetOS);
+        const defaultProfileLabel = targetOS === 'pinet' ? 'pinet' : 'host';
+        const profileLabel = isProfileLabel(staged.metadata.profile_label)
+          ? staged.metadata.profile_label
+          : defaultProfileLabel;
+        await scheduleLocalReboot();
+
+        return res.json({
+          success: true,
+          targetOS,
+          nodeId: nodeId || 'localhost',
+          transport: 'local-boot-profile',
+          strategy: 'boot-profile',
+          action: 'stage-reboot',
+          unit: `boot-profile:${profileLabel}`,
+          requiresReboot: true,
+          rebootScheduled: true,
+          bootMount: staged.metadata.boot_mount,
+          profileLabel,
+          stdout: staged.stdout,
+          stderr: staged.stderr,
+        });
+      }
+
       const command = ['systemctl', action, unit];
+      const remoteCommand = targetOS === 'pinet'
+        ? 'sudo -n systemctl restart pinet-desktop.service'
+        : 'sudo -n systemctl isolate graphical.target';
       const result = isRemoteNode
-        ? await runCommand('rpi-connect', ['shell', nodeId, `sudo ${command.join(' ')}`])
-        : await runCommand('sudo', command);
+        ? await runCommand('rpi-connect', ['shell', nodeId, remoteCommand])
+        : await runCommand('sudo', ['-n', ...command]);
 
       if (result.code !== 0) {
         return res.status(502).json({
@@ -300,8 +393,12 @@ async function startServer() {
           targetOS,
           nodeId: nodeId || 'localhost',
           transport,
+          strategy: 'systemd',
           action,
           unit,
+          requiresReboot: false,
+          rebootScheduled: false,
+          fallbackReason: !isRemoteNode ? bootProfileFallbackReason : undefined,
           stdout: result.stdout,
           stderr: result.stderr,
         });
@@ -312,8 +409,12 @@ async function startServer() {
         targetOS,
         nodeId: nodeId || 'localhost',
         transport,
+        strategy: 'systemd',
         action,
         unit,
+        requiresReboot: false,
+        rebootScheduled: false,
+        fallbackReason: !isRemoteNode ? bootProfileFallbackReason : undefined,
         stdout: result.stdout,
         stderr: result.stderr,
       });
@@ -329,8 +430,12 @@ async function startServer() {
         targetOS,
         nodeId: nodeId || 'localhost',
         transport,
+        strategy: 'systemd',
         action,
         unit,
+        requiresReboot: false,
+        rebootScheduled: false,
+        fallbackReason: !isRemoteNode ? bootProfileFallbackReason : undefined,
         stdout: '',
         stderr: '',
       });
