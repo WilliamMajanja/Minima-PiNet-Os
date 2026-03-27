@@ -1,0 +1,63 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for the release (e.g. v2.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.tag_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create zip archive
+        run: |
+          zip -r "Minima-PiNet-Os-${{ steps.version.outputs.tag }}.zip" . \
+            -x ".git/*"
+
+      - name: Create tar.gz archive
+        run: |
+          tar czf "Minima-PiNet-Os-${{ steps.version.outputs.tag }}.tar.gz" \
+            --exclude='.git' .
+
+      - name: Prepare release body
+        id: release_body
+        run: |
+          if [ -f RELEASE_NOTES.md ]; then
+            echo "body_path=RELEASE_NOTES.md" >> "$GITHUB_OUTPUT"
+          else
+            echo "body=Release ${{ steps.version.outputs.tag }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Minima-PiNet-Os ${{ steps.version.outputs.tag }}
+          body_path: ${{ steps.release_body.outputs.body_path || '' }}
+          body: ${{ steps.release_body.outputs.body || '' }}
+          draft: false
+          prerelease: false
+          files: |
+            Minima-PiNet-Os-${{ steps.version.outputs.tag }}.zip
+            Minima-PiNet-Os-${{ steps.version.outputs.tag }}.tar.gz
