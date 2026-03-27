@@ -83,6 +83,11 @@ apply_root_override() {
     return 0
   fi
 
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "python3 is required to rewrite ${cmdline_file} with PINET_SWITCH_PINET_ROOT." >&2
+    exit 69
+  fi
+
   python3 - "${cmdline_file}" "${root_override}" <<'PY'
 import pathlib
 import re

@@ -101,7 +101,7 @@ async function startServer() {
   };
 
   const scheduleLocalReboot = async () => {
-    const result = await runCommand('sudo', ['-n', 'sh', '-lc', 'nohup sh -c "sleep 2; systemctl reboot" >/dev/null 2>&1 &']);
+    const result = await runCommand('sudo', ['-n', 'shutdown', '-r', '+0', 'PiNet boot-profile switch']);
     if (result.code !== 0) {
       throw new Error(result.stderr || `Unable to schedule reboot (status ${result.code})`);
     }
@@ -368,6 +368,7 @@ async function startServer() {
       }
 
       const command = ['systemctl', action, unit];
+      // rpi-connect executes a remote shell string, so every fixed argument is quoted for POSIX single-quote contexts.
       const remoteCommand = ['sudo', '-n', ...command].map(quoteShellArg).join(' ');
       const result = isRemoteNode
         ? await runCommand('rpi-connect', ['shell', nodeId, remoteCommand])
