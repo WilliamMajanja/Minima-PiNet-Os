@@ -9,6 +9,7 @@ import { fileURLToPath } from "url";
 import os from "os";
 import osUtils from "os-utils";
 import si from "systeminformation";
+import { MINIMA_RPC_PORT, MINIMA_RPC_URL, CLUSTER_API_PORT } from "./config/defaults.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,7 +26,7 @@ async function startServer() {
   const bootProfileSwitchAvailable = fs.existsSync(bootSwitchScript)
     && bootMountCandidates.some((candidate) => fs.existsSync(candidate));
 
-  const PORT = 3000;
+  const PORT = parseInt(process.env.PINET_DESKTOP_PORT || '', 10) || 3000;
 
   const runCommand = (command: string, args: string[]) => new Promise<{
     code: number | null;
@@ -116,12 +117,51 @@ async function startServer() {
     }
   };
 
+  // ─── Rate Limiter Factory ────────────────────────────────────────────────
+  // Creates a simple in-memory per-IP rate limiter with bounded memory.
+  // Old entries are pruned on every check so the Map never grows unboundedly.
+  const makeRateLimiter = (maxRequests: number, windowMs: number) => ({
+    requests: new Map<string, number[]>(),
+    maxRequests,
+    windowMs,
+    check(key: string): boolean {
+      const now = Date.now();
+      const timestamps = this.requests.get(key) || [];
+      const recent = timestamps.filter(t => now - t < this.windowMs);
+      if (recent.length >= this.maxRequests) {
+        // Update with pruned list even on rejection to keep memory bounded
+        this.requests.set(key, recent);
+        return false;
+      }
+      recent.push(now);
+      this.requests.set(key, recent);
+      // Periodically remove fully-expired entries to prevent unbounded growth
+      if (this.requests.size > 10000) {
+        for (const [k, ts] of this.requests.entries()) {
+          if (!ts.some(t => now - t < this.windowMs)) this.requests.delete(k);
+        }
+      }
+      return true;
+    }
+  });
+
+  // Per-IP limits for file-system–touching routes
+  const fsReadLimiter   = makeRateLimiter(60, 60000);  // 60 reads/min
+  const fsWriteLimiter  = makeRateLimiter(20, 60000);  // 20 writes/min
+  const osInfoLimiter   = makeRateLimiter(30, 60000);  // 30 os-info/min
+  const execRateLimiter = makeRateLimiter(10, 60000);  // 10 exec/min
+
   // Global JSON middleware - move to top
   app.use(express.json());
 
-  // Global CORS middleware
+  // Global CORS middleware — restrict to configured origin (defaults to same-origin in production).
+  // In development the server itself serves the frontend, so localhost:PORT is the correct origin.
+  // Set PINET_CORS_ORIGIN to override (e.g., if the frontend is hosted separately).
+  const CORS_ORIGIN = process.env.PINET_CORS_ORIGIN || (process.env.NODE_ENV !== 'production' ? `http://localhost:${PORT}` : '');
   app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    if (CORS_ORIGIN) {
+      res.setHeader('Access-Control-Allow-Origin', CORS_ORIGIN);
+    }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
     res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
     
@@ -266,6 +306,10 @@ async function startServer() {
   });
 
   app.get("/api/os-info", async (req, res) => {
+    const clientIp = req.ip || 'unknown';
+    if (!osInfoLimiter.check(clientIp)) {
+      return res.status(429).json({ error: "Too many requests. Try again later." });
+    }
     let osName = 'unknown';
     let isRaspbian = false;
     let isUbuntu = false;
@@ -308,11 +352,7 @@ async function startServer() {
       }
 
       // Check for PiNet installation markers
-      if (fs.existsSync('/app/pinet-functions-python.py') || fs.existsSync('/opt/venv/bin/python3') || fs.existsSync(path.join(process.cwd(), 'pinet-config.json'))) {
-        isPiNetInstalled = true;
-      } else {
-        isPiNetInstalled = true; 
-      }
+      isPiNetInstalled = fs.existsSync('/app/pinet-functions-python.py') || fs.existsSync('/opt/venv/bin/python3') || fs.existsSync(path.join(process.cwd(), 'pinet-config.json'));
       
     } catch (e) {
       console.error("Error reading system info:", e);
@@ -496,12 +536,28 @@ async function startServer() {
   // --- Real File System Endpoints ---
   // express.json() moved to top
 
+  // Resolve the safe root for file browsing. Defaults to process.cwd() but
+  // can be overridden via PINET_FILES_ROOT for deployments that expose a
+  // dedicated directory (e.g., /home/pi/pinet-workspace).
+  // path.resolve() normalizes the path and strips any trailing separators.
+  const FILES_ROOT = path.resolve(process.env.PINET_FILES_ROOT || process.cwd());
+
+  /** Returns the resolved absolute path only when it is within FILES_ROOT.
+   *  Throws an error if the path would escape the root. */
+  const safeResolvePath = (requested: string): string => {
+    const resolved = path.resolve(FILES_ROOT, requested);
+    // Allow exactly FILES_ROOT itself, or any path strictly inside it.
+    // Appending path.sep guards against prefix attacks (e.g., /root vs /rootX).
+    if (resolved !== FILES_ROOT && !resolved.startsWith(FILES_ROOT + path.sep)) {
+      throw new Error('Access denied: path is outside the allowed directory');
+    }
+    return resolved;
+  };
+
   app.get("/api/files/list", (req, res) => {
-    const dirPath = (req.query.path as string) || process.cwd();
+    const dirPath = (req.query.path as string) || FILES_ROOT;
     try {
-      const absolutePath = path.resolve(dirPath);
-      // Security check: stay within process.cwd() or allow home? 
-      // For this OS simulation, we allow browsing but be careful.
+      const absolutePath = safeResolvePath(dirPath);
       const files = fs.readdirSync(absolutePath, { withFileTypes: true });
       const result = files.map(f => {
         const stats = fs.statSync(path.join(absolutePath, f.name));
@@ -515,37 +571,52 @@ async function startServer() {
       });
       res.json(result);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      const status = e.message.startsWith('Access denied') ? 403 : 500;
+      res.status(status).json({ error: e.message });
     }
   });
 
   app.get("/api/files/read", (req, res) => {
+    const clientIp = req.ip || 'unknown';
+    if (!fsReadLimiter.check(clientIp)) {
+      return res.status(429).json({ error: "Too many requests. Try again later." });
+    }
     const filePath = req.query.path as string;
     if (!filePath) return res.status(400).json({ error: "Path required" });
     try {
-      const content = fs.readFileSync(path.resolve(filePath), 'utf8');
+      const content = fs.readFileSync(safeResolvePath(filePath), 'utf8');
       res.json({ content });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      const status = e.message.startsWith('Access denied') ? 403 : 500;
+      res.status(status).json({ error: e.message });
     }
   });
 
   app.post("/api/files/write", (req, res) => {
+    const clientIp = req.ip || 'unknown';
+    if (!fsWriteLimiter.check(clientIp)) {
+      return res.status(429).json({ error: "Too many requests. Try again later." });
+    }
     const { path: filePath, content } = req.body;
     if (!filePath) return res.status(400).json({ error: "Path required" });
     try {
-      fs.writeFileSync(path.resolve(filePath), content, 'utf8');
+      fs.writeFileSync(safeResolvePath(filePath), content, 'utf8');
       res.json({ success: true });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      const status = e.message.startsWith('Access denied') ? 403 : 500;
+      res.status(status).json({ error: e.message });
     }
   });
 
   app.delete("/api/files/delete", (req, res) => {
+    const clientIp = req.ip || 'unknown';
+    if (!fsWriteLimiter.check(clientIp)) {
+      return res.status(429).json({ error: "Too many requests. Try again later." });
+    }
     const filePath = req.query.path as string;
     if (!filePath) return res.status(400).json({ error: "Path required" });
     try {
-      const absolutePath = path.resolve(filePath);
+      const absolutePath = safeResolvePath(filePath);
       if (fs.statSync(absolutePath).isDirectory()) {
         fs.rmdirSync(absolutePath, { recursive: true });
       } else {
@@ -553,7 +624,8 @@ async function startServer() {
       }
       res.json({ success: true });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      const status = e.message.startsWith('Access denied') ? 403 : 500;
+      res.status(status).json({ error: e.message });
     }
   });
 
@@ -888,10 +960,6 @@ async function startServer() {
     }
   });
 
-  // ─── Minima RPC Port Configuration ──────────────────────────────────────
-  const MINIMA_RPC_PORT = process.env.PINET_MINIMA_RPC_PORT || 9001;
-  const MINIMA_RPC_URL = process.env.MINIMA_RPC_URL || `http://127.0.0.1:${MINIMA_RPC_PORT}`;
-  const CLUSTER_API_PORT = process.env.PINET_CLUSTER_API_PORT || 9090;
   const CLUSTER_API_URL = `http://127.0.0.1:${CLUSTER_API_PORT}`;
 
   // ─── Cluster State (local + from Go service) ──────────────────────────
@@ -1020,23 +1088,6 @@ async function startServer() {
     res.json({ success: true, message: "Exec request queued" });
   });
 
-  // ─── Rate limiter for command execution endpoints ──────────────────────
-  const execRateLimiter = {
-    requests: new Map<string, number[]>(),
-    maxRequests: 10,
-    windowMs: 60000, // 1 minute window
-    check(key: string): boolean {
-      const now = Date.now();
-      const timestamps = this.requests.get(key) || [];
-      const recent = timestamps.filter(t => now - t < this.windowMs);
-      if (recent.length >= this.maxRequests) {
-        return false;
-      }
-      recent.push(now);
-      this.requests.set(key, recent);
-      return true;
-    }
-  };
 
   app.post("/api/cluster/exec-local", (req, res) => {
     // Rate limit: max 10 exec requests per minute per IP
