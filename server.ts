@@ -118,7 +118,8 @@ async function startServer() {
   };
 
   // ─── Rate Limiter Factory ────────────────────────────────────────────────
-  // Creates a simple in-memory per-IP rate limiter.
+  // Creates a simple in-memory per-IP rate limiter with bounded memory.
+  // Old entries are pruned on every check so the Map never grows unboundedly.
   const makeRateLimiter = (maxRequests: number, windowMs: number) => ({
     requests: new Map<string, number[]>(),
     maxRequests,
@@ -127,9 +128,19 @@ async function startServer() {
       const now = Date.now();
       const timestamps = this.requests.get(key) || [];
       const recent = timestamps.filter(t => now - t < this.windowMs);
-      if (recent.length >= this.maxRequests) return false;
+      if (recent.length >= this.maxRequests) {
+        // Update with pruned list even on rejection to keep memory bounded
+        this.requests.set(key, recent);
+        return false;
+      }
       recent.push(now);
       this.requests.set(key, recent);
+      // Periodically remove fully-expired entries to prevent unbounded growth
+      if (this.requests.size > 10000) {
+        for (const [k, ts] of this.requests.entries()) {
+          if (!ts.some(t => now - t < this.windowMs)) this.requests.delete(k);
+        }
+      }
       return true;
     }
   });
@@ -143,7 +154,9 @@ async function startServer() {
   // Global JSON middleware - move to top
   app.use(express.json());
 
-  // Global CORS middleware — restrict to configured origin (defaults to same-origin in production)
+  // Global CORS middleware — restrict to configured origin (defaults to same-origin in production).
+  // In development the server itself serves the frontend, so localhost:PORT is the correct origin.
+  // Set PINET_CORS_ORIGIN to override (e.g., if the frontend is hosted separately).
   const CORS_ORIGIN = process.env.PINET_CORS_ORIGIN || (process.env.NODE_ENV !== 'production' ? `http://localhost:${PORT}` : '');
   app.use((req, res, next) => {
     if (CORS_ORIGIN) {
@@ -526,13 +539,16 @@ async function startServer() {
   // Resolve the safe root for file browsing. Defaults to process.cwd() but
   // can be overridden via PINET_FILES_ROOT for deployments that expose a
   // dedicated directory (e.g., /home/pi/pinet-workspace).
+  // path.resolve() normalizes the path and strips any trailing separators.
   const FILES_ROOT = path.resolve(process.env.PINET_FILES_ROOT || process.cwd());
 
   /** Returns the resolved absolute path only when it is within FILES_ROOT.
-   *  Throws a 403 error string if the path would escape the root. */
+   *  Throws an error if the path would escape the root. */
   const safeResolvePath = (requested: string): string => {
     const resolved = path.resolve(FILES_ROOT, requested);
-    if (!resolved.startsWith(FILES_ROOT + path.sep) && resolved !== FILES_ROOT) {
+    // Allow exactly FILES_ROOT itself, or any path strictly inside it.
+    // Appending path.sep guards against prefix attacks (e.g., /root vs /rootX).
+    if (resolved !== FILES_ROOT && !resolved.startsWith(FILES_ROOT + path.sep)) {
       throw new Error('Access denied: path is outside the allowed directory');
     }
     return resolved;
