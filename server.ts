@@ -9,6 +9,7 @@ import { fileURLToPath } from "url";
 import os from "os";
 import osUtils from "os-utils";
 import si from "systeminformation";
+import { MINIMA_RPC_PORT, MINIMA_RPC_URL, CLUSTER_API_PORT } from "./config/defaults.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,7 +26,7 @@ async function startServer() {
   const bootProfileSwitchAvailable = fs.existsSync(bootSwitchScript)
     && bootMountCandidates.some((candidate) => fs.existsSync(candidate));
 
-  const PORT = 3000;
+  const PORT = parseInt(process.env.PINET_DESKTOP_PORT || '', 10) || 3000;
 
   const runCommand = (command: string, args: string[]) => new Promise<{
     code: number | null;
@@ -119,9 +120,12 @@ async function startServer() {
   // Global JSON middleware - move to top
   app.use(express.json());
 
-  // Global CORS middleware
+  // Global CORS middleware — restrict to configured origin (defaults to same-origin in production)
+  const CORS_ORIGIN = process.env.PINET_CORS_ORIGIN || (process.env.NODE_ENV !== 'production' ? `http://localhost:${PORT}` : '');
   app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    if (CORS_ORIGIN) {
+      res.setHeader('Access-Control-Allow-Origin', CORS_ORIGIN);
+    }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
     res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
     
@@ -308,11 +312,7 @@ async function startServer() {
       }
 
       // Check for PiNet installation markers
-      if (fs.existsSync('/app/pinet-functions-python.py') || fs.existsSync('/opt/venv/bin/python3') || fs.existsSync(path.join(process.cwd(), 'pinet-config.json'))) {
-        isPiNetInstalled = true;
-      } else {
-        isPiNetInstalled = true; 
-      }
+      isPiNetInstalled = fs.existsSync('/app/pinet-functions-python.py') || fs.existsSync('/opt/venv/bin/python3') || fs.existsSync(path.join(process.cwd(), 'pinet-config.json'));
       
     } catch (e) {
       console.error("Error reading system info:", e);
@@ -496,12 +496,25 @@ async function startServer() {
   // --- Real File System Endpoints ---
   // express.json() moved to top
 
+  // Resolve the safe root for file browsing. Defaults to process.cwd() but
+  // can be overridden via PINET_FILES_ROOT for deployments that expose a
+  // dedicated directory (e.g., /home/pi/pinet-workspace).
+  const FILES_ROOT = path.resolve(process.env.PINET_FILES_ROOT || process.cwd());
+
+  /** Returns the resolved absolute path only when it is within FILES_ROOT.
+   *  Throws a 403 error string if the path would escape the root. */
+  const safeResolvePath = (requested: string): string => {
+    const resolved = path.resolve(FILES_ROOT, requested);
+    if (!resolved.startsWith(FILES_ROOT + path.sep) && resolved !== FILES_ROOT) {
+      throw new Error('Access denied: path is outside the allowed directory');
+    }
+    return resolved;
+  };
+
   app.get("/api/files/list", (req, res) => {
-    const dirPath = (req.query.path as string) || process.cwd();
+    const dirPath = (req.query.path as string) || FILES_ROOT;
     try {
-      const absolutePath = path.resolve(dirPath);
-      // Security check: stay within process.cwd() or allow home? 
-      // For this OS simulation, we allow browsing but be careful.
+      const absolutePath = safeResolvePath(dirPath);
       const files = fs.readdirSync(absolutePath, { withFileTypes: true });
       const result = files.map(f => {
         const stats = fs.statSync(path.join(absolutePath, f.name));
@@ -515,7 +528,8 @@ async function startServer() {
       });
       res.json(result);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      const status = e.message.startsWith('Access denied') ? 403 : 500;
+      res.status(status).json({ error: e.message });
     }
   });
 
@@ -523,10 +537,11 @@ async function startServer() {
     const filePath = req.query.path as string;
     if (!filePath) return res.status(400).json({ error: "Path required" });
     try {
-      const content = fs.readFileSync(path.resolve(filePath), 'utf8');
+      const content = fs.readFileSync(safeResolvePath(filePath), 'utf8');
       res.json({ content });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      const status = e.message.startsWith('Access denied') ? 403 : 500;
+      res.status(status).json({ error: e.message });
     }
   });
 
@@ -534,10 +549,11 @@ async function startServer() {
     const { path: filePath, content } = req.body;
     if (!filePath) return res.status(400).json({ error: "Path required" });
     try {
-      fs.writeFileSync(path.resolve(filePath), content, 'utf8');
+      fs.writeFileSync(safeResolvePath(filePath), content, 'utf8');
       res.json({ success: true });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      const status = e.message.startsWith('Access denied') ? 403 : 500;
+      res.status(status).json({ error: e.message });
     }
   });
 
@@ -545,7 +561,7 @@ async function startServer() {
     const filePath = req.query.path as string;
     if (!filePath) return res.status(400).json({ error: "Path required" });
     try {
-      const absolutePath = path.resolve(filePath);
+      const absolutePath = safeResolvePath(filePath);
       if (fs.statSync(absolutePath).isDirectory()) {
         fs.rmdirSync(absolutePath, { recursive: true });
       } else {
@@ -553,7 +569,8 @@ async function startServer() {
       }
       res.json({ success: true });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      const status = e.message.startsWith('Access denied') ? 403 : 500;
+      res.status(status).json({ error: e.message });
     }
   });
 
@@ -888,10 +905,6 @@ async function startServer() {
     }
   });
 
-  // ─── Minima RPC Port Configuration ──────────────────────────────────────
-  const MINIMA_RPC_PORT = process.env.PINET_MINIMA_RPC_PORT || 9001;
-  const MINIMA_RPC_URL = process.env.MINIMA_RPC_URL || `http://127.0.0.1:${MINIMA_RPC_PORT}`;
-  const CLUSTER_API_PORT = process.env.PINET_CLUSTER_API_PORT || 9090;
   const CLUSTER_API_URL = `http://127.0.0.1:${CLUSTER_API_PORT}`;
 
   // ─── Cluster State (local + from Go service) ──────────────────────────

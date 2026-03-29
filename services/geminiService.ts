@@ -5,7 +5,10 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 // and process.env.GEMINI_API_KEY for the default gateway.
 export const getAiClient = () => {
   const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
-  return new GoogleGenAI({ apiKey: apiKey as string });
+  if (!apiKey) {
+    throw new Error('No Gemini API key configured. Set GEMINI_API_KEY or API_KEY in your environment.');
+  }
+  return new GoogleGenAI({ apiKey });
 };
 
 /**
