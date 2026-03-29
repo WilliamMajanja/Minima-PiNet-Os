@@ -117,6 +117,29 @@ async function startServer() {
     }
   };
 
+  // ─── Rate Limiter Factory ────────────────────────────────────────────────
+  // Creates a simple in-memory per-IP rate limiter.
+  const makeRateLimiter = (maxRequests: number, windowMs: number) => ({
+    requests: new Map<string, number[]>(),
+    maxRequests,
+    windowMs,
+    check(key: string): boolean {
+      const now = Date.now();
+      const timestamps = this.requests.get(key) || [];
+      const recent = timestamps.filter(t => now - t < this.windowMs);
+      if (recent.length >= this.maxRequests) return false;
+      recent.push(now);
+      this.requests.set(key, recent);
+      return true;
+    }
+  });
+
+  // Per-IP limits for file-system–touching routes
+  const fsReadLimiter   = makeRateLimiter(60, 60000);  // 60 reads/min
+  const fsWriteLimiter  = makeRateLimiter(20, 60000);  // 20 writes/min
+  const osInfoLimiter   = makeRateLimiter(30, 60000);  // 30 os-info/min
+  const execRateLimiter = makeRateLimiter(10, 60000);  // 10 exec/min
+
   // Global JSON middleware - move to top
   app.use(express.json());
 
@@ -270,6 +293,10 @@ async function startServer() {
   });
 
   app.get("/api/os-info", async (req, res) => {
+    const clientIp = req.ip || 'unknown';
+    if (!osInfoLimiter.check(clientIp)) {
+      return res.status(429).json({ error: "Too many requests. Try again later." });
+    }
     let osName = 'unknown';
     let isRaspbian = false;
     let isUbuntu = false;
@@ -534,6 +561,10 @@ async function startServer() {
   });
 
   app.get("/api/files/read", (req, res) => {
+    const clientIp = req.ip || 'unknown';
+    if (!fsReadLimiter.check(clientIp)) {
+      return res.status(429).json({ error: "Too many requests. Try again later." });
+    }
     const filePath = req.query.path as string;
     if (!filePath) return res.status(400).json({ error: "Path required" });
     try {
@@ -546,6 +577,10 @@ async function startServer() {
   });
 
   app.post("/api/files/write", (req, res) => {
+    const clientIp = req.ip || 'unknown';
+    if (!fsWriteLimiter.check(clientIp)) {
+      return res.status(429).json({ error: "Too many requests. Try again later." });
+    }
     const { path: filePath, content } = req.body;
     if (!filePath) return res.status(400).json({ error: "Path required" });
     try {
@@ -558,6 +593,10 @@ async function startServer() {
   });
 
   app.delete("/api/files/delete", (req, res) => {
+    const clientIp = req.ip || 'unknown';
+    if (!fsWriteLimiter.check(clientIp)) {
+      return res.status(429).json({ error: "Too many requests. Try again later." });
+    }
     const filePath = req.query.path as string;
     if (!filePath) return res.status(400).json({ error: "Path required" });
     try {
@@ -1033,23 +1072,6 @@ async function startServer() {
     res.json({ success: true, message: "Exec request queued" });
   });
 
-  // ─── Rate limiter for command execution endpoints ──────────────────────
-  const execRateLimiter = {
-    requests: new Map<string, number[]>(),
-    maxRequests: 10,
-    windowMs: 60000, // 1 minute window
-    check(key: string): boolean {
-      const now = Date.now();
-      const timestamps = this.requests.get(key) || [];
-      const recent = timestamps.filter(t => now - t < this.windowMs);
-      if (recent.length >= this.maxRequests) {
-        return false;
-      }
-      recent.push(now);
-      this.requests.set(key, recent);
-      return true;
-    }
-  };
 
   app.post("/api/cluster/exec-local", (req, res) => {
     // Rate limit: max 10 exec requests per minute per IP
