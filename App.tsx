@@ -46,10 +46,11 @@ const MIN_WIN_W = 420;
 const MIN_WIN_H = 260;
 const TOPBAR_H = 40;   // px reserved for TopBar
 const TASKBAR_H = 80;  // px reserved for Taskbar
+const WINDOW_EDGE_PAD = 40; // padding to keep windows visible on screen
 
 /** Return a cascaded position for the Nth window. */
 const cascadePos = (index: number) => {
-  const maxX = Math.max(0, window.innerWidth - DEFAULT_WIN_W - 40);
+  const maxX = Math.max(0, window.innerWidth - DEFAULT_WIN_W - WINDOW_EDGE_PAD);
   const maxY = Math.max(0, window.innerHeight - DEFAULT_WIN_H - TOPBAR_H - TASKBAR_H);
   return {
     x: Math.min(80 + index * CASCADE_X, maxX),

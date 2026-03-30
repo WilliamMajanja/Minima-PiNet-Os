@@ -29,6 +29,10 @@ async function startServer() {
 
   const PORT = parseInt(process.env.PINET_DESKTOP_PORT || '', 10) || 3000;
 
+  // Maximum terminal dimensions to prevent abuse via resize messages
+  const MAX_PTY_COLS = 500;
+  const MAX_PTY_ROWS = 200;
+
   const runCommand = (command: string, args: string[]) => new Promise<{
     code: number | null;
     stdout: string;
@@ -238,8 +242,8 @@ async function startServer() {
           ptyProcess.write(msg.data);
         } else if (msg.type === "resize") {
           // Handle terminal resize from the client
-          const cols = Math.max(1, Math.min(500, parseInt(msg.cols, 10) || 80));
-          const rows = Math.max(1, Math.min(200, parseInt(msg.rows, 10) || 24));
+          const cols = Math.max(1, Math.min(MAX_PTY_COLS, parseInt(msg.cols, 10) || 80));
+          const rows = Math.max(1, Math.min(MAX_PTY_ROWS, parseInt(msg.rows, 10) || 24));
           ptyProcess.resize(cols, rows);
         }
       } catch (e) {
@@ -529,28 +533,31 @@ async function startServer() {
         metrics: { cpu: localCpu, ram: localRam, temp: localTemp, iops: 0 }
       });
 
-      // Scan the /24 subnet with a real ping sweep (up to 254 hosts)
+      // Scan the /24 subnet with real ping sweep — batch with limited concurrency
       const scanRange = Array.from({ length: 254 }, (_, i) => i + 1);
-      const pingPromises = scanRange.map(i => {
-        const ip = `${base}.${i}`;
-        return new Promise<void>((resolve) => {
-          exec(`ping -c 1 -W 1 ${ip}`, (error) => {
-            if (!error && ip !== '127.0.0.1') {
-              activeNodes.push({
-                id: `n_${ip.replace(/\./g, '_')}`,
-                name: `Node-${ip}`,
-                ip,
-                hat: 'NONE',
-                status: 'online',
-                metrics: { cpu: 0, ram: 0, temp: 0, iops: 0 }
-              });
-            }
-            resolve();
+      const PING_CONCURRENCY = 30;
+      for (let batch = 0; batch < scanRange.length; batch += PING_CONCURRENCY) {
+        const chunk = scanRange.slice(batch, batch + PING_CONCURRENCY);
+        const pingPromises = chunk.map(i => {
+          const ip = `${base}.${i}`;
+          return new Promise<void>((resolve) => {
+            exec(`ping -c 1 -W 1 ${ip}`, (error) => {
+              if (!error && ip !== '127.0.0.1') {
+                activeNodes.push({
+                  id: `n_${ip.replace(/\./g, '_')}`,
+                  name: `Node-${ip}`,
+                  ip,
+                  hat: 'NONE',
+                  status: 'online',
+                  metrics: { cpu: 0, ram: 0, temp: 0, iops: 0 }
+                });
+              }
+              resolve();
+            });
           });
         });
-      });
-
-      await Promise.all(pingPromises);
+        await Promise.all(pingPromises);
+      }
       res.json({ nodes: activeNodes });
     } catch (e: any) {
       res.status(500).json({ error: e.message });

@@ -41,12 +41,11 @@ const DAppHostFrame: React.FC<DAppHostFrameProps> = ({ manifest }) => {
     ? manifest.entryPoint   // React dashboards use their entry point URL directly
     : dappService.getDappUrl(manifest.id);
 
-  // React dashboards and TypeScript DApps need allow-same-origin for proper SPA routing
+  // React dashboards need allow-same-origin and allow-modals for proper SPA routing.
+  // TypeScript and MiniDapp DApps also get allow-same-origin for PiNet bridge communication.
   const sandboxFlags = manifest.kind === 'react-dashboard'
     ? 'allow-scripts allow-forms allow-popups allow-same-origin allow-modals'
-    : manifest.kind === 'minidapp'
-      ? 'allow-scripts allow-forms allow-popups allow-same-origin'
-      : 'allow-scripts allow-forms allow-popups allow-same-origin';
+    : 'allow-scripts allow-forms allow-popups allow-same-origin';
 
   return (
     <div className="w-full h-full bg-white">
