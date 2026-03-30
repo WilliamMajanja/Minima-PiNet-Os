@@ -175,6 +175,23 @@ export class DAppBridge {
         return { delivered: true };
       }
 
+      // ── Files ───────────────────────────────────────────────────────
+      case 'files.list': {
+        this.requirePermission('files.read');
+        const dirPath = String(req.params.path ?? '/');
+        const res = await fetch(getApiUrl(`/api/files/list?path=${encodeURIComponent(dirPath)}`));
+        if (!res.ok) throw new Error('Failed to list files');
+        return res.json();
+      }
+
+      case 'files.read': {
+        this.requirePermission('files.read');
+        const filePath = String(req.params.path ?? '');
+        const res = await fetch(getApiUrl(`/api/files/read?path=${encodeURIComponent(filePath)}`));
+        if (!res.ok) throw new Error('Failed to read file');
+        return res.json();
+      }
+
       default:
         throw new Error(`Unknown bridge method: ${req.method}`);
     }

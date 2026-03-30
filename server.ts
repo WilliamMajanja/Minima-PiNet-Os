@@ -3,6 +3,7 @@ import express from "express";
 import { createServer } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { spawn, exec } from "child_process";
+import * as pty from "node-pty";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
@@ -180,7 +181,7 @@ async function startServer() {
     next();
   });
 
-  // WebSocket for Terminal
+  // WebSocket for Terminal (using node-pty for real PTY support)
   wss.on("connection", (ws: WebSocket) => {
     console.log("Terminal client connected");
     
@@ -188,54 +189,58 @@ async function startServer() {
     ws.on('pong', () => { isAlive = true; });
 
     const shell = process.platform === 'win32' ? 'powershell.exe' : 'bash';
-    const pty = spawn(shell, ['-i'], { // Use interactive mode
-      env: { 
-        ...process.env, 
-        TERM: 'xterm-256color',
-        PS1: '\\u@\\h:\\w\\$ '
-      },
+    const ptyProcess = pty.spawn(shell, [], {
+      name: 'xterm-256color',
+      cols: 80,
+      rows: 24,
       cwd: process.cwd(),
-      stdio: ['pipe', 'pipe', 'pipe']
+      env: {
+        ...process.env,
+        TERM: 'xterm-256color',
+        PS1: '\\u@\\h:\\w\\$ ',
+      } as Record<string, string>,
     });
 
-    const sendOutput = (data: Buffer | string) => {
+    ptyProcess.onData((data: string) => {
       if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "output", data: data.toString() }));
+        ws.send(JSON.stringify({ type: "output", data }));
       }
-    };
-
-    pty.stdout.on("data", sendOutput);
-    pty.stderr.on("data", sendOutput);
+    });
 
     ws.on("message", (message: string) => {
       try {
-        const msg = JSON.parse(message);
+        const msg = JSON.parse(message.toString());
         if (msg.type === "input") {
           if (msg.data.includes("export OS_MODE=")) {
             const mode = msg.data.match(/export OS_MODE=(\w+)/)?.[1] || 'pinet';
             
             setTimeout(() => {
               // Inject alias for pinet
-              pty.stdin.write("alias pinet='bash /bin/pinet'\n");
-              pty.stdin.write("alias minima='bash /bin/minima'\n");
+              ptyProcess.write("alias pinet='bash /bin/pinet'\n");
+              ptyProcess.write("alias minima='bash /bin/minima'\n");
               
               if (mode === 'pinet') {
-                pty.stdin.write("export PS1='\\[\\e[35m\\]pinet@beta-node\\[\\e[0m\\]:\\[\\e[36m\\]\\w\\[\\e[0m\\]\\$ '\n");
+                ptyProcess.write("export PS1='\\[\\e[35m\\]pinet@beta-node\\[\\e[0m\\]:\\[\\e[36m\\]\\w\\[\\e[0m\\]\\$ '\n");
               } else {
-                pty.stdin.write("export PS1='\\[\\e[32m\\]\\u@\\h\\[\\e[0m\\]:\\[\\e[34m\\]\\w\\[\\e[0m\\]\\$ '\n");
+                ptyProcess.write("export PS1='\\[\\e[32m\\]\\u@\\h\\[\\e[0m\\]:\\[\\e[34m\\]\\w\\[\\e[0m\\]\\$ '\n");
               }
               // Clear the screen to hide the export command
-              pty.stdin.write("clear\n");
+              ptyProcess.write("clear\n");
               
               // Show welcome message
               const osName = fs.existsSync('/etc/os-release') ? fs.readFileSync('/etc/os-release', 'utf8').split('\n').find(l => l.startsWith('PRETTY_NAME='))?.split('=')[1]?.replace(/"/g, '') || 'Linux' : 'Linux';
-              pty.stdin.write(`echo -e "\\033[0;37m$(uname -a)\\033[0m"\n`);
-              pty.stdin.write(`echo ""\n`);
-              pty.stdin.write(`echo "Welcome to ${osName}"\n`);
-              pty.stdin.write(`echo ""\n`);
+              ptyProcess.write(`echo -e "\\033[0;37m$(uname -a)\\033[0m"\n`);
+              ptyProcess.write(`echo ""\n`);
+              ptyProcess.write(`echo "Welcome to ${osName}"\n`);
+              ptyProcess.write(`echo ""\n`);
             }, 500);
           }
-          pty.stdin.write(msg.data);
+          ptyProcess.write(msg.data);
+        } else if (msg.type === "resize") {
+          // Handle terminal resize from the client
+          const cols = Math.max(1, Math.min(500, parseInt(msg.cols, 10) || 80));
+          const rows = Math.max(1, Math.min(200, parseInt(msg.rows, 10) || 24));
+          ptyProcess.resize(cols, rows);
         }
       } catch (e) {
         console.error("WS Message Error:", e);
@@ -253,13 +258,13 @@ async function startServer() {
 
     ws.on("close", () => {
       clearInterval(interval);
-      pty.kill();
+      ptyProcess.kill();
       console.log("Terminal client disconnected");
     });
 
-    pty.on('exit', () => {
+    ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
       if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "output", data: "\r\n[Process completed]\r\n" }));
+        ws.send(JSON.stringify({ type: "output", data: `\r\n[Process exited with code ${exitCode}]\r\n` }));
       }
     });
   });

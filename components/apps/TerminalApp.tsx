@@ -40,6 +40,12 @@ const TerminalApp: React.FC<TerminalAppProps> = ({ osMode = 'pinet', onOpenApp, 
     socket.onopen = () => {
       if (xtermRef.current) {
         socket.send(JSON.stringify({ type: 'input', data: `export OS_MODE=${osMode}\n` }));
+        // Send initial terminal dimensions
+        const cols = xtermRef.current.cols;
+        const rows = xtermRef.current.rows;
+        if (cols && rows) {
+          socket.send(JSON.stringify({ type: 'resize', cols, rows }));
+        }
       }
     };
 
@@ -139,6 +145,13 @@ const TerminalApp: React.FC<TerminalAppProps> = ({ osMode = 'pinet', onOpenApp, 
     term.onData((data) => {
       if (socketRef.current?.readyState === WebSocket.OPEN) {
         socketRef.current.send(JSON.stringify({ type: 'input', data }));
+      }
+    });
+
+    // Signal terminal resize to the server so the PTY adjusts cols/rows
+    term.onResize(({ cols, rows }) => {
+      if (socketRef.current?.readyState === WebSocket.OPEN) {
+        socketRef.current.send(JSON.stringify({ type: 'resize', cols, rows }));
       }
     });
 
