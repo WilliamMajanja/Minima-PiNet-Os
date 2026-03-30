@@ -213,6 +213,8 @@ async function startServer() {
   const dappServeLimiter   = makeRateLimiter(120, 60000); // 120 file serves/min
   const authLoginLimiter   = makeRateLimiter(5,  60000);  // 5 login attempts/min
   const securityCheckLimiter = makeRateLimiter(10, 60000); // 10 integrity checks/min
+  const systemCommandLimiter = makeRateLimiter(5, 60000);  // 5 system commands/min
+  const clusterCommandLimiter = makeRateLimiter(10, 60000); // 10 cluster commands/min
 
   // Global JSON middleware - move to top
   app.use(express.json());
@@ -894,6 +896,10 @@ async function startServer() {
   });
 
   app.post("/api/pinet2/lxc-init", (req, res) => {
+    const clientIp = req.ip || 'unknown';
+    if (!systemCommandLimiter.check(clientIp)) {
+      return res.status(429).json({ error: "Too many requests. Try again later." });
+    }
     pinetState.pinet2.lxcStatus = 'initializing';
     saveState();
     
@@ -911,6 +917,10 @@ async function startServer() {
   });
 
   app.post("/api/pinet2/switch", (req, res) => {
+    const clientIp = req.ip || 'unknown';
+    if (!systemCommandLimiter.check(clientIp)) {
+      return res.status(429).json({ error: "Too many requests. Try again later." });
+    }
     const { mode } = req.body;
     if (mode === 'container' || mode === 'host') {
       pinetState.pinet2.resourcePriority = mode;
@@ -930,6 +940,10 @@ async function startServer() {
   });
 
   app.post("/api/pinet2/ai-detect", (req, res) => {
+    const clientIp = req.ip || 'unknown';
+    if (!systemCommandLimiter.check(clientIp)) {
+      return res.status(429).json({ error: "Too many requests. Try again later." });
+    }
     pinetState.pinet2.aiAcceleration = 'detecting';
     saveState();
     
@@ -953,6 +967,10 @@ async function startServer() {
   });
 
   app.post("/api/pinet2/health-check", (req, res) => {
+    const clientIp = req.ip || 'unknown';
+    if (!systemCommandLimiter.check(clientIp)) {
+      return res.status(429).json({ error: "Too many requests. Try again later." });
+    }
     pinetState.pinet2.healthStatus = 'checking';
     saveState();
     
@@ -975,6 +993,10 @@ async function startServer() {
   });
 
   app.post("/api/build/image", (req, res) => {
+    const clientIp = req.ip || 'unknown';
+    if (!systemCommandLimiter.check(clientIp)) {
+      return res.status(429).json({ error: "Too many requests. Try again later." });
+    }
     pinetState.pinet2.buildStatus = 'building';
     pinetState.pinet2.buildLog = ["[INFO] Starting Enterprise Build Pipeline..."];
     saveState();
@@ -1211,6 +1233,10 @@ async function startServer() {
   });
 
   app.post("/api/cluster/exec", async (req, res) => {
+    const clientIp = req.ip || 'unknown';
+    if (!clusterCommandLimiter.check(clientIp)) {
+      return res.status(429).json({ error: "Too many requests. Try again later." });
+    }
     const { targetNodeId, command, args = [] } = req.body;
     if (!targetNodeId || !command) {
       return res.status(400).json({ error: "targetNodeId and command required" });
@@ -1385,6 +1411,10 @@ async function startServer() {
   });
 
   app.post("/api/cluster/provision", (req, res) => {
+    const clientIp = req.ip || 'unknown';
+    if (!clusterCommandLimiter.check(clientIp)) {
+      return res.status(429).json({ error: "Too many requests. Try again later." });
+    }
     const { id } = req.body;
     const node = pinetState.cluster.find((n: any) => n.id === id);
     if (node) {
