@@ -9,7 +9,7 @@
  */
 
 import * as fs from 'fs';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -63,7 +63,7 @@ export class SpiController {
 
   async init(): Promise<void> {
     if (!this.useSimulation) {
-      try { execSync('modprobe spidev 2>/dev/null', { stdio: 'ignore' }); } catch {}
+      try { execFileSync('modprobe', ['spidev'], { stdio: 'ignore' }); } catch {}
     }
   }
 
@@ -118,7 +118,7 @@ export class SpiController {
       'print("".join(f"{b:02x}" for b in rx))',
     ].join('\n');
 
-    const result = execSync(`python3 -c '${script}'`, { input: hexTx }).toString().trim();
+    const result = execFileSync('python3', ['-c', script], { input: hexTx, stdio: ['pipe', 'pipe', 'pipe'] }).toString().trim();
     return Buffer.from(result, 'hex');
   }
 

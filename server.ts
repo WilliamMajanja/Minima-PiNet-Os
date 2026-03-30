@@ -2,7 +2,7 @@
 import express from "express";
 import { createServer } from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import { spawn, exec } from "child_process";
+import { spawn, execFile } from "child_process";
 import * as pty from "node-pty";
 import path from "path";
 import fs from "fs";
@@ -776,6 +776,11 @@ async function startServer() {
 
   app.post("/api/minima/cmd", async (req, res) => {
     const { command } = req.body;
+
+    // Validate command is a non-empty string with reasonable length
+    if (typeof command !== 'string' || command.length === 0 || command.length > 1024) {
+      return res.status(400).json({ error: "Invalid command" });
+    }
     
     try {
       // Try real Minima RPC
@@ -822,7 +827,7 @@ async function startServer() {
     pinetState.pinet2.lxcStatus = 'initializing';
     saveState();
     
-    exec("bash scripts/pinet-lxc-init.sh", (error, stdout, stderr) => {
+    execFile("bash", ["scripts/pinet-lxc-init.sh"], (error, stdout, stderr) => {
       if (error) {
         console.error(`Enterprise LXC Init failed:`, error);
         pinetState.pinet2.lxcStatus = 'failed';
@@ -841,7 +846,7 @@ async function startServer() {
       pinetState.pinet2.resourcePriority = mode;
       saveState();
       
-      exec(`bash /usr/local/bin/pinet-switch ${mode}`, (error, stdout, stderr) => {
+      execFile('bash', ['/usr/local/bin/pinet-switch', mode], (error, stdout, stderr) => {
         if (error) {
           console.error(`Switch failed:`, error);
         } else {
@@ -858,7 +863,7 @@ async function startServer() {
     pinetState.pinet2.aiAcceleration = 'detecting';
     saveState();
     
-    exec("python3 scripts/pinet-ai-detect.py", (error, stdout, stderr) => {
+    execFile("python3", ["scripts/pinet-ai-detect.py"], (error, stdout, stderr) => {
       if (error) {
         console.error(`AI Detect failed:`, error);
         pinetState.pinet2.aiAcceleration = 'error';
@@ -881,7 +886,7 @@ async function startServer() {
     pinetState.pinet2.healthStatus = 'checking';
     saveState();
     
-    exec("bash scripts/pinet-health-check.sh", (error, stdout, stderr) => {
+    execFile("bash", ["scripts/pinet-health-check.sh"], (error, stdout, stderr) => {
       pinetState.pinet2.lastHealthCheck = new Date().toISOString();
       if (error) {
         console.error(`Health Check failed:`, error);
@@ -904,7 +909,7 @@ async function startServer() {
     pinetState.pinet2.buildLog = ["[INFO] Starting Enterprise Build Pipeline..."];
     saveState();
     
-    exec("bash scripts/pinet-build-image.sh", (error, stdout, stderr) => {
+    execFile("bash", ["scripts/pinet-build-image.sh"], (error, stdout, stderr) => {
       pinetState.pinet2.lastBuild = new Date().toISOString();
       if (error) {
         console.error(`Build failed:`, error);
@@ -1098,6 +1103,11 @@ async function startServer() {
       return res.status(400).json({ error: "masterAddress required" });
     }
 
+    // Validate masterAddress format — must be alphanumeric with dots, colons, hyphens only
+    if (typeof masterAddress !== 'string' || !/^[a-zA-Z0-9.:@_-]+$/.test(masterAddress) || masterAddress.length > 256) {
+      return res.status(400).json({ error: "Invalid masterAddress format" });
+    }
+
     try {
       // Send Maxima join request via Minima RPC
       const joinMsg = JSON.stringify({
@@ -1149,9 +1159,28 @@ async function startServer() {
     }
 
     const { workloadId, command: cmd, args = [], timeout: cmdTimeout = 30000 } = req.body;
+
+    // Allowlist of commands that can be executed via this endpoint
+    const ALLOWED_COMMANDS = new Set([
+      'ls', 'cat', 'echo', 'date', 'uname', 'hostname', 'whoami',
+      'df', 'free', 'uptime', 'ps', 'top', 'ping', 'ip', 'ifconfig',
+      'systemctl', 'journalctl', 'vcgencmd', 'lsblk', 'lscpu',
+      'docker', 'lxc', 'minima',
+    ]);
+
+    if (typeof cmd !== 'string' || !ALLOWED_COMMANDS.has(cmd)) {
+      return res.status(403).json({ error: `Command not allowed: ${typeof cmd === 'string' ? cmd : '(invalid)'}` });
+    }
+
+    // Validate args are all strings with no shell metacharacters
+    if (!Array.isArray(args) || args.some((a: unknown) => typeof a !== 'string' || /[;&|`$(){}]/.test(a as string))) {
+      return res.status(400).json({ error: "Invalid command arguments" });
+    }
+
+    const safeCmdTimeout = Math.min(Math.max(Number(cmdTimeout) || 30000, 1000), 60000);
     const start = Date.now();
 
-    const proc = spawn(cmd, args, { timeout: cmdTimeout });
+    const proc = spawn(cmd, args, { timeout: safeCmdTimeout });
     let stdout = '';
     let stderr = '';
 
@@ -1274,13 +1303,19 @@ async function startServer() {
     const { id } = req.body;
     const node = pinetState.cluster.find((n: any) => n.id === id);
     if (node) {
+      // Validate IP address to prevent command injection
+      const ipPattern = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+      const ipMatch = String(node.ip).match(ipPattern);
+      if (!ipMatch || ipMatch.slice(1).some((o: string) => Number(o) > 255)) {
+        return res.status(400).json({ error: "Invalid IP address for node" });
+      }
+
       node.status = 'provisioning';
       saveState();
       
-      // Execute a real provisioning command via rpi-connect
-      const provisionCmd = `rpi-connect shell ${node.ip} "curl -sSL https://raw.githubusercontent.com/WilliamMajanja/Minima-PiNet-Os/main/install.sh | bash" || sleep 5`;
-
-      exec(provisionCmd, (error, stdout, stderr) => {
+      // Execute a real provisioning command via rpi-connect using execFile to avoid shell injection
+      const installScript = "curl -sSL https://raw.githubusercontent.com/WilliamMajanja/Minima-PiNet-Os/main/install.sh | bash";
+      execFile("rpi-connect", ["shell", node.ip, installScript], (error, stdout, stderr) => {
         if (error) {
           console.error(`Provisioning failed for ${node.ip}:`, error);
           node.status = 'offline';
@@ -1405,15 +1440,18 @@ async function startServer() {
 <iframe src="${safeUrl}" style="border:0;width:100vw;height:100vh" sandbox="allow-scripts allow-forms allow-popups"></iframe>
 <script>
 // PiNet Bridge Relay — forward postMessage from inner iframe to parent host
+// Use window.location.origin instead of '*' to prevent cross-origin data leaks
+var hostOrigin = window.location.origin;
 window.addEventListener('message', function(e) {
   if (e.data && e.data.type === 'pinet-bridge-request') {
-    window.parent.postMessage(e.data, '*');
+    window.parent.postMessage(e.data, hostOrigin);
   }
 });
 window.addEventListener('message', function(e) {
+  if (e.origin !== hostOrigin) return;
   if (e.data && e.data.type === 'pinet-bridge-response') {
     var f = document.querySelector('iframe');
-    if (f && f.contentWindow) f.contentWindow.postMessage(e.data, '*');
+    if (f && f.contentWindow) f.contentWindow.postMessage(e.data, hostOrigin);
   }
 });
 </script>
@@ -1667,7 +1705,27 @@ window.addEventListener('message', function(e) {
       const { processManager } = await getKernelModules();
       const { name, command, args: cmdArgs, cwd: procCwd } = req.body;
       if (!name || !command) { res.status(400).json({ error: "Missing name or command" }); return; }
-      const proc = processManager.spawn(1, name, command, cmdArgs ?? [], {}, procCwd ?? '/');
+
+      // Allowlist of commands that can be spawned via the kernel API
+      const SPAWN_ALLOWED_COMMANDS = new Set([
+        'ls', 'cat', 'echo', 'date', 'uname', 'hostname', 'whoami',
+        'df', 'free', 'uptime', 'ps', 'top', 'ping', 'ip',
+        'systemctl', 'journalctl', 'vcgencmd', 'lsblk', 'lscpu',
+        'node', 'python3', 'bash', 'sh',
+      ]);
+      if (!SPAWN_ALLOWED_COMMANDS.has(command)) {
+        res.status(403).json({ error: `Command not allowed: ${command}` });
+        return;
+      }
+
+      // Validate args are all strings with no shell metacharacters
+      const safeArgs = Array.isArray(cmdArgs) ? cmdArgs : [];
+      if (safeArgs.some((a: unknown) => typeof a !== 'string' || /[;&|`$(){}]/.test(a as string))) {
+        res.status(400).json({ error: "Invalid command arguments" });
+        return;
+      }
+
+      const proc = processManager.spawn(1, name, command, safeArgs, {}, procCwd ?? '/');
       res.json({ success: true, process: proc });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
