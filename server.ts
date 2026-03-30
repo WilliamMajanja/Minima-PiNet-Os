@@ -152,6 +152,8 @@ async function startServer() {
   const execRateLimiter = makeRateLimiter(10, 60000);  // 10 exec/min
   const dappInstallLimiter = makeRateLimiter(10, 60000);  // 10 installs/min
   const dappServeLimiter   = makeRateLimiter(120, 60000); // 120 file serves/min
+  const authLoginLimiter   = makeRateLimiter(5,  60000);  // 5 login attempts/min
+  const securityCheckLimiter = makeRateLimiter(10, 60000); // 10 integrity checks/min
 
   // Global JSON middleware - move to top
   app.use(express.json());
@@ -1799,6 +1801,8 @@ window.addEventListener('message', function(e) {
 
   app.post("/api/auth/login", async (req, res) => {
     try {
+      const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
+      if (!authLoginLimiter.check(ip)) { res.status(429).json({ error: "Too many login attempts. Try again later." }); return; }
       const { userService } = await getKernelModules();
       const { username, password } = req.body;
       if (!username || !password) { res.status(400).json({ error: "Missing credentials" }); return; }
@@ -1889,8 +1893,10 @@ window.addEventListener('message', function(e) {
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.get("/api/security/integrity", async (_req, res) => {
+  app.get("/api/security/integrity", async (req, res) => {
     try {
+      const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
+      if (!securityCheckLimiter.check(ip)) { res.status(429).json({ error: "Rate limit exceeded" }); return; }
       const { securityService } = await getKernelModules();
       res.json(securityService.verifyIntegrity());
     } catch (e: any) { res.status(500).json({ error: e.message }); }
