@@ -1250,6 +1250,277 @@ async function startServer() {
     }
   });
 
+  // ─── DApp Platform API ──────────────────────────────────────────────────────
+
+  const DAPP_DIR = path.join(process.cwd(), process.env.PINET_DAPP_DIR || 'dapps-installed');
+  const DAPP_REGISTRY_FILE = path.join(DAPP_DIR, '_registry.json');
+
+  // Ensure dapp directory exists
+  if (!fs.existsSync(DAPP_DIR)) {
+    fs.mkdirSync(DAPP_DIR, { recursive: true });
+  }
+
+  interface DAppRecord {
+    manifest: {
+      id: string;
+      name: string;
+      description: string;
+      version: string;
+      author: string;
+      kind: 'typescript' | 'minidapp';
+      icon?: string;
+      color?: string;
+      entryPoint: string;
+      permissions: string[];
+      homepage?: string;
+      minPinetVersion?: string;
+    };
+    installPath: string;
+    installedAt: string;
+    updatedAt: string;
+    status: 'installed' | 'running' | 'stopped' | 'error';
+  }
+
+  const loadDAppRegistry = (): DAppRecord[] => {
+    if (fs.existsSync(DAPP_REGISTRY_FILE)) {
+      try {
+        return JSON.parse(fs.readFileSync(DAPP_REGISTRY_FILE, 'utf8'));
+      } catch { /* ignore corrupt registry */ }
+    }
+    return [];
+  };
+
+  const saveDAppRegistry = (registry: DAppRecord[]) => {
+    fs.writeFileSync(DAPP_REGISTRY_FILE, JSON.stringify(registry, null, 2));
+  };
+
+  /** Validate a DApp manifest id — only alphanumerics, dots, hyphens, underscores */
+  const isValidDAppId = (id: unknown): id is string =>
+    typeof id === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9._-]{1,127}$/.test(id);
+
+  // GET /api/dapps — list all installed DApps
+  app.get("/api/dapps", (_req, res) => {
+    const registry = loadDAppRegistry();
+    res.json({ dapps: registry });
+  });
+
+  // GET /api/dapps/:id — get a single DApp's record
+  app.get("/api/dapps/:id", (req, res) => {
+    const { id } = req.params;
+    if (!isValidDAppId(id)) {
+      res.status(400).json({ error: "Invalid DApp ID" });
+      return;
+    }
+    const registry = loadDAppRegistry();
+    const dapp = registry.find(d => d.manifest.id === id);
+    if (!dapp) {
+      res.status(404).json({ error: "DApp not found" });
+      return;
+    }
+    res.json(dapp);
+  });
+
+  // POST /api/dapps/install — install a DApp from URL or sideload manifest
+  app.post("/api/dapps/install", (req, res) => {
+    const { url, manifest } = req.body || {};
+    const registry = loadDAppRegistry();
+
+    if (manifest && manifest.id) {
+      // Sideload mode — register a DApp from a manifest + hosted URL
+      if (!isValidDAppId(manifest.id)) {
+        res.status(400).json({ error: "Invalid manifest id" });
+        return;
+      }
+
+      if (registry.find(d => d.manifest.id === manifest.id)) {
+        res.status(409).json({ error: "DApp already installed" });
+        return;
+      }
+
+      const dappDir = path.join(DAPP_DIR, manifest.id);
+      if (!fs.existsSync(dappDir)) {
+        fs.mkdirSync(dappDir, { recursive: true });
+      }
+
+      // Write a small index.html that redirects / proxies to the hosted URL
+      const entryUrl = typeof url === 'string' ? url : '';
+      const indexContent = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>${String(manifest.name || 'DApp').replace(/[<>&"]/g, '')}</title></head>
+<body style="margin:0;overflow:hidden">
+<iframe src="${entryUrl.replace(/"/g, '&quot;')}" style="border:0;width:100vw;height:100vh" sandbox="allow-scripts allow-forms allow-same-origin allow-popups"></iframe>
+<script>
+// PiNet Bridge Relay — forward postMessage from inner iframe to parent host
+window.addEventListener('message', function(e) {
+  if (e.data && e.data.type === 'pinet-bridge-request') {
+    window.parent.postMessage(e.data, '*');
+  }
+});
+window.addEventListener('message', function(e) {
+  if (e.data && e.data.type === 'pinet-bridge-response') {
+    document.querySelector('iframe').contentWindow.postMessage(e.data, '*');
+  }
+});
+</script>
+</body></html>`;
+      fs.writeFileSync(path.join(dappDir, 'index.html'), indexContent);
+
+      // Write the manifest as dapp.json
+      fs.writeFileSync(path.join(dappDir, 'dapp.json'), JSON.stringify(manifest, null, 2));
+
+      const record: DAppRecord = {
+        manifest: {
+          id: manifest.id,
+          name: manifest.name || manifest.id,
+          description: manifest.description || '',
+          version: manifest.version || '1.0.0',
+          author: manifest.author || 'Unknown',
+          kind: manifest.kind === 'minidapp' ? 'minidapp' : 'typescript',
+          icon: manifest.icon,
+          color: manifest.color,
+          entryPoint: manifest.entryPoint || 'index.html',
+          permissions: Array.isArray(manifest.permissions) ? manifest.permissions : [],
+          homepage: manifest.homepage,
+          minPinetVersion: manifest.minPinetVersion,
+        },
+        installPath: dappDir,
+        installedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: 'installed',
+      };
+
+      registry.push(record);
+      saveDAppRegistry(registry);
+      res.json(record);
+      return;
+    }
+
+    if (typeof url === 'string' && url.trim()) {
+      // URL install mode — for now register with a generated manifest from the URL
+      // A full implementation would download and extract the archive here
+      const urlObj = new URL(url);
+      const fileName = path.basename(urlObj.pathname);
+      const baseName = fileName.replace(/\.(zip|tar\.gz|mds\.zip)$/i, '');
+      const dappId = baseName.replace(/[^a-zA-Z0-9._-]/g, '-').toLowerCase();
+
+      if (!isValidDAppId(dappId)) {
+        res.status(400).json({ error: "Could not derive a valid DApp ID from the URL" });
+        return;
+      }
+
+      if (registry.find(d => d.manifest.id === dappId)) {
+        res.status(409).json({ error: "DApp already installed" });
+        return;
+      }
+
+      const isMiniDapp = url.endsWith('.mds.zip');
+      const dappDir = path.join(DAPP_DIR, dappId);
+      if (!fs.existsSync(dappDir)) {
+        fs.mkdirSync(dappDir, { recursive: true });
+      }
+
+      // Create a placeholder index.html pointing to the source
+      const indexContent = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>${baseName}</title></head>
+<body style="margin:0;font-family:sans-serif;background:#0f172a;color:#e2e8f0;display:flex;align-items:center;justify-content:center;height:100vh">
+<div style="text-align:center;max-width:400px">
+<h1 style="font-size:1.5rem">${baseName}</h1>
+<p style="color:#94a3b8;font-size:0.875rem">DApp installed from: ${url.replace(/[<>&"]/g, '')}</p>
+<p style="color:#64748b;font-size:0.75rem;margin-top:1rem">Archive extraction pending. The full DApp content will be available once the archive is downloaded and extracted.</p>
+</div></body></html>`;
+      fs.writeFileSync(path.join(dappDir, 'index.html'), indexContent);
+
+      const record: DAppRecord = {
+        manifest: {
+          id: dappId,
+          name: baseName,
+          description: `Installed from ${url}`,
+          version: '1.0.0',
+          author: 'Unknown',
+          kind: isMiniDapp ? 'minidapp' : 'typescript',
+          entryPoint: 'index.html',
+          permissions: [],
+        },
+        installPath: dappDir,
+        installedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: 'installed',
+      };
+
+      registry.push(record);
+      saveDAppRegistry(registry);
+      res.json(record);
+      return;
+    }
+
+    res.status(400).json({ error: "Provide a 'url' or a 'manifest' in the request body" });
+  });
+
+  // POST /api/dapps/:id/uninstall — remove a DApp
+  app.post("/api/dapps/:id/uninstall", (req, res) => {
+    const { id } = req.params;
+    if (!isValidDAppId(id)) {
+      res.status(400).json({ error: "Invalid DApp ID" });
+      return;
+    }
+    const registry = loadDAppRegistry();
+    const idx = registry.findIndex(d => d.manifest.id === id);
+    if (idx === -1) {
+      res.status(404).json({ error: "DApp not found" });
+      return;
+    }
+
+    const dapp = registry[idx];
+
+    // Remove files — only within the DAPP_DIR
+    const installDir = dapp.installPath;
+    const resolvedInstallDir = path.resolve(installDir);
+    const resolvedDappDir = path.resolve(DAPP_DIR);
+    if (resolvedInstallDir.startsWith(resolvedDappDir) && fs.existsSync(installDir)) {
+      fs.rmSync(installDir, { recursive: true, force: true });
+    }
+
+    registry.splice(idx, 1);
+    saveDAppRegistry(registry);
+    res.json({ success: true });
+  });
+
+  // GET /api/dapps/:id/serve/* — serve DApp static files
+  app.get("/api/dapps/:id/serve/*", (req, res) => {
+    const { id } = req.params;
+    if (!isValidDAppId(id)) {
+      res.status(400).json({ error: "Invalid DApp ID" });
+      return;
+    }
+
+    const registry = loadDAppRegistry();
+    const dapp = registry.find(d => d.manifest.id === id);
+    if (!dapp) {
+      res.status(404).json({ error: "DApp not found" });
+      return;
+    }
+
+    // Extract the file path after /serve/
+    const rawPath = req.url.split('/serve/')[1] || 'index.html';
+    const filePath = path.join(dapp.installPath, rawPath);
+    const resolvedPath = path.resolve(filePath);
+    const resolvedInstall = path.resolve(dapp.installPath);
+
+    // Path traversal prevention
+    if (!resolvedPath.startsWith(resolvedInstall)) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+
+    if (!fs.existsSync(resolvedPath) || fs.statSync(resolvedPath).isDirectory()) {
+      res.status(404).json({ error: "File not found" });
+      return;
+    }
+
+    res.sendFile(resolvedPath);
+  });
+
   app.get("/api/download-full-project", (req, res) => {
     const zipPath = path.join(process.cwd(), "Minima-PiNet-Os-Full.zip");
     if (fs.existsSync(zipPath)) {
