@@ -29,7 +29,9 @@ export interface I2cScanResult {
 // Helper: validate that a value is a safe non-negative integer
 const safeInt = (v: unknown, max: number = 0xFFFF): number => {
   const n = Number(v);
-  if (!Number.isInteger(n) || n < 0 || n > max) throw new Error(`Invalid I2C value: ${v}`);
+  if (typeof v !== 'number' || !Number.isFinite(n) || !Number.isInteger(n) || n < 0 || n > max) {
+    throw new Error(`Invalid I2C value: ${v}`);
+  }
   return n;
 };
 

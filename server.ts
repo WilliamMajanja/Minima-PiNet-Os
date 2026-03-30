@@ -1173,7 +1173,7 @@ async function startServer() {
     }
 
     // Validate args are all strings with no shell metacharacters
-    if (!Array.isArray(args) || args.some((a: unknown) => typeof a !== 'string' || /[;&|`$(){}]/.test(a as string))) {
+    if (!Array.isArray(args) || args.some((a: unknown) => typeof a !== 'string' || /[;&|`$(){}<>\\*?\[\]!#\n\r]/.test(a as string))) {
       return res.status(400).json({ error: "Invalid command arguments" });
     }
 
@@ -1313,7 +1313,9 @@ async function startServer() {
       node.status = 'provisioning';
       saveState();
       
-      // Execute a real provisioning command via rpi-connect using execFile to avoid shell injection
+      // Execute a real provisioning command via rpi-connect using execFile to avoid shell injection.
+      // The installScript is a hardcoded remote command string passed as a single argument to rpi-connect;
+      // execFile prevents local shell interpretation, and the IP is validated above.
       const installScript = "curl -sSL https://raw.githubusercontent.com/WilliamMajanja/Minima-PiNet-Os/main/install.sh | bash";
       execFile("rpi-connect", ["shell", node.ip, installScript], (error, stdout, stderr) => {
         if (error) {
@@ -1720,7 +1722,7 @@ window.addEventListener('message', function(e) {
 
       // Validate args are all strings with no shell metacharacters
       const safeArgs = Array.isArray(cmdArgs) ? cmdArgs : [];
-      if (safeArgs.some((a: unknown) => typeof a !== 'string' || /[;&|`$(){}]/.test(a as string))) {
+      if (safeArgs.some((a: unknown) => typeof a !== 'string' || /[;&|`$(){}<>\\*?\[\]!#\n\r]/.test(a as string))) {
         res.status(400).json({ error: "Invalid command arguments" });
         return;
       }

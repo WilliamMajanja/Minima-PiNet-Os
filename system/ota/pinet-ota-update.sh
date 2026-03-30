@@ -43,7 +43,8 @@ if ! curl --silent --fail --max-time 30 --output "${MANIFEST_FILE}" "${MANIFEST_
     exit 0
 fi
 
-LATEST_VERSION="$(jq -r '.version // empty' "${MANIFEST_FILE}" 2>/dev/null)" || error "Failed to parse version from manifest"
+LATEST_VERSION="$(jq -r '.version // empty' "${MANIFEST_FILE}" 2>/dev/null)"
+[[ -z "${LATEST_VERSION}" ]] && error "Failed to parse version from manifest"
 RELEASE_NOTES="$(jq -r '.notes // ""' "${MANIFEST_FILE}" 2>/dev/null)" || RELEASE_NOTES=""
 
 info "Latest version available: ${LATEST_VERSION}"
@@ -62,8 +63,10 @@ info "New update available: ${CURRENT_VERSION} → ${LATEST_VERSION}"
 info "Release notes: ${RELEASE_NOTES}"
 
 # ---- Step 2: Download update payload ----------------------------------------
-PAYLOAD_URL="$(jq -r '.payload_url // empty' "${MANIFEST_FILE}" 2>/dev/null)" || error "Failed to parse payload_url from manifest"
-PAYLOAD_HASH="$(jq -r '.sha256 // empty' "${MANIFEST_FILE}" 2>/dev/null)" || error "Failed to parse sha256 from manifest"
+PAYLOAD_URL="$(jq -r '.payload_url // empty' "${MANIFEST_FILE}" 2>/dev/null)"
+[[ -z "${PAYLOAD_URL}" ]] && error "Failed to parse payload_url from manifest"
+PAYLOAD_HASH="$(jq -r '.sha256 // empty' "${MANIFEST_FILE}" 2>/dev/null)"
+[[ -z "${PAYLOAD_HASH}" ]] && error "Failed to parse sha256 from manifest"
 PAYLOAD_SIG="$(jq -r '.signature_url // ""' "${MANIFEST_FILE}" 2>/dev/null)" || PAYLOAD_SIG=""
 PAYLOAD_FILE="${OTA_CACHE}/update-${LATEST_VERSION}.tar.gz"
 

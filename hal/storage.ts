@@ -188,7 +188,10 @@ export class StorageManager {
       const healthy = !output.includes('ERROR') && !output.includes('CORRUPTED');
       return { healthy, output };
     } catch (e: any) {
-      return { healthy: false, output: e.message };
+      // fsck returns non-zero for fixable errors; capture stdout if available
+      const output = e.stdout ? e.stdout.toString() : e.message;
+      const healthy = !output.includes('ERROR') && !output.includes('CORRUPTED');
+      return { healthy, output };
     }
   }
 
