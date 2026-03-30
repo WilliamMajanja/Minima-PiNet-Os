@@ -502,9 +502,20 @@ async function startServer() {
     if (!subnet || typeof subnet !== 'string') {
       return res.status(400).json({ error: "Subnet required" });
     }
+
+    // Validate subnet as a simple IPv4 address to derive a safe /24 base (e.g. "192.168.1.0")
+    const subnetStr = String(subnet).trim();
+    const subnetMatch = subnetStr.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (!subnetMatch) {
+      return res.status(400).json({ error: "Invalid subnet format" });
+    }
+    const octets = subnetMatch.slice(1).map(Number);
+    if (octets.some(octet => octet < 0 || octet > 255)) {
+      return res.status(400).json({ error: "Invalid subnet octets" });
+    }
     
     try {
-      const base = subnet.split('.').slice(0, 3).join('.');
+      const base = `${octets[0]}.${octets[1]}.${octets[2]}`;
       const activeNodes = [];
       
       // Get real local host metrics
@@ -541,8 +552,9 @@ async function startServer() {
         const pingPromises = chunk.map(i => {
           const ip = `${base}.${i}`;
           return new Promise<void>((resolve) => {
-            exec(`ping -c 1 -W 1 ${ip}`, (error) => {
-              if (!error && ip !== '127.0.0.1') {
+            const pingProc = spawn("ping", ["-c", "1", "-W", "1", ip]);
+            pingProc.on("close", (code) => {
+              if (code === 0 && ip !== '127.0.0.1') {
                 activeNodes.push({
                   id: `n_${ip.replace(/\./g, '_')}`,
                   name: `Node-${ip}`,
@@ -552,6 +564,9 @@ async function startServer() {
                   metrics: { cpu: 0, ram: 0, temp: 0, iops: 0 }
                 });
               }
+              resolve();
+            });
+            pingProc.on("error", () => {
               resolve();
             });
           });
