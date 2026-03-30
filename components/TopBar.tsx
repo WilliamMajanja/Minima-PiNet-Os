@@ -8,7 +8,7 @@ interface TopBarProps {
   nodeStats: NodeStats;
   systemStats: SystemStats;
   onSwitchOS?: () => void;
-  currentOS?: 'pinet' | 'raspbian';
+  currentOS?: 'pinet' | 'raspbian' | 'ubuntu' | 'debian';
 }
 
 const TopBar: React.FC<TopBarProps> = ({ nodeStats, systemStats, onSwitchOS, currentOS }) => {
@@ -153,8 +153,8 @@ const TopBar: React.FC<TopBarProps> = ({ nodeStats, systemStats, onSwitchOS, cur
                 <div className={`flex items-center justify-center w-24 h-6 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all z-10 ${currentOS === 'pinet' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-400'}`}>
                   PiNet OS
                 </div>
-                <div className={`flex items-center justify-center w-24 h-6 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all z-10 ${currentOS === 'raspbian' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-400'}`}>
-                  Raspbian
+                <div className={`flex items-center justify-center w-24 h-6 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all z-10 ${currentOS !== 'pinet' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-400'}`}>
+                  {currentOS === 'pinet' ? 'Host OS' : currentOS === 'ubuntu' ? 'Ubuntu' : currentOS === 'debian' ? 'Debian' : 'Raspbian'}
                 </div>
             </button>
         )}

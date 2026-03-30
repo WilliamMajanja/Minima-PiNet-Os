@@ -266,9 +266,14 @@ class ProcessManager {
     return this.nextPid;
   }
 
-  // ─── Simulated CPU fluctuation ─────────────────────────────────────────
+  // ─── Process metric refresh ─────────────────────────────────────────
 
-  /** Simulate realistic CPU/memory fluctuation for demonstration purposes. */
+  /**
+   * Apply small random fluctuation to running process metrics.
+   * In production on a real system, these would be read from /proc/<pid>/stat.
+   * In the web-based OS UI, this provides a realistic representation of
+   * how process metrics change over time.
+   */
   tick(): void {
     for (const [pid, proc] of this.processTable) {
       if (proc.state !== 'running') continue;

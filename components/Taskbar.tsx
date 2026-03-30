@@ -10,13 +10,17 @@ interface TaskbarProps {
 }
 
 const Taskbar: React.FC<TaskbarProps> = ({ windows, activeId, onAppClick }) => {
+  const openWindows = windows.filter(w => w.isOpen);
   return (
     <motion.footer 
       initial={{ y: 100 }}
       animate={{ y: 0 }}
       className="h-16 fixed bottom-4 left-1/2 -translate-x-1/2 glass-dark z-50 rounded-3xl flex items-center px-3 gap-2 border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
     >
-      {windows.map(win => (
+      {openWindows.length === 0 && (
+        <div className="px-4 text-slate-500 text-[10px] font-bold uppercase tracking-widest">No open windows</div>
+      )}
+      {openWindows.map(win => (
         <motion.button
           key={win.id}
           onClick={() => onAppClick(win.id)}
