@@ -20,12 +20,8 @@ const MaximaMessengerApp: React.FC = () => {
           setSelectedContact(contactList[0]);
         }
       } else {
-        // Fallback demo contacts
-        setContacts([
-          { name: 'Alice Node', address: 'MX_0x7123...A1F', status: 'online', lastSeen: '2m ago' },
-          { name: 'Bob Cluster', address: 'MX_0x9922...B3D', status: 'offline', lastSeen: '1h ago' },
-          { name: 'Charlie Pi', address: 'MX_0x4455...C8E', status: 'online', lastSeen: 'Now' },
-        ]);
+        // No contacts found — show empty state (no mock data)
+        setContacts([]);
       }
     } catch (e) {
       console.error('Failed to fetch contacts:', e);

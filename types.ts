@@ -49,6 +49,8 @@ export interface SystemStats {
   ram: number;
   temp: number;
   disk: number;
+  /** System uptime in seconds (from os.uptime()). */
+  uptime?: number;
 }
 
 export type HatType = 'AI_NPU' | 'SENSE' | 'SSD_NVME' | 'NONE';

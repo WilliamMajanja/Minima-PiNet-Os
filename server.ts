@@ -282,31 +282,32 @@ async function startServer() {
         new Promise<number>(resolve => setTimeout(() => resolve(0.1), 1000))
       ]);
 
-      let memPercent = 50;
-      let temp = 42;
-      let diskUsage = 15;
+      let memPercent = 0;
+      let temp = 0;
+      let diskUsage = 0;
 
       try {
         const memInfo = await si.mem();
         memPercent = (memInfo.active / memInfo.total) * 100;
-      } catch (e) { console.warn("Mem info failed"); }
+      } catch (e) { console.warn("Mem info unavailable"); }
 
       try {
         const tempInfo = await si.cpuTemperature();
-        temp = tempInfo.main || 42;
-      } catch (e) { console.warn("Temp info failed"); }
+        temp = tempInfo.main || 0;
+      } catch (e) { console.warn("Temp info unavailable"); }
 
       try {
         const fsSize = await si.fsSize();
         const rootFs = fsSize.find(f => f.mount === '/') || fsSize[0];
-        diskUsage = rootFs ? rootFs.use : 15;
-      } catch (e) { console.warn("Disk info failed"); }
+        diskUsage = rootFs ? rootFs.use : 0;
+      } catch (e) { console.warn("Disk info unavailable"); }
 
       res.json({
         cpu: (cpuUsage || 0) * 100,
-        ram: memPercent || 0,
-        temp: temp || 0,
-        disk: diskUsage || 0
+        ram: memPercent,
+        temp,
+        disk: diskUsage,
+        uptime: os.uptime(),
       });
     } catch (error) {
       console.error("Error fetching system stats:", error);
@@ -499,38 +500,52 @@ async function startServer() {
     }
     
     try {
-      // Use arp-scan or nmap if available, fallback to ping sweep
-      // For safety in container, we'll do a quick ping sweep of a few IPs
       const base = subnet.split('.').slice(0, 3).join('.');
       const activeNodes = [];
       
-      // Always include localhost
+      // Get real local host metrics
+      let localCpu = 0;
+      let localRam = 0;
+      let localTemp = 0;
+      try {
+        localCpu = await new Promise<number>(resolve => osUtils.cpuUsage(v => resolve(Math.round(v * 100))));
+      } catch { /* ignore */ }
+      try {
+        const memInfo = await si.mem();
+        localRam = parseFloat(((memInfo.active / (1024 * 1024 * 1024))).toFixed(1));
+      } catch { /* ignore */ }
+      try {
+        const tempInfo = await si.cpuTemperature();
+        localTemp = tempInfo.main || 0;
+      } catch { /* ignore */ }
+
+      // Always include localhost with real metrics
       activeNodes.push({
         id: 'n1',
         name: 'Pi-Alpha (Local Host)',
         ip: '127.0.0.1',
         hat: 'SSD_NVME',
         status: 'online',
-        metrics: { cpu: 12, ram: 2.1, temp: 45, iops: 12500 }
+        metrics: { cpu: localCpu, ram: localRam, temp: localTemp, iops: 0 }
       });
 
-      // Try to ping a few common IPs (1, 10, 15, 102) to simulate the sweep but actually do it
-      const ipsToPing = [1, 10, 15, 102].map(i => `${base}.${i}`);
-      
-      const pingPromises = ipsToPing.map(ip => {
-        return new Promise((resolve) => {
+      // Scan the /24 subnet with a real ping sweep (up to 254 hosts)
+      const scanRange = Array.from({ length: 254 }, (_, i) => i + 1);
+      const pingPromises = scanRange.map(i => {
+        const ip = `${base}.${i}`;
+        return new Promise<void>((resolve) => {
           exec(`ping -c 1 -W 1 ${ip}`, (error) => {
-            if (!error) {
+            if (!error && ip !== '127.0.0.1') {
               activeNodes.push({
                 id: `n_${ip.replace(/\./g, '_')}`,
                 name: `Node-${ip}`,
-                ip: ip,
+                ip,
                 hat: 'NONE',
                 status: 'online',
-                metrics: { cpu: Math.floor(Math.random() * 20), ram: Math.floor(Math.random() * 4), temp: 40, iops: 1000 }
+                metrics: { cpu: 0, ram: 0, temp: 0, iops: 0 }
               });
             }
-            resolve(true);
+            resolve();
           });
         });
       });
@@ -638,19 +653,15 @@ async function startServer() {
     }
   });
 
-  // --- Real Minima Node Persistence ---
+  // --- Minima Node Persistence (state fallback when real node unreachable) ---
   const STATE_FILE = path.join(process.cwd(), 'pinet-state.json');
   let pinetState = {
     minima: {
-      balance: 1250.45,
-      blockHeight: 1245091,
-      status: 'Synced',
-      peers: 14,
-      transactions: [
-        { id: 1, type: 'Received', amount: '+42.50 MIN', date: '2024-05-20', status: 'Confirmed' },
-        { id: 2, type: 'Sent', amount: '-10.00 MIN', date: '2024-05-18', status: 'Confirmed' },
-        { id: 3, type: 'Staking Reward', amount: '+0.15 MIN', date: '2024-05-17', status: 'Confirmed' },
-      ]
+      balance: 0,
+      blockHeight: 0,
+      status: 'Offline' as string,
+      peers: 0,
+      transactions: [] as { id: number; type: string; amount: string; date: string; status: string }[],
     },
     cluster: [
       { 
@@ -659,7 +670,7 @@ async function startServer() {
         ip: '127.0.0.1', 
         hat: 'SSD_NVME', 
         status: 'online', 
-        metrics: { cpu: 12, ram: 2.1, temp: 45, iops: 12500 } 
+        metrics: { cpu: 0, ram: 0, temp: 0, iops: 0 } 
       }
     ],
     settings: {
@@ -672,14 +683,14 @@ async function startServer() {
       resourcePriority: 'host',
       aiAcceleration: 'detecting',
       healthStatus: 'unknown',
-      lastHealthCheck: null,
-      systemHash: null,
+      lastHealthCheck: null as string | null,
+      systemHash: null as string | null,
       containerName: 'pinet-enterprise-env',
       cpuset: '2-3',
       networkType: 'wireguard-veth',
       buildStatus: 'idle',
-      lastBuild: null,
-      buildLog: []
+      lastBuild: null as string | null,
+      buildLog: [] as string[]
     }
   };
 
@@ -693,11 +704,21 @@ async function startServer() {
     fs.writeFileSync(STATE_FILE, JSON.stringify(pinetState, null, 2));
   };
 
-  // Simulate block production on server
-  setInterval(() => {
-    console.log("Simulating block production...");
-    pinetState.minima.blockHeight++;
-    saveState();
+  // Periodically check real Minima node status and update local state cache
+  setInterval(async () => {
+    try {
+      const response = await fetch(`${MINIMA_RPC_URL}/status`, { signal: AbortSignal.timeout(3000) });
+      if (response.ok) {
+        const data = await response.json() as any;
+        pinetState.minima.blockHeight = data.response?.chain?.block || pinetState.minima.blockHeight;
+        pinetState.minima.peers = data.response?.network?.connected || pinetState.minima.peers;
+        pinetState.minima.status = 'Synced';
+        saveState();
+      }
+    } catch {
+      // Minima node not reachable — keep existing cached state
+      pinetState.minima.status = 'Offline';
+    }
   }, 10000);
 
   app.get("/api/settings", (req, res) => {
@@ -1164,16 +1185,11 @@ async function startServer() {
         }
       }
     } catch (e) {
-      // Fallback to demo contacts
+      // Maxima not reachable
     }
 
-    // Fallback: return placeholder contacts
-    res.json({
-      contacts: [
-        { name: 'Node Alpha', address: 'MX_0x7123...A1F', status: 'online', lastSeen: 'Now' },
-        { name: 'Node Beta', address: 'MX_0x9922...B3D', status: 'offline', lastSeen: '5m ago' },
-      ]
-    });
+    // No Maxima node available — return empty contacts
+    res.json({ contacts: [] });
   });
 
   app.post("/api/maxima/send", async (req, res) => {
