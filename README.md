@@ -4,21 +4,26 @@
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
 ![Architecture](https://img.shields.io/badge/arch-ARM64-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Version](https://img.shields.io/badge/version-2.0.0--enterprise-blueviolet)
+![Version](https://img.shields.io/badge/version-3.0.0--enterprise-blueviolet)
 ![Security](https://img.shields.io/badge/security-Zero--Trust--Attestation-red)
 ![Virtualization](https://img.shields.io/badge/virt-LXC--Enterprise-blue)
+![DApp Platform](https://img.shields.io/badge/DApps-Next--Gen%20%2B%20Classic-orange)
 
-> **A modern, zero-bloat operating system made for Raspberry Pi — combining decentralized Web3 infrastructure, AI acceleration, and enterprise-grade security into a single, maker-ready platform.**
+> **A modern, zero-bloat operating system made for Raspberry Pi — combining decentralized Web3 infrastructure, AI acceleration, a full DApp platform, and enterprise-grade security into a single, maker-ready platform.**
 
 ## Executive Summary
 
-**Minima-PiNet-OS** is a specialized, lightweight Linux distribution engineered for Raspberry Pi ARM64 boards. It strips away the bloat of traditional operating systems to provide a highly optimized, zero-trust environment. Whether you're a maker building a home AI lab, a developer deploying decentralized Web3 nodes, or a hobbyist experimenting with edge computing, this OS serves as the perfect foundational layer for your next big Pi project.
+**Minima-PiNet-OS** is a specialized, lightweight Linux distribution engineered for Raspberry Pi ARM64 boards. It strips away the bloat of traditional operating systems to provide a highly optimized, zero-trust environment with a **built-in decentralized application (DApp) platform**.
+
+Whether you're a maker building a home AI lab, a developer deploying decentralized Web3 nodes, or a hobbyist running your own MiniDapps on the edge — PiNet-OS is the foundational layer for your next big Pi project.
+
+The DApp platform supports both **next-generation TypeScript DApps** and **classic Minima MiniDapps**, all running in a sandboxed desktop environment with a secure PostMessage bridge.
 
 ---
 
 ## The Architect
 
-This system was conceptualized and architected by **William Majanja**—an Open Source Bio-Informaticist, Data Segmentation Specialist, and Cybersecurity Professional. Majanja's goal is to bridge the gap between advanced distributed computing and the maker movement, bringing enterprise-grade edge AI and decentralized infrastructure directly to the Raspberry Pi ecosystem.
+This system was conceptualized and architected by **William Majanja** — an Open Source Bio-Informaticist, Data Segmentation Specialist, and Cybersecurity Professional. Majanja's goal is to bridge the gap between advanced distributed computing and the maker movement, bringing enterprise-grade edge AI and decentralized infrastructure directly to the Raspberry Pi ecosystem.
 
 ---
 
@@ -29,6 +34,9 @@ At its core, this OS adheres strictly to a **zero-bloat philosophy**. You get a 
 
 ### The "PiNet" Framework
 Traditional data-driven learning models often struggle on edge devices. **PiNet** (Physics-Informed Neural Networks) integration changes the game. The OS is pre-configured to support and accelerate AI architectures, making it easier to run TensorFlow Lite, ONNX models, and local LLMs directly on your Raspberry Pi without melting the CPU.
+
+### The DApp Desktop
+PiNet-OS ships with a **full graphical desktop** and an integrated **DApp Store**. Install, run, and manage decentralized applications — both modern TypeScript apps and classic Minima MiniDapps — directly from the desktop, no command line required.
 
 ---
 
@@ -44,7 +52,149 @@ The system operates on a perfect balance of performance, intelligence, and secur
 | **Zero-Exposure Networking** | Private WireGuard veth tunnels. | All container traffic routed through encrypted veth pairs; Host IP remains hidden. |
 | **Enterprise Build System** | Pi Imager compatible .img generation. | Automated pipeline for generating flashable, hardware-verified system images. |
 | **Decentralized Storage** | Distributed file system integration. | Native **IPFS** support with blockchain anchoring and node replication. |
-| **Web3 & Blockchain** | Layer 1 decentralized protocol. | Embedded **Minima** blockchain node and **MiniDAPP** runtime environment. |
+| **Web3 & Blockchain** | Layer 1 decentralized protocol. | Embedded **Minima** blockchain node with full RPC access. |
+| **DApp Platform** | Sandboxed DApp runtime. | Next-gen TypeScript DApps, React Dashboards, and classic Minima MiniDapps with PostMessage bridge. |
+
+---
+
+## 🧩 DApp Platform
+
+PiNet-OS includes a fully integrated DApp platform that lets you install, run, and manage decentralized applications from the desktop. The platform supports **three categories** of DApps:
+
+### Next-Generation DApps
+
+#### 🔷 TypeScript DApps
+Modern web applications built with TypeScript, React, Vue, or any framework of your choice.
+
+- **Archive format:** `.zip` or `.tar.gz`
+- **Execution:** Sandboxed `<iframe>` with full PostMessage bridge
+- **Capabilities:** Wallet read/send, Minima RPC, Maxima P2P messaging, cluster state, system metrics, file operations, notifications
+- **Build your own:** Use the [DApp SDK](docs/DAPP_SDK.md) to create a DApp from any web framework
+
+#### 🔹 React Dashboards
+External React applications loaded via URL — perfect for monitoring dashboards, analytics, or third-party tools like Grafana.
+
+- **Entry point:** URL-based loading with full SPA routing support
+- **Sandbox:** Relaxed same-origin policy for proper client-side routing
+- **Use case:** Integrate any external web-based tool into the PiNet desktop
+
+### Classic Minima MiniDapps
+
+#### 🟡 Classic MiniDapps
+Traditional Minima MiniDapps packaged in the standard `.mds.zip` format — the same format used across the Minima ecosystem.
+
+- **Archive format:** `.mds.zip`
+- **Compatibility:** Seamless integration into PiNet OS from the existing Minima MiniDapp ecosystem
+- **Node access:** Direct access to the embedded Minima node for on-chain operations
+- **Bridge access:** Classic MiniDapps can also use the PiNet bridge API via `window.parent.postMessage()` for enhanced features (cluster state, system metrics, notifications) beyond what standard Minima MDS provides
+
+### DApp Comparison
+
+| Feature | TypeScript DApps | React Dashboards | Classic MiniDapps |
+| :--- | :--- | :--- | :--- |
+| **Format** | `.zip` / `.tar.gz` | URL | `.mds.zip` |
+| **Language** | TypeScript/JS + any framework | React | HTML/JS (Minima MDS) |
+| **Sandbox** | iframe + bridge | iframe (relaxed) | iframe + bridge |
+| **Wallet access** | ✅ via bridge | ❌ | ✅ via bridge + Minima |
+| **Minima RPC** | ✅ via bridge | ❌ | ✅ native + bridge |
+| **Maxima P2P** | ✅ via bridge | ❌ | ✅ native + bridge |
+| **System metrics** | ✅ | ✅ | ✅ |
+| **Cluster state** | ✅ | ✅ | ✅ |
+| **File operations** | ✅ | ❌ | ✅ |
+| **Notifications** | ✅ | ❌ | ✅ |
+
+### DApp Store
+
+The built-in **DApp Store** (accessible from the desktop taskbar) provides two ways to install DApps:
+
+1. **Install from URL** — paste a URL to a `.zip`, `.tar.gz`, or `.mds.zip` archive
+2. **Sideload** — manually enter manifest fields and a hosted URL for development/testing
+
+Installed DApps appear as windows on the PiNet desktop, each running in its own isolated iframe.
+
+### Example DApps (Included)
+
+PiNet-OS ships with three example DApp templates in `PiNetOS/dapps/`:
+
+| DApp | Description | Type |
+| :--- | :--- | :--- |
+| **Wallet** | Minima wallet interface for sending/receiving tokens | MiniDapp |
+| **Device Identity** | Device identity and attestation manager | MiniDapp |
+| **IoT Data Market** | Decentralized IoT sensor data marketplace | MiniDapp |
+
+### DApp Bridge API
+
+All DApps communicate with PiNet-OS through a secure **PostMessage bridge**. The bridge enforces permission-based access control — DApps can only call methods declared in their manifest.
+
+**Available bridge methods:**
+
+| Method | Permission | Description |
+| :--- | :--- | :--- |
+| `wallet.getBalance` | `wallet.read` | Get wallet balance and node status |
+| `wallet.send` | `wallet.send` | Send Minima tokens |
+| `minima.cmd` | `minima.rpc` | Execute Minima RPC commands |
+| `maxima.getContacts` | `maxima.read` | List Maxima contacts |
+| `maxima.send` | `maxima.send` | Send encrypted P2P messages |
+| `cluster.getState` | `cluster.read` | Get cluster state and node info |
+| `system.getStats` | `system.read` | Get CPU, RAM, temperature, network metrics |
+| `files.list` | `files.read` | List directory contents |
+| `files.read` | `files.read` | Read file contents |
+| `notify` | `notifications` | Show desktop notification |
+
+**Real-time events pushed to DApps:**
+
+| Event | Description |
+| :--- | :--- |
+| `block` | New block mined on the Minima chain |
+| `balance` | Wallet balance updated |
+| `maxima.message` | Incoming Maxima P2P message |
+| `cluster.update` | Cluster state changed |
+| `system.stats` | System metrics updated |
+
+> 📖 **Full SDK documentation:** See [`docs/DAPP_SDK.md`](docs/DAPP_SDK.md) for the complete developer guide, manifest reference, helper library, and code examples.
+
+### DApp REST API
+
+The DApp platform exposes server-side endpoints for programmatic management:
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/dapps` | List all installed DApps |
+| `GET` | `/api/dapps/:id` | Get a single DApp record |
+| `POST` | `/api/dapps/install` | Install a DApp (`{ url }` or `{ manifest, url }`) |
+| `POST` | `/api/dapps/:id/uninstall` | Uninstall a DApp |
+| `GET` | `/api/dapps/:id/serve/*` | Serve static files from an installed DApp |
+
+### DApp Architecture
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│                     PiNet OS Desktop                          │
+│  ┌───────────┐  ┌───────────┐  ┌──────────────────────────┐  │
+│  │ Built-in  │  │   DApp    │  │      DApp Host Frame     │  │
+│  │   Apps    │  │   Store   │  │  ┌────────────────────┐  │  │
+│  └───────────┘  └───────────┘  │  │   Sandboxed iframe │  │  │
+│                                │  │  ┌──────────────┐  │  │  │
+│                                │  │  │ TypeScript   │  │  │  │
+│                                │  │  │ React Dash   │  │  │  │
+│                                │  │  │ MiniDapp     │  │  │  │
+│                                │  │  └──────────────┘  │  │  │
+│                                │  └─────────┬──────────┘  │  │
+│                                │     PostMessage Bridge    │  │
+│                                │  (permission-controlled)  │  │
+│                                └──────────────────────────┘  │
+└──────────────────────────┬────────────────────────────────────┘
+                           │
+                    Express Server
+                           │
+          ┌────────────────┼────────────────┐
+          │                │                │
+    ┌─────┴─────┐  ┌──────┴──────┐  ┌──────┴──────┐
+    │ /api/dapps│  │ /api/kernel │  │ Minima RPC  │
+    │ CRUD +    │  │ /api/system │  │ Maxima P2P  │
+    │ Serving   │  │ /api/cluster│  │ IPFS Store  │
+    └───────────┘  └─────────────┘  └─────────────┘
+```
 
 ---
 
@@ -113,6 +263,15 @@ To run and test the PiNetOS interface locally on your development machine:
    npm run electron:dev
    ```
 
+### 📦 Installing Your First DApp
+Once PiNet-OS is running:
+
+1. Open the **DApp Store** from the desktop taskbar.
+2. Enter a URL to a `.zip`, `.tar.gz`, or `.mds.zip` archive.
+3. Click **Install** — the DApp appears on your desktop and is ready to use.
+
+Or sideload a DApp for development by entering the manifest details and a hosted URL.
+
 ### 🛠️ Advanced: Custom Enterprise Build
 If you need a custom build with specific cluster secrets:
 1.  Open the **Pi Imager Portal** in your PiNet Dashboard.
@@ -142,20 +301,64 @@ To return to your original OS from PiNet, the switcher restores the saved host b
 
 **Minima-PiNet-OS** is purpose-built for taking your Pi projects to the next level:
 
-*   🤖 **Personal Edge AI Node:** 
+*   🤖 **Personal Edge AI Node:**
     Run local LLMs, image recognition, or voice assistants without relying on cloud APIs. The minimal OS overhead ensures your Pi's RAM is dedicated entirely to your AI models.
-*   🌐 **Decentralized Home Automation:** 
+*   🌐 **Decentralized Home Automation:**
     Use the integrated k3s (lightweight Kubernetes) to deploy Home Assistant, Node-RED, and IoT sensor aggregators in a secure, containerized environment.
-*   ⛓️ **Personal Web3 & Crypto Node:** 
+*   ⛓️ **Personal Web3 & Crypto Node:**
     Run a full Minima blockchain node natively. Participate in decentralized networks, host your own wallet, and anchor your data to the blockchain using the built-in IPFS integration.
-*   🖥️ **Pi Cluster Computing:** 
+*   🖥️ **Pi Cluster Computing:**
     Have a stack of Raspberry Pis? Use the PiNet Cluster Manager to link them together via WireGuard mesh networking, creating your own mini supercomputer.
+*   🧩 **DApp Development & Hosting:**
+    Build and deploy your own decentralized applications — from TypeScript web apps to classic Minima MiniDapps. Use the DApp Store to install community DApps, or sideload your own during development. Every DApp runs in a sandboxed iframe with access to wallet operations, Minima RPC, Maxima P2P messaging, and system metrics.
+*   📊 **Edge Analytics Dashboards:**
+    Load React-based monitoring dashboards directly into the PiNet desktop. Connect Grafana, custom analytics tools, or any URL-based web application as a dashboard DApp.
+
+---
+
+## Project Structure
+
+```
+Minima-PiNet-Os/
+├── App.tsx                    # Desktop shell with window management
+├── Taskbar.tsx                # Desktop taskbar with DApp integration
+├── server.ts                  # Express backend (API, DApp serving, Minima RPC)
+├── components/
+│   └── apps/
+│       ├── DAppStoreApp.tsx   # DApp Store UI — browse, install, manage
+│       └── DAppHostFrame.tsx  # Sandboxed iframe renderer for DApps
+├── services/
+│   ├── dappService.ts         # DApp state management (install, list, uninstall)
+│   ├── dappBridge.ts          # PostMessage bridge (permission-controlled)
+│   ├── networkService.ts      # Network management
+│   ├── syslogService.ts       # System logging
+│   └── ...                    # Additional OS services
+├── types/
+│   ├── dapp.ts                # DApp types: DAppManifest, DAppKind, Bridge API
+│   ├── kernel.ts              # Kernel types
+│   └── security.ts            # Security types
+├── kernel/                    # OS kernel subsystems
+├── config/
+│   └── defaults.ts            # Central configuration (ports, limits, versions)
+├── docs/
+│   └── DAPP_SDK.md            # Full DApp developer SDK guide
+├── PiNetOS/
+│   └── dapps/                 # Example DApp templates
+│       ├── wallet/            # Minima wallet MiniDapp
+│       ├── device-identity/   # Device identity manager
+│       └── iot-data-market/   # IoT data marketplace
+├── bin/                       # POSIX shell CLI tools
+├── lib/                       # Shell library functions
+├── hal/                       # Hardware abstraction layer
+├── boot/                      # Boot configuration
+└── electron/                  # Electron desktop wrapper
+```
 
 ---
 
 ## Contribution Guidelines
 
-We welcome contributions from makers, AI researchers, systems engineers, and open-source enthusiasts!
+We welcome contributions from makers, AI researchers, systems engineers, DApp developers, and open-source enthusiasts!
 
 1. Fork the repository.
 2. Create a feature branch (`git checkout -b feature/cool-new-idea`).
@@ -163,11 +366,20 @@ We welcome contributions from makers, AI researchers, systems engineers, and ope
 4. Push to the branch (`git push origin feature/cool-new-idea`).
 5. Open a Pull Request!
 
+### Contributing DApps
+
+Want to contribute a DApp to the PiNet ecosystem?
+
+1. Follow the [DApp SDK guide](docs/DAPP_SDK.md) to create your DApp.
+2. Add a `dapp.json` manifest with a unique ID (e.g. `com.yourname.my-dapp`).
+3. Test it locally using the DApp Store **sideload** feature.
+4. Submit a PR with your DApp template in `PiNetOS/dapps/`.
+
 Please ensure all code adheres to the zero-bloat philosophy. Let's keep the Pi fast and efficient!
 
 ## License
 
-This project is licensed under the **MIT License**. See the `LICENSE` file for details. 
+This project is licensed under the **MIT License**. See the `LICENSE` file for details.
 
 ---
-*Empowering the Raspberry Pi Community. Architected by William Majanja.*
+*Empowering the Raspberry Pi Community with Next-Gen DApps & Classic MiniDapps. Architected by William Majanja.*
