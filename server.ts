@@ -152,6 +152,8 @@ async function startServer() {
   const execRateLimiter = makeRateLimiter(10, 60000);  // 10 exec/min
   const dappInstallLimiter = makeRateLimiter(10, 60000);  // 10 installs/min
   const dappServeLimiter   = makeRateLimiter(120, 60000); // 120 file serves/min
+  const authLoginLimiter   = makeRateLimiter(5,  60000);  // 5 login attempts/min
+  const securityCheckLimiter = makeRateLimiter(10, 60000); // 10 integrity checks/min
 
   // Global JSON middleware - move to top
   app.use(express.json());
@@ -1543,6 +1545,465 @@ window.addEventListener('message', function(e) {
 
     res.sendFile(resolvedPath);
   });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // OS Kernel & System Management API Endpoints
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Lazy-load OS services to avoid circular imports at startup
+  const getKernelModules = async () => {
+    const [
+      { processManager },
+      { memoryManager },
+      { scheduler },
+      { initSystem },
+      { syslog },
+      { userService },
+      { ipcService },
+      { deviceManager },
+      { securityService },
+      { networkService },
+      { powerManager },
+      { listSyscalls, getSyscallCount },
+    ] = await Promise.all([
+      import('./kernel/processManager.js'),
+      import('./kernel/memoryManager.js'),
+      import('./kernel/scheduler.js'),
+      import('./kernel/init.js'),
+      import('./services/syslogService.js'),
+      import('./services/userService.js'),
+      import('./services/ipcService.js'),
+      import('./services/deviceManager.js'),
+      import('./services/securityService.js'),
+      import('./services/networkService.js'),
+      import('./services/powerService.js'),
+      import('./kernel/syscalls.js'),
+    ]);
+    return { processManager, memoryManager, scheduler, initSystem, syslog, userService, ipcService, deviceManager, securityService, networkService, powerManager, listSyscalls, getSyscallCount };
+  };
+
+  // ─── Process Manager API ──────────────────────────────────────────────
+
+  app.get("/api/kernel/processes", async (_req, res) => {
+    try {
+      const { processManager } = await getKernelModules();
+      res.json({ processes: processManager.listProcesses(), count: processManager.getProcessCount() });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/kernel/processes/tree", async (_req, res) => {
+    try {
+      const { processManager } = await getKernelModules();
+      res.json(processManager.getProcessTree(0));
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/kernel/processes/top", async (req, res) => {
+    try {
+      const { processManager } = await getKernelModules();
+      const sortBy = req.query.sort === 'memory' ? 'memory' : 'cpu';
+      const limit = Math.min(parseInt(req.query.limit as string, 10) || 20, 100);
+      const procs = sortBy === 'memory' ? processManager.getTopByMemory(limit) : processManager.getTopByCpu(limit);
+      res.json({ processes: procs, sortBy, limit });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/kernel/processes/:pid/signal", async (req, res) => {
+    try {
+      const { processManager } = await getKernelModules();
+      const pid = parseInt(req.params.pid, 10);
+      const { signal } = req.body;
+      if (!signal || isNaN(pid)) { res.status(400).json({ error: "Missing pid or signal" }); return; }
+      const ok = processManager.sendSignal(pid, signal);
+      res.json({ success: ok, pid, signal });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/kernel/processes/spawn", async (req, res) => {
+    try {
+      const { processManager } = await getKernelModules();
+      const { name, command, args: cmdArgs, cwd: procCwd } = req.body;
+      if (!name || !command) { res.status(400).json({ error: "Missing name or command" }); return; }
+      const proc = processManager.spawn(1, name, command, cmdArgs ?? [], {}, procCwd ?? '/');
+      res.json({ success: true, process: proc });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ─── Memory Manager API ───────────────────────────────────────────────
+
+  app.get("/api/kernel/memory", async (_req, res) => {
+    try {
+      const { memoryManager } = await getKernelModules();
+      res.json(memoryManager.getMemoryStats());
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/kernel/memory/:pid", async (req, res) => {
+    try {
+      const { memoryManager } = await getKernelModules();
+      const pid = parseInt(req.params.pid, 10);
+      res.json(memoryManager.getProcessMemory(pid));
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ─── Scheduler API ────────────────────────────────────────────────────
+
+  app.get("/api/kernel/scheduler", async (_req, res) => {
+    try {
+      const { scheduler } = await getKernelModules();
+      res.json({ stats: scheduler.getStats(), entries: scheduler.getAllEntries() });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/kernel/scheduler/cron", async (_req, res) => {
+    try {
+      const { scheduler } = await getKernelModules();
+      res.json({ jobs: scheduler.getCronJobs() });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/kernel/scheduler/cron", async (req, res) => {
+    try {
+      const { scheduler } = await getKernelModules();
+      const { id, name, schedule: cronSchedule, command, args: cronArgs, uid } = req.body;
+      if (!id || !name || !cronSchedule || !command) { res.status(400).json({ error: "Missing required fields" }); return; }
+      scheduler.addCronJob({ id, name, schedule: cronSchedule, command, args: cronArgs ?? [], uid: uid ?? 0, enabled: true });
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ─── Init System / Services API ───────────────────────────────────────
+
+  app.get("/api/kernel/services", async (_req, res) => {
+    try {
+      const { initSystem } = await getKernelModules();
+      res.json({ services: initSystem.listServices(), runLevel: initSystem.getRunLevel(), uptime: initSystem.getUptime() });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/kernel/services/:name", async (req, res) => {
+    try {
+      const { initSystem } = await getKernelModules();
+      const svc = initSystem.getService(req.params.name);
+      if (!svc) { res.status(404).json({ error: "Service not found" }); return; }
+      res.json(svc);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/kernel/services/:name/:action", async (req, res) => {
+    try {
+      const { initSystem } = await getKernelModules();
+      const { name, action: svcAction } = req.params;
+      let result;
+      switch (svcAction) {
+        case 'start': result = await initSystem.startService(name); break;
+        case 'stop': result = await initSystem.stopService(name); break;
+        case 'restart': result = await initSystem.restartService(name); break;
+        case 'reload': result = await initSystem.reloadService(name); break;
+        case 'enable': initSystem.enableService(name, true); result = { success: true }; break;
+        case 'disable': initSystem.enableService(name, false); result = { success: true }; break;
+        default: res.status(400).json({ error: `Unknown action: ${svcAction}` }); return;
+      }
+      res.json(result);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/kernel/targets", async (_req, res) => {
+    try {
+      const { initSystem } = await getKernelModules();
+      res.json({ targets: initSystem.listTargets(), currentRunLevel: initSystem.getRunLevel() });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/kernel/services-log", async (req, res) => {
+    try {
+      const { initSystem } = await getKernelModules();
+      const limit = Math.min(parseInt(req.query.limit as string, 10) || 100, 500);
+      res.json({ logs: initSystem.getAllLogs(limit) });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ─── Syscall API ──────────────────────────────────────────────────────
+
+  app.get("/api/kernel/syscalls", async (_req, res) => {
+    try {
+      const { listSyscalls, getSyscallCount } = await getKernelModules();
+      res.json({ syscalls: listSyscalls(), totalExecuted: getSyscallCount() });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ─── Syslog API ───────────────────────────────────────────────────────
+
+  app.get("/api/syslog", async (req, res) => {
+    try {
+      const { syslog } = await getKernelModules();
+      const limit = Math.min(parseInt(req.query.limit as string, 10) || 100, 500);
+      const facility = req.query.facility as string | undefined;
+      const severity = req.query.severity as string | undefined;
+      const process = req.query.process as string | undefined;
+      const search = req.query.search as string | undefined;
+      res.json({ logs: syslog.query({ facility: facility as any, severity: severity as any, process, search, limit }) });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/syslog/stats", async (_req, res) => {
+    try {
+      const { syslog } = await getKernelModules();
+      res.json(syslog.getStats());
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/syslog/processes", async (_req, res) => {
+    try {
+      const { syslog } = await getKernelModules();
+      res.json({ processes: syslog.getProcesses() });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ─── User Management API ──────────────────────────────────────────────
+
+  app.get("/api/users", async (_req, res) => {
+    try {
+      const { userService } = await getKernelModules();
+      res.json({ users: userService.listUsers(), groups: userService.listGroups(), sessions: userService.getActiveSessions() });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/users/:uid", async (req, res) => {
+    try {
+      const { userService } = await getKernelModules();
+      const uid = parseInt(req.params.uid, 10);
+      const user = userService.getUser(uid);
+      if (!user) { res.status(404).json({ error: "User not found" }); return; }
+      res.json(user);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/users", async (req, res) => {
+    try {
+      const { userService } = await getKernelModules();
+      const { username, fullName, password, shell: userShell, groups: userGroups, sudoer } = req.body;
+      if (!username || !fullName || !password) { res.status(400).json({ error: "Missing required fields" }); return; }
+      const user = userService.createUser(username, fullName, password, { shell: userShell, groups: userGroups, sudoer });
+      if (!user) { res.status(409).json({ error: "User already exists" }); return; }
+      res.json({ success: true, user });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.delete("/api/users/:uid", async (req, res) => {
+    try {
+      const { userService } = await getKernelModules();
+      const uid = parseInt(req.params.uid, 10);
+      const ok = userService.deleteUser(uid);
+      res.json({ success: ok });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
+      if (!authLoginLimiter.check(ip)) { res.status(429).json({ error: "Too many login attempts. Try again later." }); return; }
+      const { userService } = await getKernelModules();
+      const { username, password } = req.body;
+      if (!username || !password) { res.status(400).json({ error: "Missing credentials" }); return; }
+      const result = userService.authenticate(username, password);
+      res.json(result);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ─── IPC / D-Bus API ──────────────────────────────────────────────────
+
+  app.get("/api/ipc/services", async (_req, res) => {
+    try {
+      const { ipcService } = await getKernelModules();
+      res.json({ services: ipcService.listBusServices(), channels: ipcService.listChannels(), stats: ipcService.getStats() });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/ipc/messages", async (req, res) => {
+    try {
+      const { ipcService } = await getKernelModules();
+      const limit = Math.min(parseInt(req.query.limit as string, 10) || 50, 200);
+      res.json({ messages: ipcService.getRecentMessages(limit) });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ─── Device Manager API ───────────────────────────────────────────────
+
+  app.get("/api/devices", async (_req, res) => {
+    try {
+      const { deviceManager } = await getKernelModules();
+      res.json({ devices: deviceManager.listDevices(), tree: deviceManager.getDeviceTree(), stats: deviceManager.getStats() });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/devices/:id", async (req, res) => {
+    try {
+      const { deviceManager } = await getKernelModules();
+      const dev = deviceManager.getDevice(req.params.id);
+      if (!dev) { res.status(404).json({ error: "Device not found" }); return; }
+      res.json(dev);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/devices/events/recent", async (req, res) => {
+    try {
+      const { deviceManager } = await getKernelModules();
+      const limit = Math.min(parseInt(req.query.limit as string, 10) || 50, 200);
+      res.json({ events: deviceManager.getEvents(limit) });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/devices/rules/list", async (_req, res) => {
+    try {
+      const { deviceManager } = await getKernelModules();
+      res.json({ rules: deviceManager.listRules() });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ─── Security API ─────────────────────────────────────────────────────
+
+  app.get("/api/security/dashboard", async (_req, res) => {
+    try {
+      const { securityService } = await getKernelModules();
+      res.json(securityService.getDashboard());
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/security/policies", async (_req, res) => {
+    try {
+      const { securityService } = await getKernelModules();
+      res.json({ policies: securityService.listPolicies() });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/security/audit", async (req, res) => {
+    try {
+      const { securityService } = await getKernelModules();
+      const limit = Math.min(parseInt(req.query.limit as string, 10) || 100, 500);
+      const type = req.query.type as string | undefined;
+      res.json({ events: securityService.queryAudit({ type: type as any, limit }) });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/security/profiles", async (_req, res) => {
+    try {
+      const { securityService } = await getKernelModules();
+      res.json({ profiles: securityService.listProfiles() });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/security/integrity", async (req, res) => {
+    try {
+      const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
+      if (!securityCheckLimiter.check(ip)) { res.status(429).json({ error: "Rate limit exceeded" }); return; }
+      const { securityService } = await getKernelModules();
+      res.json(securityService.verifyIntegrity());
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/security/threats", async (_req, res) => {
+    try {
+      const { securityService } = await getKernelModules();
+      res.json({ threats: securityService.getThreats(), open: securityService.getOpenThreats().length });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ─── Network Manager API ──────────────────────────────────────────────
+
+  app.get("/api/network/interfaces", async (_req, res) => {
+    try {
+      const { networkService } = await getKernelModules();
+      res.json({ interfaces: networkService.listInterfaces(), stats: networkService.getNetworkStats() });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/network/routes", async (_req, res) => {
+    try {
+      const { networkService } = await getKernelModules();
+      res.json({ routes: networkService.getRoutes() });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/network/dns", async (_req, res) => {
+    try {
+      const { networkService } = await getKernelModules();
+      res.json(networkService.getDNSConfig());
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/network/firewall", async (_req, res) => {
+    try {
+      const { networkService } = await getKernelModules();
+      res.json({ rules: networkService.getFirewallRules() });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/network/wireguard", async (_req, res) => {
+    try {
+      const { networkService } = await getKernelModules();
+      res.json({ interfaces: networkService.getWireGuardInterfaces() });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/network/interfaces/:name", async (req, res) => {
+    try {
+      const { networkService } = await getKernelModules();
+      const { state: ifaceState, address, netmask, mtu } = req.body;
+      const name = req.params.name;
+      if (ifaceState) networkService.setInterfaceState(name, ifaceState);
+      if (address && netmask) networkService.setInterfaceAddress(name, address, netmask);
+      if (mtu) networkService.setMTU(name, mtu);
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ─── Power Manager API ────────────────────────────────────────────────
+
+  app.get("/api/power", async (_req, res) => {
+    try {
+      const { powerManager } = await getKernelModules();
+      res.json({
+        info: powerManager.getPowerInfo(),
+        watchdog: powerManager.getWatchdogStatus(),
+        scheduledShutdown: powerManager.getScheduledShutdown(),
+        governors: powerManager.getAvailableGovernors(),
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/power/state", async (req, res) => {
+    try {
+      const { powerManager } = await getKernelModules();
+      const { state: pwrState } = req.body;
+      if (!pwrState) { res.status(400).json({ error: "Missing state" }); return; }
+      const result = await powerManager.requestStateChange(pwrState);
+      res.json(result);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/power/governor", async (req, res) => {
+    try {
+      const { powerManager } = await getKernelModules();
+      const { governor } = req.body;
+      const ok = powerManager.setGovernor(governor);
+      res.json({ success: ok });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/power/schedule", async (req, res) => {
+    try {
+      const { powerManager } = await getKernelModules();
+      const { action: schedAction, delayMs } = req.body;
+      if (!schedAction || !delayMs) { res.status(400).json({ error: "Missing action or delay" }); return; }
+      const result = powerManager.scheduleShutdown(schedAction, delayMs);
+      res.json(result);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // End of OS Kernel & System Management API
+  // ═══════════════════════════════════════════════════════════════════════════
 
   app.get("/api/download-full-project", (req, res) => {
     const zipPath = path.join(process.cwd(), "Minima-PiNet-Os-Full.zip");
