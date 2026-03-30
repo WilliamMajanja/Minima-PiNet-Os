@@ -11,7 +11,7 @@
 
 import * as fs   from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -146,7 +146,7 @@ export class StorageManager {
     try {
       if (!fs.existsSync(mountpoint)) fs.mkdirSync(mountpoint, { recursive: true });
       const args = fstype ? ['-t', fstype, device, mountpoint] : [device, mountpoint];
-      execSync(`mount ${args.map(a => `'${a}'`).join(' ')} 2>&1`);
+      execFileSync('mount', args);
       return { success: true, message: `Mounted ${device} at ${mountpoint}` };
     } catch (e: any) {
       return { success: false, message: e.message };
@@ -161,7 +161,7 @@ export class StorageManager {
       return { success: false, message: 'Invalid mountpoint or device path' };
     }
     try {
-      execSync(`umount '${mountpointOrDevice}' 2>&1`);
+      execFileSync('umount', [mountpointOrDevice]);
       return { success: true, message: `Unmounted ${mountpointOrDevice}` };
     } catch (e: any) {
       return { success: false, message: e.message };
@@ -177,7 +177,7 @@ export class StorageManager {
       return { healthy: false, output: 'Invalid device path' };
     }
     try {
-      const output = execSync(`fsck -n '${device}' 2>&1 || true`).toString();
+      const output = execFileSync('fsck', ['-n', device]).toString();
       const healthy = !output.includes('ERROR') && !output.includes('CORRUPTED');
       return { healthy, output };
     } catch (e: any) {

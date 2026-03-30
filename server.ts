@@ -74,9 +74,14 @@ async function startServer() {
   const isSafeArg = (arg: string): boolean =>
     typeof arg === 'string' && arg.length <= 4096 && !/[;&|`$(){}[\]<>!\\]/.test(arg);
 
-  /** Validate cron schedule format. */
-  const isSafeCronSchedule = (schedule: string): boolean =>
-    typeof schedule === 'string' && /^[0-9*,\/-]+(\s+[0-9*,\/-]+){4}$/.test(schedule.trim());
+  /** Validate cron schedule format — 5 fields (minute hour dom month dow), safe characters only. */
+  const isSafeCronSchedule = (schedule: string): boolean => {
+    if (typeof schedule !== 'string') return false;
+    const parts = schedule.trim().split(/\s+/);
+    if (parts.length !== 5) return false;
+    // Each field must only contain digits, *, commas, hyphens, slashes
+    return parts.every(p => /^[0-9*,\/-]+$/.test(p));
+  };
 
   /** Validate a cron job id or name. */
   const isSafeCronId = (value: string): boolean =>
@@ -1246,8 +1251,9 @@ async function startServer() {
       return res.status(400).json({ error: "Invalid arguments" });
     }
 
-    // Cap timeout to a sensible maximum
-    const safeTimeout = Math.min(Math.max(Number(cmdTimeout) || 30000, 1000), 120000);
+    // Cap timeout to a sensible maximum — ensure we get a valid number first
+    const parsedTimeout = Number(cmdTimeout);
+    const safeTimeout = Math.min(Math.max(Number.isFinite(parsedTimeout) ? parsedTimeout : 30000, 1000), 120000);
 
     const start = Date.now();
 
