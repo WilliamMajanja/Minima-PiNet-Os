@@ -52,6 +52,17 @@ export const CONNECTIVITY_LAYERS = {
 export const THERMAL_WARNING = 80;  // °C
 export const THERMAL_CRITICAL = 85; // °C
 
+// ─── DApp Platform ───────────────────────────────────────────────────────────
+
+/** Directory where installed DApps are stored on disk (relative to cwd) */
+export const DAPP_INSTALL_DIR = process.env.PINET_DAPP_DIR || 'dapps-installed';
+/** Maximum number of DApps that can be installed */
+export const DAPP_MAX_INSTALLED = 50;
+/** Maximum archive size for a DApp upload (bytes) — 50 MB */
+export const DAPP_MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+/** Allowed archive extensions for DApp installation */
+export const DAPP_ALLOWED_EXTENSIONS = ['.zip', '.tar.gz', '.mds.zip'] as const;
+
 // ─── Version ─────────────────────────────────────────────────────────────────
 
 export const PINET_VERSION = '3.0.0';

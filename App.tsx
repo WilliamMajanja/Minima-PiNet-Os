@@ -5,7 +5,7 @@ import Desktop from './components/Desktop';
 import Taskbar from './components/Taskbar';
 import TopBar from './components/TopBar';
 import BootSplashScreen from './components/apps/BootSplashScreen';
-import { AppId, WindowState, NodeStats, SystemStats, ClusterNode, HypervisorSwitchResult, OSMode } from './types';
+import { AppId, WindowState, NodeStats, SystemStats, ClusterNode, HypervisorSwitchResult, OSMode, isDAppId, extractDAppId } from './types';
 import MinimaNodeApp from './components/apps/MinimaNodeApp';
 import SystemMonitorApp from './components/apps/SystemMonitorApp';
 import TerminalApp from './components/apps/TerminalApp';
@@ -18,10 +18,13 @@ import ImagerUtility from './components/apps/ImagerUtility';
 import FileExplorerApp from './components/apps/FileExplorerApp';
 import SettingsApp from './components/apps/SettingsApp';
 import VisualAssetStudio from './components/apps/VisualAssetStudio';
+import DAppStoreApp from './components/apps/DAppStoreApp';
+import DAppHostFrame from './components/apps/DAppHostFrame';
 import { minimaService } from './services/minimaService';
 import { clusterService } from './services/clusterService';
 import { settingsService } from './services/settingsService';
 import { systemService } from './services/systemService';
+import { dappService } from './services/dappService';
 import { ExceptionFilter } from './utils/core';
 import { getApiUrl } from './utils/api';
 
@@ -100,6 +103,7 @@ const App: React.FC = () => {
     { id: 'file-explorer', title: 'File Explorer', isOpen: false, isMinimized: false, zIndex: 1 },
     { id: 'settings', title: 'System Settings', isOpen: false, isMinimized: false, zIndex: 1 },
     { id: 'visual-studio', title: 'Visual Asset Studio', isOpen: false, isMinimized: false, zIndex: 1 },
+    { id: 'dapp-store', title: 'DApp Store', isOpen: false, isMinimized: false, zIndex: 1 },
   ]);
 
   const [activeId, setActiveId] = useState<AppId>('minima-node');
@@ -136,10 +140,14 @@ const App: React.FC = () => {
         setWallpaper(settingsService.wallpaper);
     });
 
+    // Start DApp service polling
+    dappService.start();
+
     return () => {
         unsubMinima();
         unsubCluster();
         unsubSettings();
+        dappService.stop();
     };
   }, []);
   
@@ -187,17 +195,39 @@ const App: React.FC = () => {
   }, []);
 
   const openApp = (id: AppId) => {
-    setWindows(prev => prev.map(w => {
-      if (w.id === id) {
-        return { ...w, isOpen: true, isMinimized: false, zIndex: Math.max(...prev.map(x => x.zIndex)) + 1 };
+    setWindows(prev => {
+      const exists = prev.find(w => w.id === id);
+      if (exists) {
+        // Window already registered — open / un-minimise it
+        return prev.map(w => {
+          if (w.id === id) {
+            return { ...w, isOpen: true, isMinimized: false, zIndex: Math.max(...prev.map(x => x.zIndex)) + 1 };
+          }
+          return w;
+        });
       }
-      return w;
-    }));
+      // Dynamic DApp window — create a new WindowState on the fly
+      if (isDAppId(id)) {
+        const dappId = extractDAppId(id);
+        const dapp = dappService.getDapp(dappId);
+        const title = dapp?.manifest.name || dappId;
+        return [
+          ...prev,
+          { id, title, isOpen: true, isMinimized: false, zIndex: Math.max(...prev.map(x => x.zIndex)) + 1 },
+        ];
+      }
+      return prev;
+    });
     setActiveId(id);
   };
 
   const closeApp = (id: AppId) => {
-    setWindows(prev => prev.map(w => w.id === id ? { ...w, isOpen: false } : w));
+    if (isDAppId(id)) {
+      // Remove dynamic DApp windows entirely when closed
+      setWindows(prev => prev.filter(w => w.id !== id));
+    } else {
+      setWindows(prev => prev.map(w => w.id === id ? { ...w, isOpen: false } : w));
+    }
   };
 
   const minimizeApp = (id: AppId) => {
@@ -601,6 +631,13 @@ const App: React.FC = () => {
                 {win.id === 'file-explorer' && <FileExplorerApp />}
                 {win.id === 'settings' && <SettingsApp />}
                 {win.id === 'visual-studio' && <VisualAssetStudio />}
+                {win.id === 'dapp-store' && <DAppStoreApp onOpenDApp={(id) => openApp(id)} />}
+                {isDAppId(win.id) && (() => {
+                  const dapp = dappService.getDapp(extractDAppId(win.id));
+                  return dapp ? <DAppHostFrame manifest={dapp.manifest} /> : (
+                    <div className="flex items-center justify-center h-full text-slate-400 text-sm">DApp not found</div>
+                  );
+                })()}
               </WindowContainer>
             </div>
           );

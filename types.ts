@@ -1,5 +1,23 @@
 
-export type AppId = 'minima-node' | 'system-monitor' | 'terminal' | 'wallet' | 'ai-assistant' | 'maxima-messenger' | 'cluster-manager' | 'depai-executor' | 'settings' | 'setup-wizard' | 'imager-utility' | 'file-explorer' | 'visual-studio';
+/** Built-in application identifiers. */
+export type BuiltinAppId = 'minima-node' | 'system-monitor' | 'terminal' | 'wallet' | 'ai-assistant' | 'maxima-messenger' | 'cluster-manager' | 'depai-executor' | 'settings' | 'setup-wizard' | 'imager-utility' | 'file-explorer' | 'visual-studio' | 'dapp-store';
+
+/**
+ * AppId is either a built-in id or a dynamic DApp id prefixed with `dapp:`.
+ * Example dynamic id: `dapp:com.example.my-cool-dapp`
+ */
+export type AppId = BuiltinAppId | `dapp:${string}`;
+
+/** Helper to check whether an AppId refers to an installed DApp. */
+export function isDAppId(id: AppId): id is `dapp:${string}` {
+  return id.startsWith('dapp:');
+}
+
+/** Extract the manifest id from a DApp AppId. Returns empty string for non-DApp IDs. */
+export function extractDAppId(id: AppId): string {
+  if (!isDAppId(id)) return '';
+  return id.slice(5); // strip "dapp:"
+}
 
 export type AIProvider = 'gemini' | 'airllm';
 
@@ -129,3 +147,6 @@ export interface EdgeCapabilities {
 
 // Re-export cluster protocol types for convenience
 export type { ClusterState, NodeInfo, NodeRole, NodeStatus, NodeMetrics, ProvenanceEvent } from './types/cluster-protocol';
+
+// Re-export DApp types for convenience
+export type { DAppManifest, InstalledDApp, DAppKind, DAppPermission, DAppStatus } from './types/dapp';
