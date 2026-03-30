@@ -13,8 +13,9 @@ export function isDAppId(id: AppId): id is `dapp:${string}` {
   return id.startsWith('dapp:');
 }
 
-/** Extract the manifest id from a DApp AppId. */
+/** Extract the manifest id from a DApp AppId. Returns empty string for non-DApp IDs. */
 export function extractDAppId(id: AppId): string {
+  if (!isDAppId(id)) return '';
   return id.slice(5); // strip "dapp:"
 }
 

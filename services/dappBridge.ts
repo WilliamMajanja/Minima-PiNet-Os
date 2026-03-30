@@ -32,6 +32,7 @@ export class DAppBridge {
   private manifest: DAppManifest;
   private callbacks: DAppBridgeCallbacks;
   private boundOnMessage: (e: MessageEvent) => void;
+  private iframeOrigin: string;
 
   constructor(
     iframe: HTMLIFrameElement,
@@ -42,6 +43,12 @@ export class DAppBridge {
     this.manifest = manifest;
     this.callbacks = callbacks;
     this.boundOnMessage = this.onMessage.bind(this);
+    // Derive the iframe origin from its src for safe postMessage targeting
+    try {
+      this.iframeOrigin = new URL(iframe.src, window.location.href).origin;
+    } catch {
+      this.iframeOrigin = window.location.origin;
+    }
     window.addEventListener('message', this.boundOnMessage);
   }
 
@@ -52,7 +59,7 @@ export class DAppBridge {
 
   /** Push an event into the DApp iframe. */
   pushEvent(event: DAppBridgeEvent): void {
-    this.iframe.contentWindow?.postMessage(event, '*');
+    this.iframe.contentWindow?.postMessage(event, this.iframeOrigin);
   }
 
   // ─── Internal ────────────────────────────────────────────────────────
@@ -88,7 +95,7 @@ export class DAppBridge {
       ExceptionFilter.handle(err, `DAppBridge.${data.method}`);
     }
 
-    this.iframe.contentWindow?.postMessage(response, '*');
+    this.iframe.contentWindow?.postMessage(response, this.iframeOrigin);
   }
 
   private async dispatch(req: DAppBridgeRequest): Promise<unknown> {

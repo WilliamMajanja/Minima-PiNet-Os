@@ -1344,11 +1344,14 @@ async function startServer() {
 
       // Write a small index.html that redirects / proxies to the hosted URL
       const entryUrl = typeof url === 'string' ? url : '';
+      const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      const safeName = escapeHtml(String(manifest.name || 'DApp'));
+      const safeUrl = escapeHtml(entryUrl);
       const indexContent = `<!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><title>${String(manifest.name || 'DApp').replace(/[<>&"]/g, '')}</title></head>
+<head><meta charset="UTF-8"><title>${safeName}</title></head>
 <body style="margin:0;overflow:hidden">
-<iframe src="${entryUrl.replace(/"/g, '&quot;')}" style="border:0;width:100vw;height:100vh" sandbox="allow-scripts allow-forms allow-same-origin allow-popups"></iframe>
+<iframe src="${safeUrl}" style="border:0;width:100vw;height:100vh" sandbox="allow-scripts allow-forms allow-popups"></iframe>
 <script>
 // PiNet Bridge Relay — forward postMessage from inner iframe to parent host
 window.addEventListener('message', function(e) {
@@ -1358,7 +1361,8 @@ window.addEventListener('message', function(e) {
 });
 window.addEventListener('message', function(e) {
   if (e.data && e.data.type === 'pinet-bridge-response') {
-    document.querySelector('iframe').contentWindow.postMessage(e.data, '*');
+    var f = document.querySelector('iframe');
+    if (f && f.contentWindow) f.contentWindow.postMessage(e.data, '*');
   }
 });
 </script>
@@ -1420,13 +1424,16 @@ window.addEventListener('message', function(e) {
       }
 
       // Create a placeholder index.html pointing to the source
+      const escHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      const safeBaseName = escHtml(baseName);
+      const safeUrlStr = escHtml(url);
       const indexContent = `<!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><title>${baseName}</title></head>
+<head><meta charset="UTF-8"><title>${safeBaseName}</title></head>
 <body style="margin:0;font-family:sans-serif;background:#0f172a;color:#e2e8f0;display:flex;align-items:center;justify-content:center;height:100vh">
 <div style="text-align:center;max-width:400px">
-<h1 style="font-size:1.5rem">${baseName}</h1>
-<p style="color:#94a3b8;font-size:0.875rem">DApp installed from: ${url.replace(/[<>&"]/g, '')}</p>
+<h1 style="font-size:1.5rem">${safeBaseName}</h1>
+<p style="color:#94a3b8;font-size:0.875rem">DApp installed from: ${safeUrlStr}</p>
 <p style="color:#64748b;font-size:0.75rem;margin-top:1rem">Archive extraction pending. The full DApp content will be available once the archive is downloaded and extracted.</p>
 </div></body></html>`;
       fs.writeFileSync(path.join(dappDir, 'index.html'), indexContent);
@@ -1501,14 +1508,16 @@ window.addEventListener('message', function(e) {
       return;
     }
 
-    // Extract the file path after /serve/
-    const rawPath = req.url.split('/serve/')[1] || 'index.html';
-    const filePath = path.join(dapp.installPath, rawPath);
+    // Extract the wildcard portion — Express 5 provides it as req.params[0]
+    const wildcardParam = (req.params as Record<string, string>)[0] || 'index.html';
+    // Strip query strings and decode
+    const cleanPath = decodeURIComponent(wildcardParam.split('?')[0]);
+    const filePath = path.join(dapp.installPath, cleanPath);
     const resolvedPath = path.resolve(filePath);
     const resolvedInstall = path.resolve(dapp.installPath);
 
     // Path traversal prevention
-    if (!resolvedPath.startsWith(resolvedInstall)) {
+    if (!resolvedPath.startsWith(resolvedInstall + path.sep) && resolvedPath !== resolvedInstall) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }

@@ -43,7 +43,7 @@ const DAppHostFrame: React.FC<DAppHostFrameProps> = ({ manifest }) => {
         src={src}
         title={manifest.name}
         className="w-full h-full border-0"
-        sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+        sandbox="allow-scripts allow-forms allow-popups"
         allow="clipboard-read; clipboard-write"
       />
     </div>

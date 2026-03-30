@@ -123,7 +123,9 @@ class DAppService {
 
   /** Get the URL to load a DApp in an iframe. */
   getDappUrl(dappId: string): string {
-    return getApiUrl(`/api/dapps/${encodeURIComponent(dappId)}/serve/index.html`);
+    const dapp = this.getDapp(dappId);
+    const entryPoint = dapp?.manifest.entryPoint || 'index.html';
+    return getApiUrl(`/api/dapps/${encodeURIComponent(dappId)}/serve/${entryPoint}`);
   }
 
   private notify(): void {
