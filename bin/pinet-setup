@@ -86,12 +86,23 @@ fi
 log_info "Installing web desktop dependencies..."
 cd "$PROJECT_DIR"
 if [ -f "package.json" ]; then
-  npm install --production 2>/dev/null || npm install 2>/dev/null || {
+  npm install 2>/dev/null || {
     log_warn "npm install failed — web desktop may not work correctly."
   }
   log_ok "Web desktop dependencies installed."
 else
   log_warn "package.json not found in $PROJECT_DIR"
+fi
+
+# ─── Build Web Desktop ────────────────────────────────────────────────────────
+
+log_info "Building web desktop frontend..."
+cd "$PROJECT_DIR"
+if [ -f "package.json" ]; then
+  npm run build 2>/dev/null || {
+    log_warn "Frontend build failed — run 'npm run build' manually to debug."
+  }
+  log_ok "Web desktop frontend built."
 fi
 
 # ─── Generate Initial Configuration ───────────────────────────────────────────
@@ -102,6 +113,17 @@ if [ ! -f "$PINET_CONFIG_FILE" ]; then
   log_ok "Configuration generated."
 else
   log_ok "Configuration already exists at $PINET_CONFIG_FILE"
+fi
+
+# ─── Generate .env From Template ──────────────────────────────────────────────
+
+cd "$PROJECT_DIR"
+if [ ! -f ".env" ] && [ -f ".env.example" ]; then
+  log_info "Creating .env from .env.example..."
+  cp ".env.example" ".env"
+  log_ok ".env file created. Edit it to set your API keys and preferences."
+elif [ -f ".env" ]; then
+  log_ok ".env already exists."
 fi
 
 # ─── Generate Node Identity ───────────────────────────────────────────────────
