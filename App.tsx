@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Desktop from './components/Desktop';
 import Taskbar from './components/Taskbar';
@@ -37,44 +37,153 @@ import { getApiUrl } from './utils/api';
 
 type TransitionState = 'idle' | 'shutting-down' | 'booting';
 
+/* ─── Default window dimensions & cascade offset ─────────────────────────── */
+const DEFAULT_WIN_W = 900;
+const DEFAULT_WIN_H = 560;
+const CASCADE_X = 30;
+const CASCADE_Y = 30;
+const MIN_WIN_W = 420;
+const MIN_WIN_H = 260;
+const TOPBAR_H = 40;   // px reserved for TopBar
+const TASKBAR_H = 80;  // px reserved for Taskbar
+const WINDOW_EDGE_PAD = 40; // padding to keep windows visible on screen
+
+/** Return a cascaded position for the Nth window. */
+const cascadePos = (index: number) => {
+  const maxX = Math.max(0, window.innerWidth - DEFAULT_WIN_W - WINDOW_EDGE_PAD);
+  const maxY = Math.max(0, window.innerHeight - DEFAULT_WIN_H - TOPBAR_H - TASKBAR_H);
+  return {
+    x: Math.min(80 + index * CASCADE_X, maxX),
+    y: Math.min(TOPBAR_H + 20 + index * CASCADE_Y, maxY + TOPBAR_H),
+  };
+};
+
+/* ─── WindowContainer ─────────────────────────────────────────────────────── */
 interface WindowContainerProps {
   title: string;
   children: React.ReactNode;
+  win: WindowState;
   onClose: () => void;
   onMinimize: () => void;
+  onMaximize: () => void;
   onFocus: () => void;
+  onMove: (x: number, y: number) => void;
+  onResize: (w: number, h: number) => void;
   isActive: boolean;
 }
 
-const WindowContainer: React.FC<WindowContainerProps> = ({ title, children, onClose, onMinimize, onFocus, isActive }) => {
+const WindowContainer: React.FC<WindowContainerProps> = ({
+  title, children, win, onClose, onMinimize, onMaximize, onFocus, onMove, onResize, isActive,
+}) => {
+  const dragRef = useRef<{ startX: number; startY: number; winX: number; winY: number } | null>(null);
+  const resizeRef = useRef<{ startX: number; startY: number; startW: number; startH: number } | null>(null);
+
+  /* ── Drag (title bar) ─────────────────────────────────────── */
+  const onDragStart = (e: React.MouseEvent) => {
+    if (win.isMaximized) return;
+    e.preventDefault();
+    dragRef.current = { startX: e.clientX, startY: e.clientY, winX: win.x, winY: win.y };
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!dragRef.current) return;
+      const dx = ev.clientX - dragRef.current.startX;
+      const dy = ev.clientY - dragRef.current.startY;
+      onMove(dragRef.current.winX + dx, Math.max(TOPBAR_H, dragRef.current.winY + dy));
+    };
+    const onMouseUp = () => {
+      dragRef.current = null;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+
+  /* ── Resize (bottom-right handle) ─────────────────────────── */
+  const onResizeStart = (e: React.MouseEvent) => {
+    if (win.isMaximized) return;
+    e.preventDefault();
+    e.stopPropagation();
+    resizeRef.current = { startX: e.clientX, startY: e.clientY, startW: win.width, startH: win.height };
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!resizeRef.current) return;
+      const dw = ev.clientX - resizeRef.current.startX;
+      const dh = ev.clientY - resizeRef.current.startY;
+      onResize(
+        Math.max(MIN_WIN_W, resizeRef.current.startW + dw),
+        Math.max(MIN_WIN_H, resizeRef.current.startH + dh),
+      );
+    };
+    const onMouseUp = () => {
+      resizeRef.current = null;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+
   return (
-    <div 
+    <div
       onMouseDown={onFocus}
-      className={`flex flex-col h-full rounded-2xl overflow-hidden shadow-2xl transition-all duration-200 border ${isActive ? 'border-white/20 shadow-pink-500/10' : 'border-white/5 shadow-none'}`}
+      style={
+        win.isMaximized
+          ? { position: 'absolute', top: TOPBAR_H, left: 0, right: 0, bottom: TASKBAR_H, zIndex: win.zIndex }
+          : { position: 'absolute', left: win.x, top: win.y, width: win.width, height: win.height, zIndex: win.zIndex }
+      }
+      className={`flex flex-col rounded-2xl overflow-hidden shadow-2xl border transition-shadow duration-200 ${
+        isActive ? 'border-white/20 shadow-pink-500/10' : 'border-white/5 shadow-none'
+      }`}
     >
-      <div className={`h-10 ${isActive ? 'bg-slate-800' : 'bg-slate-900'} border-b border-white/5 flex items-center justify-between px-4 select-none`}>
-        <div className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
-            {isActive && <div className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse" />}
-            {title}
+      {/* Title bar — draggable */}
+      <div
+        onMouseDown={onDragStart}
+        onDoubleClick={onMaximize}
+        className={`h-10 shrink-0 ${isActive ? 'bg-slate-800' : 'bg-slate-900'} border-b border-white/5 flex items-center justify-between px-4 select-none cursor-move`}
+      >
+        <div className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2 pointer-events-none">
+          {isActive && <div className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse" />}
+          {title}
         </div>
-        <div className="flex items-center gap-2">
-            <button 
-                onClick={(e) => { e.stopPropagation(); onMinimize(); }}
-                className="w-6 h-6 rounded-lg hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
-            >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M18 12H6"/></svg>
-            </button>
-            <button 
-                onClick={(e) => { e.stopPropagation(); onClose(); }}
-                className="w-6 h-6 rounded-lg hover:bg-red-500/20 flex items-center justify-center text-slate-400 hover:text-red-400 transition-colors"
-            >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
+        <div className="flex items-center gap-1" onMouseDown={e => e.stopPropagation()}>
+          <button
+            onClick={(e) => { e.stopPropagation(); onMinimize(); }}
+            className="w-6 h-6 rounded-lg hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M18 12H6" /></svg>
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onMaximize(); }}
+            className="w-6 h-6 rounded-lg hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+          >
+            {win.isMaximized
+              ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" /><path d="M9 2h10a2 2 0 012 2v10" /></svg>
+              : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" /></svg>
+            }
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
+            className="w-6 h-6 rounded-lg hover:bg-red-500/20 flex items-center justify-center text-slate-400 hover:text-red-400 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
         </div>
       </div>
+      {/* Content */}
       <div className="flex-1 bg-slate-900/90 backdrop-blur-md relative overflow-hidden">
         {children}
       </div>
+      {/* Resize handle (bottom-right corner) */}
+      {!win.isMaximized && (
+        <div
+          onMouseDown={onResizeStart}
+          className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize z-10"
+          style={{ touchAction: 'none' }}
+        >
+          <svg className="w-4 h-4 text-white/20" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M14 14H10L14 10V14ZM14 8V6L6 14H8L14 8Z" />
+          </svg>
+        </div>
+      )}
     </div>
   );
 };
@@ -97,27 +206,32 @@ const App: React.FC = () => {
   const raspTermEndRef = useRef<HTMLDivElement>(null);
   const raspTermInputRef = useRef<HTMLInputElement>(null);
 
+  const mkWin = (id: AppId, title: string, index: number): WindowState => {
+    const pos = cascadePos(index);
+    return { id, title, isOpen: false, isMinimized: false, isMaximized: false, zIndex: 1, x: pos.x, y: pos.y, width: DEFAULT_WIN_W, height: DEFAULT_WIN_H };
+  };
+
   const [windows, setWindows] = useState<WindowState[]>([
-    { id: 'minima-node', title: 'Minima Node', isOpen: false, isMinimized: false, zIndex: 10 },
-    { id: 'system-monitor', title: 'System Monitor', isOpen: false, isMinimized: false, zIndex: 1 },
-    { id: 'terminal', title: 'PiNet Shell', isOpen: false, isMinimized: false, zIndex: 1 },
-    { id: 'ai-assistant', title: 'PiNet AI Assistant', isOpen: false, isMinimized: false, zIndex: 1 },
-    { id: 'wallet', title: 'Web3 Wallet', isOpen: false, isMinimized: false, zIndex: 1 },
-    { id: 'maxima-messenger', title: 'Maxima Messenger', isOpen: false, isMinimized: false, zIndex: 1 },
-    { id: 'cluster-manager', title: 'Cluster Hub', isOpen: false, isMinimized: false, zIndex: 1 },
-    { id: 'depai-executor', title: 'DePAI Executor', isOpen: false, isMinimized: false, zIndex: 1 },
-    { id: 'imager-utility', title: 'Pi Imager Config', isOpen: false, isMinimized: false, zIndex: 1 },
-    { id: 'file-explorer', title: 'File Explorer', isOpen: false, isMinimized: false, zIndex: 1 },
-    { id: 'settings', title: 'System Settings', isOpen: false, isMinimized: false, zIndex: 1 },
-    { id: 'visual-studio', title: 'Visual Asset Studio', isOpen: false, isMinimized: false, zIndex: 1 },
-    { id: 'dapp-store', title: 'DApp Store', isOpen: false, isMinimized: false, zIndex: 1 },
-    { id: 'process-manager', title: 'Process Manager', isOpen: false, isMinimized: false, zIndex: 1 },
-    { id: 'user-manager', title: 'User Manager', isOpen: false, isMinimized: false, zIndex: 1 },
-    { id: 'network-manager', title: 'Network Manager', isOpen: false, isMinimized: false, zIndex: 1 },
-    { id: 'security-center', title: 'Security Center', isOpen: false, isMinimized: false, zIndex: 1 },
-    { id: 'log-viewer', title: 'System Logs', isOpen: false, isMinimized: false, zIndex: 1 },
-    { id: 'device-manager', title: 'Device Manager', isOpen: false, isMinimized: false, zIndex: 1 },
-    { id: 'power-manager', title: 'Power Manager', isOpen: false, isMinimized: false, zIndex: 1 },
+    mkWin('minima-node', 'Minima Node', 0),
+    mkWin('system-monitor', 'System Monitor', 1),
+    mkWin('terminal', 'PiNet Shell', 2),
+    mkWin('ai-assistant', 'PiNet AI Assistant', 3),
+    mkWin('wallet', 'Web3 Wallet', 4),
+    mkWin('maxima-messenger', 'Maxima Messenger', 5),
+    mkWin('cluster-manager', 'Cluster Hub', 6),
+    mkWin('depai-executor', 'DePAI Executor', 7),
+    mkWin('imager-utility', 'Pi Imager Config', 8),
+    mkWin('file-explorer', 'File Explorer', 9),
+    mkWin('settings', 'System Settings', 10),
+    mkWin('visual-studio', 'Visual Asset Studio', 11),
+    mkWin('dapp-store', 'DApp Store', 12),
+    mkWin('process-manager', 'Process Manager', 13),
+    mkWin('user-manager', 'User Manager', 14),
+    mkWin('network-manager', 'Network Manager', 15),
+    mkWin('security-center', 'Security Center', 16),
+    mkWin('log-viewer', 'System Logs', 17),
+    mkWin('device-manager', 'Device Manager', 18),
+    mkWin('power-manager', 'Power Manager', 19),
   ]);
 
   const [activeId, setActiveId] = useState<AppId>('minima-node');
@@ -210,12 +324,13 @@ const App: React.FC = () => {
 
   const openApp = (id: AppId) => {
     setWindows(prev => {
+      const maxZ = Math.max(...prev.map(x => x.zIndex), 0);
       const exists = prev.find(w => w.id === id);
       if (exists) {
         // Window already registered — open / un-minimise it
         return prev.map(w => {
           if (w.id === id) {
-            return { ...w, isOpen: true, isMinimized: false, zIndex: Math.max(...prev.map(x => x.zIndex)) + 1 };
+            return { ...w, isOpen: true, isMinimized: false, zIndex: maxZ + 1 };
           }
           return w;
         });
@@ -225,9 +340,10 @@ const App: React.FC = () => {
         const dappId = extractDAppId(id);
         const dapp = dappService.getDapp(dappId);
         const title = dapp?.manifest.name || dappId;
+        const pos = cascadePos(prev.length);
         return [
           ...prev,
-          { id, title, isOpen: true, isMinimized: false, zIndex: Math.max(...prev.map(x => x.zIndex)) + 1 },
+          { id, title, isOpen: true, isMinimized: false, isMaximized: false, zIndex: maxZ + 1, x: pos.x, y: pos.y, width: DEFAULT_WIN_W, height: DEFAULT_WIN_H },
         ];
       }
       return prev;
@@ -248,8 +364,20 @@ const App: React.FC = () => {
     setWindows(prev => prev.map(w => w.id === id ? { ...w, isMinimized: true } : w));
   };
 
+  const maximizeApp = (id: AppId) => {
+    setWindows(prev => prev.map(w => w.id === id ? { ...w, isMaximized: !w.isMaximized } : w));
+  };
+
+  const moveWindow = useCallback((id: AppId, x: number, y: number) => {
+    setWindows(prev => prev.map(w => w.id === id ? { ...w, x, y } : w));
+  }, []);
+
+  const resizeWindow = useCallback((id: AppId, width: number, height: number) => {
+    setWindows(prev => prev.map(w => w.id === id ? { ...w, width, height } : w));
+  }, []);
+
   const bringToFront = (id: AppId) => {
-    const maxZ = Math.max(...windows.map(w => w.zIndex));
+    const maxZ = Math.max(...windows.map(w => w.zIndex), 0);
     setWindows(prev => prev.map(w => w.id === id ? { ...w, zIndex: maxZ + 1, isMinimized: false } : w));
     setActiveId(id);
   };
@@ -605,62 +733,63 @@ const App: React.FC = () => {
       
       <TopBar nodeStats={nodeStats} systemStats={sysStats} onSwitchOS={toggleOS} currentOS={currentOS} />
 
-      <main className="flex-1 relative overflow-hidden p-6 mt-10 mb-16">
-        <Desktop openApp={openApp} systemStats={sysStats} nodeStats={nodeStats} osMode={currentOS} />
+      <main className="flex-1 relative overflow-hidden mt-10 mb-16">
+        <div className="absolute inset-0 p-6">
+          <Desktop openApp={openApp} systemStats={sysStats} nodeStats={nodeStats} osMode={currentOS} />
+        </div>
         
         {windows.map(win => {
-          if (!win.isOpen) return null;
+          if (!win.isOpen || win.isMinimized) return null;
           
           return (
-            <div 
+            <WindowContainer 
               key={win.id}
-              style={{ zIndex: win.zIndex, display: win.isMinimized ? 'none' : 'block' }}
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-5xl h-[75vh]"
+              win={win}
+              title={win.title} 
+              onClose={() => closeApp(win.id)}
+              onMinimize={() => minimizeApp(win.id)}
+              onMaximize={() => maximizeApp(win.id)}
+              onFocus={() => bringToFront(win.id)}
+              onMove={(x, y) => moveWindow(win.id, x, y)}
+              onResize={(w, h) => resizeWindow(win.id, w, h)}
+              isActive={activeId === win.id}
             >
-              <WindowContainer 
-                title={win.title} 
-                onClose={() => closeApp(win.id)}
-                onMinimize={() => minimizeApp(win.id)}
-                onFocus={() => bringToFront(win.id)}
-                isActive={activeId === win.id}
-              >
-                {win.id === 'minima-node' && <MinimaNodeApp stats={nodeStats} />}
-                {win.id === 'system-monitor' && <SystemMonitorApp stats={sysStats} />}
-                {win.id === 'terminal' && <TerminalApp osMode={currentOS} onOpenApp={(appId) => openApp(appId as AppId)} onGuiSwitch={() => switchOS((osInfo?.osName || 'raspbian') as OSMode)} />}
-                {win.id === 'ai-assistant' && (
-                  <AiAssistantApp 
-                    context={{ 
-                      node: nodeStats, 
-                      cluster: clusterNodes, 
-                      telemetry: sysStats,
-                      timestamp: new Date().toISOString()
-                    }} 
-                  />
-                )}
-                {win.id === 'wallet' && <WalletApp />}
-                {win.id === 'maxima-messenger' && <MaximaMessengerApp />}
-                {win.id === 'cluster-manager' && <ClusterManagerApp nodes={clusterNodes} />}
-                {win.id === 'depai-executor' && <DePAiExecutor nodes={clusterNodes} />}
-                {win.id === 'imager-utility' && <ImagerUtility />}
-                {win.id === 'file-explorer' && <FileExplorerApp />}
-                {win.id === 'settings' && <SettingsApp />}
-                {win.id === 'visual-studio' && <VisualAssetStudio />}
-                {win.id === 'dapp-store' && <DAppStoreApp onOpenDApp={(id) => openApp(id)} />}
-                {win.id === 'process-manager' && <ProcessManagerApp />}
-                {win.id === 'user-manager' && <UserManagerApp />}
-                {win.id === 'network-manager' && <NetworkManagerApp />}
-                {win.id === 'security-center' && <SecurityCenterApp />}
-                {win.id === 'log-viewer' && <LogViewerApp />}
-                {win.id === 'device-manager' && <DeviceManagerApp />}
-                {win.id === 'power-manager' && <PowerManagerApp />}
-                {isDAppId(win.id) && (() => {
-                  const dapp = dappService.getDapp(extractDAppId(win.id));
-                  return dapp ? <DAppHostFrame manifest={dapp.manifest} /> : (
-                    <div className="flex items-center justify-center h-full text-slate-400 text-sm">DApp not found</div>
-                  );
-                })()}
-              </WindowContainer>
-            </div>
+              {win.id === 'minima-node' && <MinimaNodeApp stats={nodeStats} />}
+              {win.id === 'system-monitor' && <SystemMonitorApp stats={sysStats} />}
+              {win.id === 'terminal' && <TerminalApp osMode={currentOS} onOpenApp={(appId) => openApp(appId as AppId)} onGuiSwitch={() => switchOS((osInfo?.osName || 'raspbian') as OSMode)} />}
+              {win.id === 'ai-assistant' && (
+                <AiAssistantApp 
+                  context={{ 
+                    node: nodeStats, 
+                    cluster: clusterNodes, 
+                    telemetry: sysStats,
+                    timestamp: new Date().toISOString()
+                  }} 
+                />
+              )}
+              {win.id === 'wallet' && <WalletApp />}
+              {win.id === 'maxima-messenger' && <MaximaMessengerApp />}
+              {win.id === 'cluster-manager' && <ClusterManagerApp nodes={clusterNodes} />}
+              {win.id === 'depai-executor' && <DePAiExecutor nodes={clusterNodes} />}
+              {win.id === 'imager-utility' && <ImagerUtility />}
+              {win.id === 'file-explorer' && <FileExplorerApp />}
+              {win.id === 'settings' && <SettingsApp />}
+              {win.id === 'visual-studio' && <VisualAssetStudio />}
+              {win.id === 'dapp-store' && <DAppStoreApp onOpenDApp={(id) => openApp(id)} />}
+              {win.id === 'process-manager' && <ProcessManagerApp />}
+              {win.id === 'user-manager' && <UserManagerApp />}
+              {win.id === 'network-manager' && <NetworkManagerApp />}
+              {win.id === 'security-center' && <SecurityCenterApp />}
+              {win.id === 'log-viewer' && <LogViewerApp />}
+              {win.id === 'device-manager' && <DeviceManagerApp />}
+              {win.id === 'power-manager' && <PowerManagerApp />}
+              {isDAppId(win.id) && (() => {
+                const dapp = dappService.getDapp(extractDAppId(win.id));
+                return dapp ? <DAppHostFrame manifest={dapp.manifest} /> : (
+                  <div className="flex items-center justify-center h-full text-slate-400 text-sm">DApp not found</div>
+                );
+              })()}
+            </WindowContainer>
           );
         })}
       </main>

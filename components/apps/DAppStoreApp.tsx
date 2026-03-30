@@ -114,8 +114,8 @@ const DAppStoreApp: React.FC<DAppStoreAppProps> = ({ onOpenDApp }) => {
     }
   };
 
-  const getKindLabel = (kind: DAppKind) => kind === 'typescript' ? 'TypeScript DApp' : 'Classic MiniDapp';
-  const getKindColor = (kind: DAppKind) => kind === 'typescript' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+  const getKindLabel = (kind: DAppKind) => kind === 'typescript' ? 'TypeScript DApp' : kind === 'react-dashboard' ? 'React Dashboard' : 'Classic MiniDapp';
+  const getKindColor = (kind: DAppKind) => kind === 'typescript' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : kind === 'react-dashboard' ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20';
 
   return (
     <div className="p-8 h-full overflow-y-auto space-y-6">
@@ -123,7 +123,7 @@ const DAppStoreApp: React.FC<DAppStoreAppProps> = ({ onOpenDApp }) => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-white tracking-tight">DApp Store</h1>
-          <p className="text-slate-400">Install and manage TypeScript DApps &amp; Classic Minima MiniDapps</p>
+          <p className="text-slate-400">Install and manage TypeScript DApps, React Dashboards &amp; Classic Minima MiniDapps</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -272,6 +272,7 @@ const DAppStoreApp: React.FC<DAppStoreAppProps> = ({ onOpenDApp }) => {
                     className="w-full px-3 py-2 rounded-lg bg-slate-800/60 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50"
                   >
                     <option value="typescript">TypeScript DApp</option>
+                    <option value="react-dashboard">React Dashboard</option>
                     <option value="minidapp">Classic MiniDapp</option>
                   </select>
                 </div>
@@ -287,13 +288,21 @@ const DAppStoreApp: React.FC<DAppStoreAppProps> = ({ onOpenDApp }) => {
           )}
 
           {/* Information Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-5 rounded-2xl bg-blue-500/5 border border-blue-500/10 space-y-2">
               <h4 className="text-blue-400 font-bold text-xs uppercase tracking-wider">TypeScript DApps</h4>
               <p className="text-slate-400 text-xs leading-relaxed">
                 Next-gen DApps built with TypeScript/React. They run in a sandboxed iframe and
                 communicate with PiNet OS via the PostMessage bridge API. Full access to wallet,
                 Minima RPC, Maxima messaging, cluster state, and system metrics.
+              </p>
+            </div>
+            <div className="p-5 rounded-2xl bg-cyan-500/5 border border-cyan-500/10 space-y-2">
+              <h4 className="text-cyan-400 font-bold text-xs uppercase tracking-wider">React Dashboards</h4>
+              <p className="text-slate-400 text-xs leading-relaxed">
+                Integrate external React dashboard applications (e.g. Grafana, custom monitoring
+                dashboards) as DApps on PiNet. They load via URL with full SPA routing support
+                and can communicate with PiNet via the bridge API.
               </p>
             </div>
             <div className="p-5 rounded-2xl bg-amber-500/5 border border-amber-500/10 space-y-2">

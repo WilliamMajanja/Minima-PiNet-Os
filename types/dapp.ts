@@ -10,8 +10,13 @@
 
 // ─── DApp Manifest ───────────────────────────────────────────────────────────
 
-/** The two kinds of DApp the platform supports. */
-export type DAppKind = 'typescript' | 'minidapp';
+/**
+ * The three kinds of DApp the platform supports:
+ *  - 'typescript'      — next-gen TypeScript/React DApps bundled as static assets
+ *  - 'react-dashboard' — external React dashboard apps loaded via URL (e.g. Grafana, custom dashboards)
+ *  - 'minidapp'        — classic Minima MiniDapps in .mds.zip format
+ */
+export type DAppKind = 'typescript' | 'react-dashboard' | 'minidapp';
 
 /** Permissions a DApp may request from the PiNet bridge. */
 export type DAppPermission =
@@ -94,6 +99,8 @@ export interface DAppBridgeRequest {
     | 'maxima.getContacts'
     | 'cluster.getState'
     | 'system.getStats'
+    | 'files.list'
+    | 'files.read'
     | 'notify';
   /** Method-specific payload */
   params: Record<string, unknown>;
@@ -115,7 +122,11 @@ export interface DAppBridgeEvent {
     | 'block'
     | 'balance'
     | 'maxima.message'
-    | 'cluster.update';
+    | 'cluster.update'
+    | 'system.stats'
+    | 'dapp.focus'
+    | 'dapp.blur'
+    | 'dapp.resize';
   data: unknown;
 }
 

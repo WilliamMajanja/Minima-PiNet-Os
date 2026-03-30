@@ -68,7 +68,9 @@ class NetworkService {
       this.interfaces.set(name, iface);
     }
 
-    // Add simulated Pi network interfaces if not present
+    // Fallback: add well-known Pi network interfaces if no real interfaces
+    // were detected (e.g. running in development or inside a container).
+    // In production on a real Pi these will be populated from the OS above.
     if (!this.interfaces.has('eth0')) {
       this.interfaces.set('eth0', {
         name: 'eth0', index: idx++, state: 'up',

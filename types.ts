@@ -26,7 +26,14 @@ export interface WindowState {
   title: string;
   isOpen: boolean;
   isMinimized: boolean;
+  isMaximized: boolean;
   zIndex: number;
+  /** Window position (px from top-left of desktop area). */
+  x: number;
+  y: number;
+  /** Window dimensions (px). */
+  width: number;
+  height: number;
 }
 
 export interface NodeStats {
@@ -42,6 +49,8 @@ export interface SystemStats {
   ram: number;
   temp: number;
   disk: number;
+  /** System uptime in seconds (from os.uptime()). */
+  uptime?: number;
 }
 
 export type HatType = 'AI_NPU' | 'SENSE' | 'SSD_NVME' | 'NONE';
