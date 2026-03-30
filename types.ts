@@ -1,6 +1,6 @@
 
 /** Built-in application identifiers. */
-export type BuiltinAppId = 'minima-node' | 'system-monitor' | 'terminal' | 'wallet' | 'ai-assistant' | 'maxima-messenger' | 'cluster-manager' | 'depai-executor' | 'settings' | 'setup-wizard' | 'imager-utility' | 'file-explorer' | 'visual-studio' | 'dapp-store';
+export type BuiltinAppId = 'minima-node' | 'system-monitor' | 'terminal' | 'wallet' | 'ai-assistant' | 'maxima-messenger' | 'cluster-manager' | 'depai-executor' | 'settings' | 'setup-wizard' | 'imager-utility' | 'file-explorer' | 'visual-studio' | 'dapp-store' | 'process-manager' | 'user-manager' | 'network-manager' | 'security-center' | 'log-viewer' | 'device-manager' | 'power-manager';
 
 /**
  * AppId is either a built-in id or a dynamic DApp id prefixed with `dapp:`.
@@ -150,3 +150,24 @@ export type { ClusterState, NodeInfo, NodeRole, NodeStatus, NodeMetrics, Provena
 
 // Re-export DApp types for convenience
 export type { DAppManifest, InstalledDApp, DAppKind, DAppPermission, DAppStatus } from './types/dapp';
+
+// Re-export kernel types for convenience
+export type {
+  ProcessDescriptor, ProcessState, ProcessTree, SignalType,
+  MemoryStats, ProcessMemoryInfo, MemoryLimit, MemoryRegion,
+  SchedulerStats, SchedulerEntry, CronJob,
+  ServiceUnit, ServiceState, RunLevel, InitTarget,
+  SyslogEntry, SyslogFacility, SyslogSeverity,
+  UserAccount, GroupInfo, UserSession,
+  DeviceDescriptor, DeviceEvent, DeviceClass, UdevRule,
+  NetworkInterface, Route, DNSConfig, FirewallRule, WireGuardInterface,
+  PowerInfo, PowerState, WatchdogConfig,
+  IPCChannel, DBusMessage, DBusService,
+  SecurityProfile, AuditEvent, CapabilityName,
+} from './types/kernel';
+
+// Re-export security types for convenience
+export type {
+  SecurityPolicy, SecurityDashboard, ThreatEvent, ThreatLevel,
+  IntegrityCheckResult, TrustChain, SandboxPolicy,
+} from './types/security';
