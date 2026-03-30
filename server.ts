@@ -150,6 +150,8 @@ async function startServer() {
   const fsWriteLimiter  = makeRateLimiter(20, 60000);  // 20 writes/min
   const osInfoLimiter   = makeRateLimiter(30, 60000);  // 30 os-info/min
   const execRateLimiter = makeRateLimiter(10, 60000);  // 10 exec/min
+  const dappInstallLimiter = makeRateLimiter(10, 60000);  // 10 installs/min
+  const dappServeLimiter   = makeRateLimiter(120, 60000); // 120 file serves/min
 
   // Global JSON middleware - move to top
   app.use(express.json());
@@ -1322,6 +1324,10 @@ async function startServer() {
 
   // POST /api/dapps/install — install a DApp from URL or sideload manifest
   app.post("/api/dapps/install", (req, res) => {
+    const clientIp = req.ip || 'unknown';
+    if (!dappInstallLimiter.check(clientIp)) {
+      return res.status(429).json({ error: "Too many requests. Try again later." });
+    }
     const { url, manifest } = req.body || {};
     const registry = loadDAppRegistry();
 
@@ -1466,6 +1472,10 @@ window.addEventListener('message', function(e) {
 
   // POST /api/dapps/:id/uninstall — remove a DApp
   app.post("/api/dapps/:id/uninstall", (req, res) => {
+    const clientIp = req.ip || 'unknown';
+    if (!dappInstallLimiter.check(clientIp)) {
+      return res.status(429).json({ error: "Too many requests. Try again later." });
+    }
     const { id } = req.params;
     if (!isValidDAppId(id)) {
       res.status(400).json({ error: "Invalid DApp ID" });
@@ -1495,6 +1505,10 @@ window.addEventListener('message', function(e) {
 
   // GET /api/dapps/:id/serve/* — serve DApp static files
   app.get("/api/dapps/:id/serve/*", (req, res) => {
+    const clientIp = req.ip || 'unknown';
+    if (!dappServeLimiter.check(clientIp)) {
+      return res.status(429).json({ error: "Too many requests. Try again later." });
+    }
     const { id } = req.params;
     if (!isValidDAppId(id)) {
       res.status(400).json({ error: "Invalid DApp ID" });
