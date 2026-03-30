@@ -20,6 +20,13 @@ import SettingsApp from './components/apps/SettingsApp';
 import VisualAssetStudio from './components/apps/VisualAssetStudio';
 import DAppStoreApp from './components/apps/DAppStoreApp';
 import DAppHostFrame from './components/apps/DAppHostFrame';
+import ProcessManagerApp from './components/apps/ProcessManagerApp';
+import UserManagerApp from './components/apps/UserManagerApp';
+import NetworkManagerApp from './components/apps/NetworkManagerApp';
+import SecurityCenterApp from './components/apps/SecurityCenterApp';
+import LogViewerApp from './components/apps/LogViewerApp';
+import DeviceManagerApp from './components/apps/DeviceManagerApp';
+import PowerManagerApp from './components/apps/PowerManagerApp';
 import { minimaService } from './services/minimaService';
 import { clusterService } from './services/clusterService';
 import { settingsService } from './services/settingsService';
@@ -104,6 +111,13 @@ const App: React.FC = () => {
     { id: 'settings', title: 'System Settings', isOpen: false, isMinimized: false, zIndex: 1 },
     { id: 'visual-studio', title: 'Visual Asset Studio', isOpen: false, isMinimized: false, zIndex: 1 },
     { id: 'dapp-store', title: 'DApp Store', isOpen: false, isMinimized: false, zIndex: 1 },
+    { id: 'process-manager', title: 'Process Manager', isOpen: false, isMinimized: false, zIndex: 1 },
+    { id: 'user-manager', title: 'User Manager', isOpen: false, isMinimized: false, zIndex: 1 },
+    { id: 'network-manager', title: 'Network Manager', isOpen: false, isMinimized: false, zIndex: 1 },
+    { id: 'security-center', title: 'Security Center', isOpen: false, isMinimized: false, zIndex: 1 },
+    { id: 'log-viewer', title: 'System Logs', isOpen: false, isMinimized: false, zIndex: 1 },
+    { id: 'device-manager', title: 'Device Manager', isOpen: false, isMinimized: false, zIndex: 1 },
+    { id: 'power-manager', title: 'Power Manager', isOpen: false, isMinimized: false, zIndex: 1 },
   ]);
 
   const [activeId, setActiveId] = useState<AppId>('minima-node');
@@ -632,6 +646,13 @@ const App: React.FC = () => {
                 {win.id === 'settings' && <SettingsApp />}
                 {win.id === 'visual-studio' && <VisualAssetStudio />}
                 {win.id === 'dapp-store' && <DAppStoreApp onOpenDApp={(id) => openApp(id)} />}
+                {win.id === 'process-manager' && <ProcessManagerApp />}
+                {win.id === 'user-manager' && <UserManagerApp />}
+                {win.id === 'network-manager' && <NetworkManagerApp />}
+                {win.id === 'security-center' && <SecurityCenterApp />}
+                {win.id === 'log-viewer' && <LogViewerApp />}
+                {win.id === 'device-manager' && <DeviceManagerApp />}
+                {win.id === 'power-manager' && <PowerManagerApp />}
                 {isDAppId(win.id) && (() => {
                   const dapp = dappService.getDapp(extractDAppId(win.id));
                   return dapp ? <DAppHostFrame manifest={dapp.manifest} /> : (
