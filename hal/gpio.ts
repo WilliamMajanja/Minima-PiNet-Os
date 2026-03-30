@@ -11,10 +11,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync, exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import { execSync } from 'child_process';
 
 // ---------------------------------------------------------------------------
 // Types

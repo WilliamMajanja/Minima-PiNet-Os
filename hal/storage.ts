@@ -11,10 +11,7 @@
 
 import * as fs   from 'fs';
 import * as path from 'path';
-import { execSync, exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import { execSync } from 'child_process';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -124,16 +121,32 @@ export class StorageManager {
     }
   }
 
+  /** Validate that a device or mountpoint path contains only safe characters. */
+  private isSafeDevicePath(p: string): boolean {
+    return typeof p === 'string' && /^\/[a-zA-Z0-9/_.-]+$/.test(p);
+  }
+
+  /** Validate a filesystem type label. */
+  private isSafeFsType(t: string): boolean {
+    return /^[a-zA-Z0-9]+$/.test(t);
+  }
+
   // ---- Mount / unmount ----------------------------------------------------
 
   async mount(device: string, mountpoint: string, fstype?: string): Promise<MountResult> {
     if (this.useSimulation) {
       return { success: true, message: `[SIM] Mounted ${device} at ${mountpoint}` };
     }
+    if (!this.isSafeDevicePath(device) || !this.isSafeDevicePath(mountpoint)) {
+      return { success: false, message: 'Invalid device or mountpoint path' };
+    }
+    if (fstype && !this.isSafeFsType(fstype)) {
+      return { success: false, message: 'Invalid filesystem type' };
+    }
     try {
       if (!fs.existsSync(mountpoint)) fs.mkdirSync(mountpoint, { recursive: true });
-      const typeFlag = fstype ? `-t ${fstype}` : '';
-      execSync(`mount ${typeFlag} ${device} ${mountpoint} 2>&1`);
+      const args = fstype ? ['-t', fstype, device, mountpoint] : [device, mountpoint];
+      execSync(`mount ${args.map(a => `'${a}'`).join(' ')} 2>&1`);
       return { success: true, message: `Mounted ${device} at ${mountpoint}` };
     } catch (e: any) {
       return { success: false, message: e.message };
@@ -144,8 +157,11 @@ export class StorageManager {
     if (this.useSimulation) {
       return { success: true, message: `[SIM] Unmounted ${mountpointOrDevice}` };
     }
+    if (!this.isSafeDevicePath(mountpointOrDevice)) {
+      return { success: false, message: 'Invalid mountpoint or device path' };
+    }
     try {
-      execSync(`umount ${mountpointOrDevice} 2>&1`);
+      execSync(`umount '${mountpointOrDevice}' 2>&1`);
       return { success: true, message: `Unmounted ${mountpointOrDevice}` };
     } catch (e: any) {
       return { success: false, message: e.message };
@@ -157,8 +173,11 @@ export class StorageManager {
   /** Run fsck on an unmounted partition */
   async checkFilesystem(device: string): Promise<{ healthy: boolean; output: string }> {
     if (this.useSimulation) return { healthy: true, output: '[SIM] Filesystem OK' };
+    if (!this.isSafeDevicePath(device)) {
+      return { healthy: false, output: 'Invalid device path' };
+    }
     try {
-      const output = execSync(`fsck -n ${device} 2>&1 || true`).toString();
+      const output = execSync(`fsck -n '${device}' 2>&1 || true`).toString();
       const healthy = !output.includes('ERROR') && !output.includes('CORRUPTED');
       return { healthy, output };
     } catch (e: any) {

@@ -2,7 +2,7 @@
 import express from "express";
 import { createServer } from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import { spawn, exec } from "child_process";
+import { spawn, execFile } from "child_process";
 import * as pty from "node-pty";
 import path from "path";
 import fs from "fs";
@@ -32,6 +32,55 @@ async function startServer() {
   // Maximum terminal dimensions to prevent abuse via resize messages
   const MAX_PTY_COLS = 500;
   const MAX_PTY_ROWS = 200;
+
+  // ─── Input Validation Helpers ───────────────────────────────────────────
+  /** Allowlist for commands that may be spawned from the exec-local endpoint. */
+  const ALLOWED_EXEC_COMMANDS = new Set([
+    'ls', 'cat', 'df', 'free', 'uptime', 'whoami', 'hostname', 'uname',
+    'date', 'id', 'ps', 'top', 'lscpu', 'lsblk', 'ip', 'ss', 'netstat',
+    'systemctl', 'journalctl', 'docker', 'lxc', 'snap',
+  ]);
+
+  /** Allowlist for commands that may be spawned via the kernel process spawn API. */
+  const ALLOWED_SPAWN_COMMANDS = new Set([
+    'node', 'python3', 'python', 'bash', 'sh', 'ls', 'cat', 'df', 'free',
+    'uptime', 'whoami', 'hostname', 'uname', 'date', 'id', 'ps',
+  ]);
+
+  /** Validate a service / unit name — only alphanumerics, hyphens, underscores, dots, and @ (systemd instances). */
+  const isSafeServiceName = (name: string): boolean =>
+    /^[a-zA-Z0-9][a-zA-Z0-9._@-]{0,127}$/.test(name);
+
+  /** Validate a network interface name — only alphanumerics, hyphens, dots. */
+  const isSafeInterfaceName = (name: string): boolean =>
+    /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,15}$/.test(name);
+
+  /** Validate a Maxima address — hex strings with optional separators. */
+  const isSafeMaximaAddress = (addr: string): boolean =>
+    typeof addr === 'string' && addr.length > 0 && addr.length <= 512 && /^[a-zA-Z0-9:@._-]+$/.test(addr);
+
+  /** Validate a Maxima application name. */
+  const isSafeApplicationName = (name: string): boolean =>
+    typeof name === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/.test(name);
+
+  /** Validate a Minima RPC command — only safe characters, no shell metacharacters. */
+  const isSafeMinimaCommand = (cmd: string): boolean =>
+    typeof cmd === 'string' && cmd.length > 0 && cmd.length <= 2048 && !/[;&|`$(){}[\]<>!\\]/.test(cmd);
+
+  /** Maximum file size for write operations (10 MB). */
+  const MAX_FILE_WRITE_SIZE = 10 * 1024 * 1024;
+
+  /** Validate that spawn arguments contain no shell metacharacters. */
+  const isSafeArg = (arg: string): boolean =>
+    typeof arg === 'string' && arg.length <= 4096 && !/[;&|`$(){}[\]<>!\\]/.test(arg);
+
+  /** Validate cron schedule format. */
+  const isSafeCronSchedule = (schedule: string): boolean =>
+    typeof schedule === 'string' && /^[0-9*,\/-]+(\s+[0-9*,\/-]+){4}$/.test(schedule.trim());
+
+  /** Validate a cron job id or name. */
+  const isSafeCronId = (value: string): boolean =>
+    typeof value === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(value);
 
   const runCommand = (command: string, args: string[]) => new Promise<{
     code: number | null;
@@ -173,6 +222,16 @@ async function startServer() {
     }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
     res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+
+    // Security headers
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    if (process.env.NODE_ENV === 'production') {
+      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
     
     // Handle preflight
     if (req.method === 'OPTIONS') {
@@ -645,6 +704,12 @@ async function startServer() {
     }
     const { path: filePath, content } = req.body;
     if (!filePath) return res.status(400).json({ error: "Path required" });
+
+    // Enforce file size limit
+    if (typeof content !== 'string' || Buffer.byteLength(content, 'utf8') > MAX_FILE_WRITE_SIZE) {
+      return res.status(400).json({ error: `Content exceeds maximum allowed size (${MAX_FILE_WRITE_SIZE / (1024 * 1024)} MB)` });
+    }
+
     try {
       fs.writeFileSync(safeResolvePath(filePath), content, 'utf8');
       res.json({ success: true });
@@ -776,6 +841,11 @@ async function startServer() {
 
   app.post("/api/minima/cmd", async (req, res) => {
     const { command } = req.body;
+
+    // Validate command — reject shell metacharacters
+    if (!command || !isSafeMinimaCommand(command)) {
+      return res.status(400).json({ error: "Invalid command" });
+    }
     
     try {
       // Try real Minima RPC
@@ -822,7 +892,7 @@ async function startServer() {
     pinetState.pinet2.lxcStatus = 'initializing';
     saveState();
     
-    exec("bash scripts/pinet-lxc-init.sh", (error, stdout, stderr) => {
+    execFile("bash", ["scripts/pinet-lxc-init.sh"], (error, stdout, stderr) => {
       if (error) {
         console.error(`Enterprise LXC Init failed:`, error);
         pinetState.pinet2.lxcStatus = 'failed';
@@ -841,7 +911,7 @@ async function startServer() {
       pinetState.pinet2.resourcePriority = mode;
       saveState();
       
-      exec(`bash /usr/local/bin/pinet-switch ${mode}`, (error, stdout, stderr) => {
+      execFile("/usr/local/bin/pinet-switch", [mode], (error, stdout, stderr) => {
         if (error) {
           console.error(`Switch failed:`, error);
         } else {
@@ -858,7 +928,7 @@ async function startServer() {
     pinetState.pinet2.aiAcceleration = 'detecting';
     saveState();
     
-    exec("python3 scripts/pinet-ai-detect.py", (error, stdout, stderr) => {
+    execFile("python3", ["scripts/pinet-ai-detect.py"], (error, stdout, stderr) => {
       if (error) {
         console.error(`AI Detect failed:`, error);
         pinetState.pinet2.aiAcceleration = 'error';
@@ -881,7 +951,7 @@ async function startServer() {
     pinetState.pinet2.healthStatus = 'checking';
     saveState();
     
-    exec("bash scripts/pinet-health-check.sh", (error, stdout, stderr) => {
+    execFile("bash", ["scripts/pinet-health-check.sh"], (error, stdout, stderr) => {
       pinetState.pinet2.lastHealthCheck = new Date().toISOString();
       if (error) {
         console.error(`Health Check failed:`, error);
@@ -904,7 +974,7 @@ async function startServer() {
     pinetState.pinet2.buildLog = ["[INFO] Starting Enterprise Build Pipeline..."];
     saveState();
     
-    exec("bash scripts/pinet-build-image.sh", (error, stdout, stderr) => {
+    execFile("bash", ["scripts/pinet-build-image.sh"], (error, stdout, stderr) => {
       pinetState.pinet2.lastBuild = new Date().toISOString();
       if (error) {
         console.error(`Build failed:`, error);
@@ -1098,6 +1168,11 @@ async function startServer() {
       return res.status(400).json({ error: "masterAddress required" });
     }
 
+    // Validate masterAddress to prevent injection into the RPC command
+    if (!isSafeMaximaAddress(masterAddress)) {
+      return res.status(400).json({ error: "Invalid masterAddress format" });
+    }
+
     try {
       // Send Maxima join request via Minima RPC
       const joinMsg = JSON.stringify({
@@ -1136,6 +1211,17 @@ async function startServer() {
       return res.status(400).json({ error: "targetNodeId and command required" });
     }
 
+    // Validate inputs
+    if (!isSafeNodeId(targetNodeId)) {
+      return res.status(400).json({ error: "Invalid targetNodeId" });
+    }
+    if (typeof command !== 'string' || !ALLOWED_EXEC_COMMANDS.has(command)) {
+      return res.status(400).json({ error: "Command not allowed" });
+    }
+    if (!Array.isArray(args) || !args.every(isSafeArg)) {
+      return res.status(400).json({ error: "Invalid arguments" });
+    }
+
     clusterEventLog.push({ type: 'EXEC_REQUEST', target: targetNodeId, command, time: Date.now() });
     res.json({ success: true, message: "Exec request queued" });
   });
@@ -1149,9 +1235,23 @@ async function startServer() {
     }
 
     const { workloadId, command: cmd, args = [], timeout: cmdTimeout = 30000 } = req.body;
+
+    // Validate command against allowlist to prevent arbitrary command execution
+    if (typeof cmd !== 'string' || !ALLOWED_EXEC_COMMANDS.has(cmd)) {
+      return res.status(400).json({ error: `Command not allowed. Permitted commands: ${[...ALLOWED_EXEC_COMMANDS].join(', ')}` });
+    }
+
+    // Validate args — must be an array of safe strings
+    if (!Array.isArray(args) || !args.every(isSafeArg)) {
+      return res.status(400).json({ error: "Invalid arguments" });
+    }
+
+    // Cap timeout to a sensible maximum
+    const safeTimeout = Math.min(Math.max(Number(cmdTimeout) || 30000, 1000), 120000);
+
     const start = Date.now();
 
-    const proc = spawn(cmd, args, { timeout: cmdTimeout });
+    const proc = spawn(cmd, args, { timeout: safeTimeout });
     let stdout = '';
     let stderr = '';
 
@@ -1220,6 +1320,14 @@ async function startServer() {
       return res.status(400).json({ error: "to, application, and data required" });
     }
 
+    // Validate to (Maxima address) and application name
+    if (!isSafeMaximaAddress(to)) {
+      return res.status(400).json({ error: "Invalid 'to' address" });
+    }
+    if (!isSafeApplicationName(application)) {
+      return res.status(400).json({ error: "Invalid application name" });
+    }
+
     try {
       const jsonStr = JSON.stringify(data).replace(/ /g, '_');
       const command = `maxima action:send to:${to} application:${application} data:${jsonStr}`;
@@ -1274,13 +1382,20 @@ async function startServer() {
     const { id } = req.body;
     const node = pinetState.cluster.find((n: any) => n.id === id);
     if (node) {
+      // Validate node.ip is a valid IPv4 address before using in command
+      const ipMatch = String(node.ip).match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+      if (!ipMatch || ipMatch.slice(1).map(Number).some(o => o > 255)) {
+        return res.status(400).json({ error: "Invalid node IP address" });
+      }
+
       node.status = 'provisioning';
       saveState();
       
-      // Execute a real provisioning command via rpi-connect
-      const provisionCmd = `rpi-connect shell ${node.ip} "curl -sSL https://raw.githubusercontent.com/WilliamMajanja/Minima-PiNet-Os/main/install.sh | bash" || sleep 5`;
-
-      exec(provisionCmd, (error, stdout, stderr) => {
+      // Execute a real provisioning command via rpi-connect — use execFile to avoid shell injection
+      execFile("rpi-connect", [
+        "shell", node.ip,
+        "curl -sSL https://raw.githubusercontent.com/WilliamMajanja/Minima-PiNet-Os/main/install.sh | bash"
+      ], (error, stdout, stderr) => {
         if (error) {
           console.error(`Provisioning failed for ${node.ip}:`, error);
           node.status = 'offline';
@@ -1657,6 +1772,13 @@ window.addEventListener('message', function(e) {
       const pid = parseInt(req.params.pid, 10);
       const { signal } = req.body;
       if (!signal || isNaN(pid)) { res.status(400).json({ error: "Missing pid or signal" }); return; }
+
+      // Validate signal — only allow known POSIX signal names
+      const ALLOWED_SIGNALS = new Set(['SIGTERM', 'SIGKILL', 'SIGINT', 'SIGHUP', 'SIGUSR1', 'SIGUSR2', 'SIGSTOP', 'SIGCONT']);
+      if (typeof signal !== 'string' || !ALLOWED_SIGNALS.has(signal.toUpperCase())) {
+        res.status(400).json({ error: `Invalid signal. Allowed: ${[...ALLOWED_SIGNALS].join(', ')}` }); return;
+      }
+
       const ok = processManager.sendSignal(pid, signal);
       res.json({ success: ok, pid, signal });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -1667,7 +1789,27 @@ window.addEventListener('message', function(e) {
       const { processManager } = await getKernelModules();
       const { name, command, args: cmdArgs, cwd: procCwd } = req.body;
       if (!name || !command) { res.status(400).json({ error: "Missing name or command" }); return; }
-      const proc = processManager.spawn(1, name, command, cmdArgs ?? [], {}, procCwd ?? '/');
+
+      // Validate command against allowlist
+      if (typeof command !== 'string' || !ALLOWED_SPAWN_COMMANDS.has(command)) {
+        res.status(400).json({ error: `Command not allowed. Permitted: ${[...ALLOWED_SPAWN_COMMANDS].join(', ')}` }); return;
+      }
+
+      // Validate name
+      if (typeof name !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/.test(name)) {
+        res.status(400).json({ error: "Invalid process name" }); return;
+      }
+
+      // Validate args
+      const safeArgs = Array.isArray(cmdArgs) ? cmdArgs : [];
+      if (!safeArgs.every(isSafeArg)) {
+        res.status(400).json({ error: "Invalid arguments" }); return;
+      }
+
+      // Validate cwd — must be an absolute path with no shell metacharacters
+      const safeCwd = typeof procCwd === 'string' && /^\/[a-zA-Z0-9/_.-]*$/.test(procCwd) ? procCwd : '/';
+
+      const proc = processManager.spawn(1, name, command, safeArgs, {}, safeCwd);
       res.json({ success: true, process: proc });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
@@ -1710,7 +1852,23 @@ window.addEventListener('message', function(e) {
       const { scheduler } = await getKernelModules();
       const { id, name, schedule: cronSchedule, command, args: cronArgs, uid } = req.body;
       if (!id || !name || !cronSchedule || !command) { res.status(400).json({ error: "Missing required fields" }); return; }
-      scheduler.addCronJob({ id, name, schedule: cronSchedule, command, args: cronArgs ?? [], uid: uid ?? 0, enabled: true });
+
+      // Validate cron job fields
+      if (!isSafeCronId(id) || !isSafeCronId(name)) {
+        res.status(400).json({ error: "Invalid id or name" }); return;
+      }
+      if (!isSafeCronSchedule(cronSchedule)) {
+        res.status(400).json({ error: "Invalid cron schedule format" }); return;
+      }
+      if (typeof command !== 'string' || !ALLOWED_SPAWN_COMMANDS.has(command)) {
+        res.status(400).json({ error: "Command not allowed" }); return;
+      }
+      const safeArgs = Array.isArray(cronArgs) ? cronArgs : [];
+      if (!safeArgs.every(isSafeArg)) {
+        res.status(400).json({ error: "Invalid arguments" }); return;
+      }
+
+      scheduler.addCronJob({ id, name, schedule: cronSchedule, command, args: safeArgs, uid: uid ?? 0, enabled: true });
       res.json({ success: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
@@ -1727,7 +1885,9 @@ window.addEventListener('message', function(e) {
   app.get("/api/kernel/services/:name", async (req, res) => {
     try {
       const { initSystem } = await getKernelModules();
-      const svc = initSystem.getService(req.params.name);
+      const { name } = req.params;
+      if (!isSafeServiceName(name)) { res.status(400).json({ error: "Invalid service name" }); return; }
+      const svc = initSystem.getService(name);
       if (!svc) { res.status(404).json({ error: "Service not found" }); return; }
       res.json(svc);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -1737,6 +1897,12 @@ window.addEventListener('message', function(e) {
     try {
       const { initSystem } = await getKernelModules();
       const { name, action: svcAction } = req.params;
+
+      // Validate service name to prevent injection
+      if (!isSafeServiceName(name)) {
+        res.status(400).json({ error: "Invalid service name" }); return;
+      }
+
       let result;
       switch (svcAction) {
         case 'start': result = await initSystem.startService(name); break;
@@ -1992,8 +2158,14 @@ window.addEventListener('message', function(e) {
   app.post("/api/network/interfaces/:name", async (req, res) => {
     try {
       const { networkService } = await getKernelModules();
-      const { state: ifaceState, address, netmask, mtu } = req.body;
       const name = req.params.name;
+
+      // Validate interface name
+      if (!isSafeInterfaceName(name)) {
+        res.status(400).json({ error: "Invalid interface name" }); return;
+      }
+
+      const { state: ifaceState, address, netmask, mtu } = req.body;
       if (ifaceState) networkService.setInterfaceState(name, ifaceState);
       if (address && netmask) networkService.setInterfaceAddress(name, address, netmask);
       if (mtu) networkService.setMTU(name, mtu);
