@@ -171,6 +171,8 @@ async function startServer() {
   const maximaSendRateLimit = rateLimit({ windowMs: 60000, limit: 20, standardHeaders: true, legacyHeaders: false, message: { error: "Too many Maxima send requests. Try again later." } });
   const clusterJoinRateLimit = rateLimit({ windowMs: 60000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { error: "Too many cluster join requests. Try again later." } });
   const clusterExecRateLimit = rateLimit({ windowMs: 60000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { error: "Too many cluster exec requests. Try again later." } });
+  const filesDeleteRateLimit = rateLimit({ windowMs: 60000, limit: 20, standardHeaders: true, legacyHeaders: false, message: { error: "Too many file delete requests. Try again later." } });
+  const dappUninstallRateLimit = rateLimit({ windowMs: 60000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { error: "Too many DApp uninstall requests. Try again later." } });
 
   // Global JSON middleware - move to top
   app.use(express.json());
@@ -612,6 +614,15 @@ async function startServer() {
     return resolved;
   };
 
+  /** Resolve a path for deletion and prevent deleting the configured root itself. */
+  const safeResolveDeletePath = (requested: string): string => {
+    const resolved = safeResolvePath(requested);
+    if (resolved === FILES_ROOT) {
+      throw new Error('Access denied: refusing to delete the root directory');
+    }
+    return resolved;
+  };
+
   app.get("/api/files/list", (req, res) => {
     const dirPath = (req.query.path as string) || FILES_ROOT;
     try {
@@ -666,7 +677,7 @@ async function startServer() {
     }
   });
 
-  app.delete("/api/files/delete", (req, res) => {
+  app.delete("/api/files/delete", filesDeleteRateLimit, (req, res) => {
     const clientIp = req.ip || 'unknown';
     if (!fsWriteLimiter.check(clientIp)) {
       return res.status(429).json({ error: "Too many requests. Try again later." });
@@ -674,9 +685,9 @@ async function startServer() {
     const filePath = req.query.path as string;
     if (!filePath) return res.status(400).json({ error: "Path required" });
     try {
-      const absolutePath = safeResolvePath(filePath);
+      const absolutePath = safeResolveDeletePath(filePath);
       if (fs.statSync(absolutePath).isDirectory()) {
-        fs.rmSync(absolutePath, { recursive: true, force: true });
+        return res.status(400).json({ error: "Directory deletion is not allowed via this endpoint" });
       } else {
         fs.unlinkSync(absolutePath);
       }
@@ -1604,7 +1615,7 @@ window.addEventListener('message', function(e) {
   });
 
   // POST /api/dapps/:id/uninstall — remove a DApp
-  app.post("/api/dapps/:id/uninstall", (req, res) => {
+  app.post("/api/dapps/:id/uninstall", dappUninstallRateLimit, (req, res) => {
     const clientIp = req.ip || 'unknown';
     if (!dappInstallLimiter.check(clientIp)) {
       return res.status(429).json({ error: "Too many requests. Try again later." });
