@@ -1239,12 +1239,7 @@ async function startServer() {
   });
 
 
-  app.post("/api/cluster/exec-local", (req, res) => {
-    // Rate limit: max 10 exec requests per minute per IP
-    const clientIp = req.ip || 'unknown';
-    if (!execRateLimiter.check(clientIp)) {
-      return res.status(429).json({ error: "Too many exec requests. Try again later." });
-    }
+  app.post("/api/cluster/exec-local", clusterCmdRateLimit, (req, res) => {
 
     const { workloadId, command: cmd, args = [], timeout: cmdTimeout = 30000 } = req.body;
 
