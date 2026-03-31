@@ -21,17 +21,17 @@ const AiAssistantApp: React.FC<AiAssistantAppProps> = ({ context }) => {
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const objectUrlsRef = useRef<string[]>([]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, isLoading]);
 
-  // Revoke object URLs on unmount to prevent memory leaks
+  // Revoke any remaining object URLs on unmount to prevent memory leaks
   useEffect(() => {
     return () => {
-      mediaToUpload.forEach(m => URL.revokeObjectURL(m.preview));
+      objectUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -42,10 +42,12 @@ const AiAssistantApp: React.FC<AiAssistantAppProps> = ({ context }) => {
       const reader = new FileReader();
       reader.onload = (ev) => {
         const base64 = (ev.target?.result as string).split(',')[1];
+        const preview = URL.createObjectURL(file);
+        objectUrlsRef.current.push(preview);
         setMediaToUpload(prev => [...prev, { 
           data: base64, 
           mimeType: file.type,
-          preview: URL.createObjectURL(file)
+          preview
         }]);
       };
       reader.readAsDataURL(file);
