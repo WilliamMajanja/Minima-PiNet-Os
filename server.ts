@@ -165,6 +165,14 @@ async function startServer() {
   // express-rate-limit middleware for endpoints that execute system commands
   // (CodeQL recognises this library as a proper rate-limiter)
   const clusterCmdRateLimit = rateLimit({ windowMs: 60000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { error: "Too many requests. Try again later." } });
+  const systemSwitchRateLimit = rateLimit({ windowMs: 60000, limit: 5, standardHeaders: true, legacyHeaders: false, message: { error: "Too many switch requests. Try again later." } });
+  const subnetScanRateLimit = rateLimit({ windowMs: 60000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { error: "Too many scan requests. Try again later." } });
+  const minimaCmdRateLimit = rateLimit({ windowMs: 60000, limit: 20, standardHeaders: true, legacyHeaders: false, message: { error: "Too many Minima command requests. Try again later." } });
+  const maximaSendRateLimit = rateLimit({ windowMs: 60000, limit: 20, standardHeaders: true, legacyHeaders: false, message: { error: "Too many Maxima send requests. Try again later." } });
+  const clusterJoinRateLimit = rateLimit({ windowMs: 60000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { error: "Too many cluster join requests. Try again later." } });
+  const clusterExecRateLimit = rateLimit({ windowMs: 60000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { error: "Too many cluster exec requests. Try again later." } });
+  const filesDeleteRateLimit = rateLimit({ windowMs: 60000, limit: 20, standardHeaders: true, legacyHeaders: false, message: { error: "Too many file delete requests. Try again later." } });
+  const dappUninstallRateLimit = rateLimit({ windowMs: 60000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { error: "Too many DApp uninstall requests. Try again later." } });
 
   // Global JSON middleware - move to top
   app.use(express.json());
@@ -394,7 +402,7 @@ async function startServer() {
   });
 
   // --- Real Hypervisor / OS Switch Endpoint ---
-  app.post("/api/system/switch-os", express.json(), async (req, res) => {
+  app.post("/api/system/switch-os", systemSwitchRateLimit, express.json(), async (req, res) => {
     const { targetOS, nodeId } = req.body;
     console.log(`[HV] Executing system switch to: ${targetOS} on node: ${nodeId || 'localhost'}`);
 
@@ -503,7 +511,7 @@ async function startServer() {
   });
 
   // --- Real Subnet Scanning ---
-  app.get("/api/system/scan-subnet", async (req, res) => {
+  app.get("/api/system/scan-subnet", subnetScanRateLimit, async (req, res) => {
     const { subnet } = req.query;
     if (!subnet || typeof subnet !== 'string') {
       return res.status(400).json({ error: "Subnet required" });
@@ -606,6 +614,15 @@ async function startServer() {
     return resolved;
   };
 
+  /** Resolve a path for deletion and prevent deleting the configured root itself. */
+  const safeResolveDeletePath = (requested: string): string => {
+    const resolved = safeResolvePath(requested);
+    if (resolved === FILES_ROOT) {
+      throw new Error('Access denied: refusing to delete the root directory');
+    }
+    return resolved;
+  };
+
   app.get("/api/files/list", (req, res) => {
     const dirPath = (req.query.path as string) || FILES_ROOT;
     try {
@@ -660,7 +677,7 @@ async function startServer() {
     }
   });
 
-  app.delete("/api/files/delete", (req, res) => {
+  app.delete("/api/files/delete", filesDeleteRateLimit, (req, res) => {
     const clientIp = req.ip || 'unknown';
     if (!fsWriteLimiter.check(clientIp)) {
       return res.status(429).json({ error: "Too many requests. Try again later." });
@@ -668,9 +685,9 @@ async function startServer() {
     const filePath = req.query.path as string;
     if (!filePath) return res.status(400).json({ error: "Path required" });
     try {
-      const absolutePath = safeResolvePath(filePath);
+      const absolutePath = safeResolveDeletePath(filePath);
       if (fs.statSync(absolutePath).isDirectory()) {
-        fs.rmdirSync(absolutePath, { recursive: true });
+        return res.status(400).json({ error: "Directory deletion is not allowed via this endpoint" });
       } else {
         fs.unlinkSync(absolutePath);
       }
@@ -780,7 +797,7 @@ async function startServer() {
     res.json(pinetState.minima);
   });
 
-  app.post("/api/minima/cmd", async (req, res) => {
+  app.post("/api/minima/cmd", minimaCmdRateLimit, async (req, res) => {
     const { command } = req.body;
 
     // Validate command is a non-empty string with reasonable length
@@ -1123,7 +1140,7 @@ async function startServer() {
     res.json(pinetState.cluster);
   });
 
-  app.post("/api/cluster/join", async (req, res) => {
+  app.post("/api/cluster/join", clusterJoinRateLimit, async (req, res) => {
     const { masterAddress } = req.body;
     if (!masterAddress) {
       return res.status(400).json({ error: "masterAddress required" });
@@ -1166,7 +1183,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/cluster/exec", async (req, res) => {
+  app.post("/api/cluster/exec", clusterExecRateLimit, async (req, res) => {
     const { targetNodeId, command, args = [] } = req.body;
     if (!targetNodeId || !command) {
       return res.status(400).json({ error: "targetNodeId and command required" });
@@ -1264,7 +1281,7 @@ async function startServer() {
     res.json({ contacts: [] });
   });
 
-  app.post("/api/maxima/send", async (req, res) => {
+  app.post("/api/maxima/send", maximaSendRateLimit, async (req, res) => {
     const { to, application, data } = req.body;
     if (!to || !application || !data) {
       return res.status(400).json({ error: "to, application, and data required" });
@@ -1525,7 +1542,17 @@ window.addEventListener('message', function(e) {
     if (typeof url === 'string' && url.trim()) {
       // URL install mode — for now register with a generated manifest from the URL
       // A full implementation would download and extract the archive here
-      const urlObj = new URL(url);
+      let urlObj: URL;
+      try {
+        urlObj = new URL(url);
+      } catch {
+        res.status(400).json({ error: "Invalid URL" });
+        return;
+      }
+      if (!['http:', 'https:'].includes(urlObj.protocol)) {
+        res.status(400).json({ error: "Only http(s) URLs are allowed" });
+        return;
+      }
       const fileName = path.basename(urlObj.pathname);
       const baseName = fileName.replace(/\.(zip|tar\.gz|mds\.zip)$/i, '');
       const dappId = baseName.replace(/[^a-zA-Z0-9._-]/g, '-').toLowerCase();
@@ -1588,7 +1615,7 @@ window.addEventListener('message', function(e) {
   });
 
   // POST /api/dapps/:id/uninstall — remove a DApp
-  app.post("/api/dapps/:id/uninstall", (req, res) => {
+  app.post("/api/dapps/:id/uninstall", dappUninstallRateLimit, (req, res) => {
     const clientIp = req.ip || 'unknown';
     if (!dappInstallLimiter.check(clientIp)) {
       return res.status(429).json({ error: "Too many requests. Try again later." });
@@ -1611,7 +1638,7 @@ window.addEventListener('message', function(e) {
     const installDir = dapp.installPath;
     const resolvedInstallDir = path.resolve(installDir);
     const resolvedDappDir = path.resolve(DAPP_DIR);
-    if (resolvedInstallDir.startsWith(resolvedDappDir) && fs.existsSync(installDir)) {
+    if ((resolvedInstallDir === resolvedDappDir || resolvedInstallDir.startsWith(resolvedDappDir + path.sep)) && fs.existsSync(installDir)) {
       fs.rmSync(installDir, { recursive: true, force: true });
     }
 
