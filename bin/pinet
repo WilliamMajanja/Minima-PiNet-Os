@@ -91,6 +91,54 @@ cmd_stop() {
 }
 
 cmd_status() {
+  if [ "${1:-}" = "--json" ]; then
+    _node_id=$(read_config_value "nodeId")
+    _role=$(read_config_value "role")
+    _platform="$(uname -s)"
+    _arch="$(uname -m)"
+
+    _running=false
+    _minima_running=false
+    _desktop_running=false
+    _cluster_joined=false
+
+    if is_running; then
+      _running=true
+    fi
+
+    if [ -f "$PINET_HOME/minima.pid" ] && kill -0 "$(cat "$PINET_HOME/minima.pid" 2>/dev/null)" 2>/dev/null; then
+      _minima_running=true
+    fi
+
+    if [ -f "$PINET_HOME/desktop.pid" ] && kill -0 "$(cat "$PINET_HOME/desktop.pid" 2>/dev/null)" 2>/dev/null; then
+      _desktop_running=true
+    fi
+
+    if [ -f "$PINET_STATE_DIR/cluster.json" ]; then
+      _cluster_joined=true
+    fi
+
+    printf '{\n'
+    printf '  "version": "%s",\n' "$PINET_VERSION"
+    printf '  "running": %s,\n' "$_running"
+    printf '  "nodeId": "%s",\n' "${_node_id:-unknown}"
+    printf '  "role": "%s",\n' "${_role:-unknown}"
+    printf '  "platform": "%s",\n' "$_platform"
+    printf '  "architecture": "%s",\n' "$_arch"
+    printf '  "ports": {\n'
+    printf '    "minimaRpc": %s,\n' "$PINET_MINIMA_RPC_PORT"
+    printf '    "desktop": %s,\n' "$PINET_DESKTOP_PORT"
+    printf '    "clusterApi": %s\n' "$PINET_CLUSTER_API_PORT"
+    printf '  },\n'
+    printf '  "services": {\n'
+    printf '    "minima": %s,\n' "$_minima_running"
+    printf '    "desktop": %s,\n' "$_desktop_running"
+    printf '    "clusterJoined": %s\n' "$_cluster_joined"
+    printf '  }\n'
+    printf '}\n'
+    return 0
+  fi
+
   show_status
 
   # Try to get live data from the desktop API
@@ -234,7 +282,7 @@ cmd_help() {
   printf "  ${CYAN}setup${NC}                      One-time setup (install dependencies)\n"
   printf "  ${CYAN}start${NC} [--role R] [--master] Start PiNet-OS runtime\n"
   printf "  ${CYAN}stop${NC}                       Stop all PiNet-OS services\n"
-  printf "  ${CYAN}status${NC}                     Show runtime status\n"
+  printf "  ${CYAN}status${NC} [--json]            Show runtime status\n"
   printf "  ${CYAN}logs${NC} [--follow]            View service logs\n"
   printf "  ${CYAN}shell${NC}                      Attach to PiNet-OS session\n"
   printf "\n${WHITE}Cluster:${NC}\n"
@@ -261,7 +309,7 @@ cmd_help() {
 case "${1:-help}" in
   start)   shift; cmd_start "$@" ;;
   stop)    cmd_stop ;;
-  status)  cmd_status ;;
+  status)  shift; cmd_status "$@" ;;
   join)    shift; cmd_join "$@" ;;
   logs)    shift; cmd_logs "$@" ;;
   shell)   cmd_shell ;;
