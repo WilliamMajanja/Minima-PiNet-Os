@@ -600,18 +600,33 @@ async function startServer() {
   // can be overridden via PINET_FILES_ROOT for deployments that expose a
   // dedicated directory (e.g., /home/pi/pinet-workspace).
   // path.resolve() normalizes the path and strips any trailing separators.
-  const FILES_ROOT = path.resolve(process.env.PINET_FILES_ROOT || process.cwd());
+  // fs.realpathSync() canonicalizes the path and resolves any symbolic links.
+  const RAW_FILES_ROOT = path.resolve(process.env.PINET_FILES_ROOT || process.cwd());
+  let FILES_ROOT: string;
+  try {
+    FILES_ROOT = fs.realpathSync(RAW_FILES_ROOT);
+  } catch {
+    // If the directory does not exist yet, fall back to the normalized path.
+    FILES_ROOT = RAW_FILES_ROOT;
+  }
 
   /** Returns the resolved absolute path only when it is within FILES_ROOT.
    *  Throws an error if the path would escape the root. */
   const safeResolvePath = (requested: string): string => {
     const resolved = path.resolve(FILES_ROOT, requested);
+    let realResolved: string;
+    try {
+      realResolved = fs.realpathSync(resolved);
+    } catch {
+      // If the target does not exist yet (e.g., for new files), use the normalized path.
+      realResolved = resolved;
+    }
     // Allow exactly FILES_ROOT itself, or any path strictly inside it.
     // Appending path.sep guards against prefix attacks (e.g., /root vs /rootX).
-    if (resolved !== FILES_ROOT && !resolved.startsWith(FILES_ROOT + path.sep)) {
+    if (realResolved !== FILES_ROOT && !realResolved.startsWith(FILES_ROOT + path.sep)) {
       throw new Error('Access denied: path is outside the allowed directory');
     }
-    return resolved;
+    return realResolved;
   };
 
   /** Resolve a path for deletion and prevent deleting the configured root itself. */
