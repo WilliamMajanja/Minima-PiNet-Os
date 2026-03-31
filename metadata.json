@@ -1,5 +1,5 @@
 {
-  "name": "PiNet 2.0 Enterprise",
+  "name": "PiNet 3.0 Enterprise",
   "description": "A modern, zero-bloat OS made for Raspberry Pi — combining decentralized Web3 infrastructure, Hailo-8L AI acceleration, and blockchain-backed zero-trust security.",
   "requestFramePermissions": [
     "camera",
