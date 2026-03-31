@@ -21,13 +21,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
       - name: Determine version
         id: version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "tag=${{ inputs.tag_name }}" >> "$GITHUB_OUTPUT"
+            echo "semver=$(echo '${{ inputs.tag_name }}' | sed 's/^v//')" >> "$GITHUB_OUTPUT"
           else
             echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            echo "semver=$(echo "${GITHUB_REF_NAME}" | sed 's/^v//')" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Create source archives
@@ -40,12 +51,22 @@ jobs:
 
           ls -lh "${ARCHIVE_BASE}.zip" "${ARCHIVE_BASE}.tar.gz"
 
+      - name: Install system dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq mtools
+
+      - name: Generate Raspberry Pi disk image
+        run: bash scripts/create-release-img.sh "${{ steps.version.outputs.semver }}"
+
+      - name: Package disk image for release
+        run: node scripts/package-img-release.js "${{ steps.version.outputs.semver }}"
+
       - name: Generate SHA256 checksums
         run: |
           sha256sum \
             "Minima-PiNet-Os-${{ steps.version.outputs.tag }}.zip" \
             "Minima-PiNet-Os-${{ steps.version.outputs.tag }}.tar.gz" \
             PiNetOS-RaspberryPi.img \
+            PiNetOS-RaspberryPi-Package-*.zip \
             PiNetOS-Enterprise.zip \
             PiNetOS-Electron-Desktop.zip \
             PiNetOS-Build-System.zip \
@@ -71,6 +92,7 @@ jobs:
             Minima-PiNet-Os-${{ steps.version.outputs.tag }}.zip
             Minima-PiNet-Os-${{ steps.version.outputs.tag }}.tar.gz
             PiNetOS-RaspberryPi.img
+            PiNetOS-RaspberryPi-Package-*.zip
             PiNetOS-Enterprise.zip
             PiNetOS-Electron-Desktop.zip
             PiNetOS-Build-System.zip

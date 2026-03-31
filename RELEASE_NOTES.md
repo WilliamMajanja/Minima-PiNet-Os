@@ -91,6 +91,7 @@ We are proud to announce **Minima-PiNet-OS v3.0.0**, a major release delivering 
 | `Minima-PiNet-Os-v3.0.0.zip` | Full source archive (ZIP) |
 | `Minima-PiNet-Os-v3.0.0.tar.gz` | Full source archive (TAR.GZ) |
 | `PiNetOS-RaspberryPi.img` | Flashable Raspberry Pi OS image |
+| `PiNetOS-RaspberryPi-Package-v3.0.0.zip` | Image package with flashing instructions and checksums |
 | `PiNetOS-Enterprise.zip` | Enterprise cluster management stack |
 | `PiNetOS-Electron-Desktop.zip` | Cross-platform desktop client source |
 | `PiNetOS-Build-System.zip` | Build pipeline and imager utilities |
