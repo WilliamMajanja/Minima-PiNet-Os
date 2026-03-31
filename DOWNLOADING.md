@@ -63,11 +63,12 @@ sha256sum --check SHA256SUMS.txt
 # Identify your SD card device (e.g. /dev/sdX or /dev/diskN)
 lsblk
 
-# Unmount any mounted partitions
-sudo umount /dev/sdX*
+# Unmount any mounted partitions (ignore errors if none are mounted)
+sudo umount /dev/sdX* 2>/dev/null || true
 
 # Flash the image (DOUBLE-CHECK the target device!)
-sudo dd if=PiNetOS-RaspberryPi.img of=/dev/sdX bs=4M status=progress conv=fsync
+sudo dd if=PiNetOS-RaspberryPi.img of=/dev/sdX bs=4M status=progress conv=sync,noerror
+sync
 ```
 
 ### Option 4: Win32DiskImager (Windows)
