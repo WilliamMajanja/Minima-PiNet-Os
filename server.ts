@@ -604,16 +604,23 @@ async function startServer() {
   const RAW_FILES_ROOT = path.resolve(process.env.PINET_FILES_ROOT || process.cwd());
   let FILES_ROOT: string;
   try {
-    FILES_ROOT = fs.realpathSync(RAW_FILES_ROOT);
+    // Ensure FILES_ROOT is always an absolute, canonical path when possible.
+    FILES_ROOT = fs.realpathSync(path.resolve(RAW_FILES_ROOT));
   } catch {
-    // If the directory does not exist yet, fall back to the normalized path.
-    FILES_ROOT = RAW_FILES_ROOT;
+    // If the directory does not exist yet, fall back to the absolute, normalized path.
+    FILES_ROOT = path.resolve(RAW_FILES_ROOT);
   }
 
   /** Returns the resolved absolute path only when it is within FILES_ROOT.
    *  Throws an error if the path would escape the root. */
   const safeResolvePath = (requested: string): string => {
     const resolved = path.resolve(FILES_ROOT, requested);
+
+    // Allow exactly FILES_ROOT itself for operations like listing the root.
+    if (resolved === FILES_ROOT) {
+      return resolved;
+    }
+
     let realResolved: string;
     try {
       realResolved = fs.realpathSync(resolved);
@@ -621,9 +628,10 @@ async function startServer() {
       // If the target does not exist yet (e.g., for new files), use the normalized path.
       realResolved = resolved;
     }
-    // Allow exactly FILES_ROOT itself, or any path strictly inside it.
+
+    // Allow only paths strictly inside FILES_ROOT.
     // Appending path.sep guards against prefix attacks (e.g., /root vs /rootX).
-    if (realResolved !== FILES_ROOT && !realResolved.startsWith(FILES_ROOT + path.sep)) {
+    if (!realResolved.startsWith(FILES_ROOT + path.sep)) {
       throw new Error('Access denied: path is outside the allowed directory');
     }
     return realResolved;
