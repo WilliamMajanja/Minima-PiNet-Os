@@ -1320,7 +1320,14 @@ async function startServer() {
     }
   });
 
-  app.post("/api/cluster/provision", (req, res) => {
+  const clusterProvisionLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute window
+    max: 5, // limit each IP to 5 provision requests per window
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  app.post("/api/cluster/provision", clusterProvisionLimiter, (req, res) => {
     const clientIp = req.ip || 'unknown';
     if (!sysExecLimiter.check(clientIp)) {
       return res.status(429).json({ error: "Too many requests. Try again later." });
