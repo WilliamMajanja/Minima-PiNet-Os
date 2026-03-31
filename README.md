@@ -198,9 +198,9 @@ The DApp platform exposes server-side endpoints for programmatic management:
 
 ---
 
-## PiNet 2.0 Enterprise Architecture
+## PiNet 3.0 Enterprise Architecture
 
-Transform your Raspberry Pi into a hardened, hardware-verified edge node. The PiNet 2.0 stack introduces enterprise-grade virtualization and security:
+Transform your Raspberry Pi into a hardened, hardware-verified edge node. The PiNet 3.0 stack introduces enterprise-grade virtualization and security:
 
 1. **Hardware Layer:** Raspberry Pi 5 (Optimized for Cortex-A76 & PCIe Gen 3).
 2. **Hypervisor Layer:** LXC (Linux Containers) providing kernel-level namespace isolation.
@@ -212,7 +212,7 @@ Transform your Raspberry Pi into a hardened, hardware-verified edge node. The Pi
 ### Key Enterprise Features
 * **LXC Isolation:** Run your Web3 and AI workloads in a secure, isolated container while maintaining direct access to hardware accelerators (GPU/NPU).
 * **Remote Attestation:** The system automatically hashes critical firmware and configuration paths, attesting them against the immutable Minima ledger to detect unauthorized tampering.
-* **Deterministic AI Performance:** By pinning AI workloads to specific CPU cores and using dedicated NPU hardware, PiNet 2.0 eliminates context-switching jitter.
+* **Deterministic AI Performance:** By pinning AI workloads to specific CPU cores and using dedicated NPU hardware, PiNet 3.0 eliminates context-switching jitter.
 * **Enterprise Imager Utility:** A built-in portal to build, verify, and release flashable `.img` artifacts that are 100% compatible with the official Raspberry Pi Imager.
 * **Remote Orchestration via rpi-connect:** Manage your cluster nodes, perform hypervisor context switching, and execute commands securely from anywhere using Raspberry Pi Connect integration.
 

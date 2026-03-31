@@ -1,4 +1,4 @@
-# Deployment Guide — Minima-PiNet-OS v2.0.0
+# Deployment Guide — Minima-PiNet-OS v3.0.0
 
 This guide covers three deployment paths: **local dev/demo**, **Raspberry Pi hardware**, and **investor test drive**.
 
@@ -69,7 +69,7 @@ This launches the native cross-platform desktop application alongside the dev se
 
 ## 3. Investor Test Drive Checklist
 
-Walk through these steps to demonstrate the full PiNet 2.0 feature set.
+Walk through these steps to demonstrate the full PiNet 3.0 feature set.
 
 ### ✅ Web Desktop
 - [ ] Load `http://localhost:3000` (or `http://<pi-ip>:3000`)
