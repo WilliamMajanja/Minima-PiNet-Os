@@ -60,6 +60,9 @@ jobs:
       - name: Package disk image for release
         run: node scripts/package-img-release.js "${{ steps.version.outputs.semver }}"
 
+      - name: Generate release package artifacts
+        run: node scripts/generate-release-packages.js
+
       - name: Generate SHA256 checksums
         run: |
           sha256sum \
