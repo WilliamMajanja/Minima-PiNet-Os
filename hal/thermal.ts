@@ -10,7 +10,7 @@
  */
 
 import * as fs from 'fs';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -79,7 +79,7 @@ export class ThermalMonitor {
   async getGpuTemp(): Promise<number> {
     if (this.useSimulation) return 42 + Math.random() * 8;
     try {
-      const raw = execSync('vcgencmd measure_temp 2>/dev/null').toString();
+      const raw = execFileSync('vcgencmd', ['measure_temp'], { stdio: 'pipe' }).toString();
       const m   = raw.match(/temp=([\d.]+)/);
       return m ? parseFloat(m[1]) : 0;
     } catch {
@@ -104,9 +104,11 @@ export class ThermalMonitor {
         sdramPVoltage: 1.1, sdramCVoltage: 1.1, timestamp: Date.now(),
       };
     }
+    const ALLOWED_VOLTAGE_PARAMS = new Set(['core', 'sdram_i', 'sdram_p', 'sdram_c']);
     const read = (param: string): number => {
+      if (!ALLOWED_VOLTAGE_PARAMS.has(param)) return 0;
       try {
-        const raw = execSync(`vcgencmd measure_volts ${param} 2>/dev/null`).toString();
+        const raw = execFileSync('vcgencmd', ['measure_volts', param], { stdio: 'pipe' }).toString();
         const m   = raw.match(/volt=([\d.]+)/);
         return m ? parseFloat(m[1]) : 0;
       } catch { return 0; }
@@ -133,7 +135,7 @@ export class ThermalMonitor {
     }
     let raw = 0;
     try {
-      const output = execSync('vcgencmd get_throttled 2>/dev/null').toString();
+      const output = execFileSync('vcgencmd', ['get_throttled'], { stdio: 'pipe' }).toString();
       const m      = output.match(/throttled=0x([0-9a-fA-F]+)/);
       if (m) raw = parseInt(m[1], 16);
     } catch {}

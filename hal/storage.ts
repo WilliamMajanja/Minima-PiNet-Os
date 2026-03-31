@@ -11,10 +11,22 @@
 
 import * as fs   from 'fs';
 import * as path from 'path';
-import { execSync, exec } from 'child_process';
+import { exec, execFileSync } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
+
+// Validate that a string looks like a safe device path (e.g. /dev/sda1, /dev/mmcblk0p1)
+const isValidDevicePath = (p: string): boolean =>
+  /^\/dev\/[a-zA-Z0-9_-]+(\/[a-zA-Z0-9_-]+)*$/.test(p);
+
+// Validate that a string looks like a safe mount point path (absolute, no shell metacharacters)
+const isValidMountPath = (p: string): boolean =>
+  /^\/[a-zA-Z0-9_./-]+$/.test(p) && !p.includes('..');
+
+// Validate filesystem type (alphanumeric + dots, e.g. ext4, vfat, ntfs-3g)
+const isValidFsType = (t: string): boolean =>
+  /^[a-zA-Z0-9._-]+$/.test(t);
 
 // ---------------------------------------------------------------------------
 // Types
@@ -87,7 +99,7 @@ export class StorageManager {
     }
 
     try {
-      const raw = execSync('lsblk -J -b -o NAME,PATH,SIZE,TYPE,FSTYPE,MOUNTPOINT,LABEL,RM,RO 2>/dev/null').toString();
+      const raw = execFileSync('lsblk', ['-J', '-b', '-o', 'NAME,PATH,SIZE,TYPE,FSTYPE,MOUNTPOINT,LABEL,RM,RO'], { stdio: 'pipe' }).toString();
       const data = JSON.parse(raw) as { blockdevices: any[] };
       return data.blockdevices.map(this.mapDevice.bind(this));
     } catch {
@@ -107,7 +119,7 @@ export class StorageManager {
     }
 
     try {
-      const raw = execSync('df -B1 --output=source,target,fstype,size,used,avail 2>/dev/null').toString();
+      const raw = execFileSync('df', ['-B1', '--output=source,target,fstype,size,used,avail'], { stdio: 'pipe' }).toString();
       const lines = raw.trim().split('\n').slice(1);
       return lines.map(line => {
         const [device, mountpoint, fstype, total, used, avail] = line.trim().split(/\s+/);
@@ -130,10 +142,18 @@ export class StorageManager {
     if (this.useSimulation) {
       return { success: true, message: `[SIM] Mounted ${device} at ${mountpoint}` };
     }
+    if (!isValidDevicePath(device)) {
+      return { success: false, message: `Invalid device path: ${device}` };
+    }
+    if (!isValidMountPath(mountpoint)) {
+      return { success: false, message: `Invalid mount point: ${mountpoint}` };
+    }
     try {
       if (!fs.existsSync(mountpoint)) fs.mkdirSync(mountpoint, { recursive: true });
-      const typeFlag = fstype ? `-t ${fstype}` : '';
-      execSync(`mount ${typeFlag} ${device} ${mountpoint} 2>&1`);
+      const args = fstype && isValidFsType(fstype)
+        ? ['-t', fstype, device, mountpoint]
+        : [device, mountpoint];
+      execFileSync('mount', args, { stdio: 'pipe' });
       return { success: true, message: `Mounted ${device} at ${mountpoint}` };
     } catch (e: any) {
       return { success: false, message: e.message };
@@ -144,8 +164,11 @@ export class StorageManager {
     if (this.useSimulation) {
       return { success: true, message: `[SIM] Unmounted ${mountpointOrDevice}` };
     }
+    if (!isValidDevicePath(mountpointOrDevice) && !isValidMountPath(mountpointOrDevice)) {
+      return { success: false, message: `Invalid path: ${mountpointOrDevice}` };
+    }
     try {
-      execSync(`umount ${mountpointOrDevice} 2>&1`);
+      execFileSync('umount', [mountpointOrDevice], { stdio: 'pipe' });
       return { success: true, message: `Unmounted ${mountpointOrDevice}` };
     } catch (e: any) {
       return { success: false, message: e.message };
@@ -157,12 +180,18 @@ export class StorageManager {
   /** Run fsck on an unmounted partition */
   async checkFilesystem(device: string): Promise<{ healthy: boolean; output: string }> {
     if (this.useSimulation) return { healthy: true, output: '[SIM] Filesystem OK' };
+    if (!isValidDevicePath(device)) {
+      return { healthy: false, output: `Invalid device path: ${device}` };
+    }
     try {
-      const output = execSync(`fsck -n ${device} 2>&1 || true`).toString();
+      const output = execFileSync('fsck', ['-n', device], { stdio: 'pipe' }).toString();
       const healthy = !output.includes('ERROR') && !output.includes('CORRUPTED');
       return { healthy, output };
     } catch (e: any) {
-      return { healthy: false, output: e.message };
+      // fsck returns non-zero for fixable errors; capture stdout if available
+      const output = e.stdout ? e.stdout.toString() : e.message;
+      const healthy = !output.includes('ERROR') && !output.includes('CORRUPTED');
+      return { healthy, output };
     }
   }
 
