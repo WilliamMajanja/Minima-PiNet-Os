@@ -38,7 +38,7 @@ jobs:
             echo "semver=$(echo '${{ inputs.tag_name }}' | sed 's/^v//')" >> "$GITHUB_OUTPUT"
           else
             echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-            echo "semver=$(echo '${GITHUB_REF_NAME}' | sed 's/^v//')" >> "$GITHUB_OUTPUT"
+            echo "semver=$(echo "${GITHUB_REF_NAME}" | sed 's/^v//')" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Create source archives
@@ -50,6 +50,9 @@ jobs:
           git archive --format=tar.gz --prefix="${ARCHIVE_PREFIX}" HEAD -o "${ARCHIVE_BASE}.tar.gz"
 
           ls -lh "${ARCHIVE_BASE}.zip" "${ARCHIVE_BASE}.tar.gz"
+
+      - name: Install system dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq mtools
 
       - name: Generate Raspberry Pi disk image
         run: bash scripts/create-release-img.sh "${{ steps.version.outputs.semver }}"

@@ -8,7 +8,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-VERSION="${1:-$(node -p "require('${PROJECT_ROOT}/package.json').version")}"
+VERSION="${1:-$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('${PROJECT_ROOT}/package.json','utf8')).version)")}"
 IMAGE_NAME="PiNetOS-RaspberryPi.img"
 IMAGE_PATH="${PROJECT_ROOT}/${IMAGE_NAME}"
 IMAGE_SIZE_MB=64
@@ -35,30 +35,45 @@ ${IMAGE_NAME}1 : start=2048,  size=65536,  type=c
 ${IMAGE_NAME}2 : start=67584, type=83
 EOF
 
-# --- 3. Embed boot partition content ---
-echo "[3/4] Embedding boot configuration files..."
+# --- 3. Populate boot partition with config files ---
+echo "[3/4] Populating boot partition with configuration files..."
 
-# Calculate boot partition offset (sector 2048 * 512 bytes/sector = 1048576)
-BOOT_OFFSET=$((2048 * 512))
+# Calculate boot partition byte offset and size
+BOOT_OFFSET=$((2048 * 512))       # sector 2048 * 512 bytes
+BOOT_SIZE=$((65536 * 512))        # 65536 sectors * 512 bytes = 32MB
 
-# Write FAT32 Volume Boot Record signature at boot partition start
-# This marks the partition as FAT32 (0xEB 0x58 0x90 jump + "MSDOS5.0" OEM)
-printf '\xEB\x58\x90MSDOS5.0' | dd of="${IMAGE_PATH}" bs=1 seek=${BOOT_OFFSET} conv=notrunc 2>/dev/null
+if command -v mformat &>/dev/null && command -v mcopy &>/dev/null; then
+    # Use mtools for a proper FAT32 filesystem (no root required)
+    echo "  -> Using mtools for FAT32 filesystem"
 
-# Embed the boot config as raw data after the VBR (offset +512 for safety)
-BOOT_DATA_OFFSET=$((BOOT_OFFSET + 512))
+    # Format the boot partition region in-place
+    mformat -i "${IMAGE_PATH}@@${BOOT_OFFSET}" -F -v BOOT ::
 
-# Write config.txt content
-if [ -f "${PROJECT_ROOT}/boot/config.txt" ]; then
-    dd if="${PROJECT_ROOT}/boot/config.txt" of="${IMAGE_PATH}" bs=1 seek=${BOOT_DATA_OFFSET} conv=notrunc 2>/dev/null
-    echo "  -> Embedded boot/config.txt"
-fi
+    # Copy boot config files into the FAT32 filesystem
+    if [ -f "${PROJECT_ROOT}/boot/config.txt" ]; then
+        mcopy -i "${IMAGE_PATH}@@${BOOT_OFFSET}" "${PROJECT_ROOT}/boot/config.txt" ::/config.txt
+        echo "  -> Copied boot/config.txt"
+    fi
+    if [ -f "${PROJECT_ROOT}/boot/cmdline.txt" ]; then
+        mcopy -i "${IMAGE_PATH}@@${BOOT_OFFSET}" "${PROJECT_ROOT}/boot/cmdline.txt" ::/cmdline.txt
+        echo "  -> Copied boot/cmdline.txt"
+    fi
+else
+    # Fallback: embed boot config as raw data markers
+    echo "  -> mtools not found; embedding boot config as raw data"
+    echo "  -> Install mtools (apt-get install mtools) for proper FAT32 support"
 
-# Write cmdline.txt content after config.txt (offset +8192)
-CMDLINE_OFFSET=$((BOOT_DATA_OFFSET + 8192))
-if [ -f "${PROJECT_ROOT}/boot/cmdline.txt" ]; then
-    dd if="${PROJECT_ROOT}/boot/cmdline.txt" of="${IMAGE_PATH}" bs=1 seek=${CMDLINE_OFFSET} conv=notrunc 2>/dev/null
-    echo "  -> Embedded boot/cmdline.txt"
+    BOOT_DATA_OFFSET=$((BOOT_OFFSET + 512))
+    if [ -f "${PROJECT_ROOT}/boot/config.txt" ]; then
+        dd if="${PROJECT_ROOT}/boot/config.txt" of="${IMAGE_PATH}" bs=1 seek=${BOOT_DATA_OFFSET} conv=notrunc 2>/dev/null
+        echo "  -> Embedded boot/config.txt"
+    fi
+
+    CMDLINE_OFFSET=$((BOOT_DATA_OFFSET + 8192))
+    if [ -f "${PROJECT_ROOT}/boot/cmdline.txt" ]; then
+        dd if="${PROJECT_ROOT}/boot/cmdline.txt" of="${IMAGE_PATH}" bs=1 seek=${CMDLINE_OFFSET} conv=notrunc 2>/dev/null
+        echo "  -> Embedded boot/cmdline.txt"
+    fi
 fi
 
 # --- 4. Write PiNetOS signature ---

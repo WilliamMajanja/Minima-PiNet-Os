@@ -14,7 +14,8 @@
  */
 
 import { createHash } from 'node:crypto';
-import { readFileSync, existsSync, statSync } from 'node:fs';
+import { createReadStream, readFileSync, existsSync, statSync } from 'node:fs';
+import { pipeline } from 'node:stream/promises';
 import path from 'node:path';
 import AdmZip from 'adm-zip';
 
@@ -40,11 +41,12 @@ const imgStat = statSync(imgPath);
 console.log(`Packaging ${imgName} (${(imgStat.size / (1024 * 1024)).toFixed(1)} MB) into ${outName}`);
 
 // ---------------------------------------------------------------------------
-// Compute SHA-256 checksum
+// Compute SHA-256 checksum using streaming to handle large images
 // ---------------------------------------------------------------------------
 
-const imgBuffer = readFileSync(imgPath);
-const sha256 = createHash('sha256').update(imgBuffer).digest('hex');
+const hash = createHash('sha256');
+await pipeline(createReadStream(imgPath), hash);
+const sha256 = hash.digest('hex');
 const checksumContent = `${sha256}  ${imgName}\n`;
 console.log(`SHA-256: ${sha256}`);
 
@@ -152,7 +154,7 @@ To build a full-size (4 GB) production image with a complete root filesystem:
 const zip = new AdmZip();
 const prefix = `PiNetOS-RaspberryPi-v${version}/`;
 
-zip.addFile(`${prefix}${imgName}`, imgBuffer);
+zip.addLocalFile(imgPath, prefix);
 zip.addFile(`${prefix}SHA256SUMS.txt`, Buffer.from(checksumContent, 'utf-8'));
 zip.addFile(`${prefix}README.md`, Buffer.from(readmeContent, 'utf-8'));
 
