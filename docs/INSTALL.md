@@ -21,23 +21,27 @@ This guide walks you through installing **PiNetOS** on a Raspberry Pi 5. PiNetOS
 
 ## Step 1 — Download the Image
 
-Download the latest PiNetOS image from the [Releases](https://github.com/WilliamMajanja/Minima-PiNet-Os/releases) page:
+Download the latest PiNetOS image from the [Releases](https://github.com/WilliamMajanja/Minima-PiNet-Os/releases/latest) page:
 
-```
-PiNetOS-RaspberryPi5-vX.Y.Z.img.gz   (~1.5 GB compressed)
-```
+| Artifact | Description |
+| :--- | :--- |
+| `PiNetOS-RaspberryPi.img` | Flashable Raspberry Pi disk image |
+| `PiNetOS-RaspberryPi-Package-v*.zip` | Image bundled with flashing instructions and checksums |
+| `SHA256SUMS.txt` | Cryptographic checksums for all release artifacts |
+
+> **Tip:** The `PiNetOS-RaspberryPi-Package-v*.zip` includes flashing instructions, release notes, and checksums alongside the `.img` — ideal for offline use.
 
 Verify the SHA-256 checksum:
 
 ```bash
 # Linux / macOS
-sha256sum PiNetOS-RaspberryPi5-vX.Y.Z.img.gz
+sha256sum --check SHA256SUMS.txt
 
 # Windows (PowerShell)
-Get-FileHash PiNetOS-RaspberryPi5-vX.Y.Z.img.gz -Algorithm SHA256
+Get-FileHash PiNetOS-RaspberryPi.img -Algorithm SHA256
 ```
 
-Compare with the `.sha256` file published alongside the release.
+Compare with the `SHA256SUMS.txt` file published alongside the release.
 
 ---
 
@@ -47,7 +51,7 @@ Compare with the `.sha256` file published alongside the release.
 
 1. Download [Raspberry Pi Imager](https://www.raspberrypi.com/software/).
 2. Click **CHOOSE OS** → scroll down → **Use custom**.
-3. Select the downloaded `.img.gz` file.
+3. Select the downloaded `.img` file.
 4. Click **CHOOSE STORAGE** → select your SD card or NVMe.
 5. Click ⚙️ (Advanced) to pre-configure WiFi, SSH, and hostname (optional but recommended).
 6. Click **WRITE** and confirm.
@@ -55,31 +59,27 @@ Compare with the `.sha256` file published alongside the release.
 ### Option B: PiNetOS CLI Flasher (Linux/macOS)
 
 ```bash
-# Decompress and flash in one step
-./tools/flash.sh PiNetOS-RaspberryPi5-vX.Y.Z.img.gz
+# Flash in one step
+./tools/flash.sh PiNetOS-RaspberryPi.img
 
 # Or with explicit device
-./tools/flash.sh PiNetOS-RaspberryPi5-vX.Y.Z.img.gz /dev/sdb
+./tools/flash.sh PiNetOS-RaspberryPi.img /dev/sdb
 ```
 
 ### Option C: Manual dd (Linux)
 
 ```bash
-# Decompress
-gunzip PiNetOS-RaspberryPi5-vX.Y.Z.img.gz
-
 # Flash (replace /dev/sdX with your device — USE WITH CAUTION)
-sudo dd if=PiNetOS-RaspberryPi5-vX.Y.Z.img of=/dev/sdX \
+sudo dd if=PiNetOS-RaspberryPi.img of=/dev/sdX \
     bs=4M status=progress conv=sync,noerror
 sync
 ```
 
 ### Option D: Win32DiskImager (Windows)
 
-1. Decompress the `.gz` file using 7-Zip or WinRAR.
-2. Open [Win32DiskImager](https://win32diskimager.org/).
-3. Select the `.img` file and your SD card drive letter.
-4. Click **Write**.
+1. Open [Win32DiskImager](https://win32diskimager.org/).
+2. Select the `.img` file and your SD card drive letter.
+3. Click **Write**.
 
 ---
 

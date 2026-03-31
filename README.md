@@ -8,6 +8,7 @@
 ![Security](https://img.shields.io/badge/security-Zero--Trust--Attestation-red)
 ![Virtualization](https://img.shields.io/badge/virt-LXC--Enterprise-blue)
 ![DApp Platform](https://img.shields.io/badge/DApps-Next--Gen%20%2B%20Classic-orange)
+[![Download .img](https://img.shields.io/badge/Download-.img%20for%20Raspberry%20Pi-success?logo=raspberry-pi&logoColor=white)](https://github.com/WilliamMajanja/Minima-PiNet-Os/releases/latest)
 
 > **A modern, zero-bloat operating system made for Raspberry Pi — combining decentralized Web3 infrastructure, AI acceleration, a full DApp platform, and enterprise-grade security into a single, maker-ready platform.**
 
@@ -235,7 +236,7 @@ Tailored specifically for modern ARM-based Raspberry Pi boards.
 ## Installation & Provisioning
 
 ### 🚀 Quick Start (Recommended)
-1.  **Download:** Get the latest `PiNetOS-Enterprise.img` from the [Releases](https://github.com/WilliamMajanja/Minima-PiNet-Os/releases) page.
+1.  **Download:** Get the latest `PiNetOS-RaspberryPi.img` from the [Releases](https://github.com/WilliamMajanja/Minima-PiNet-Os/releases/latest) page. See [DOWNLOADING.md](DOWNLOADING.md) for full instructions.
 2.  **Flash:** Open the **Official Raspberry Pi Imager**, select "Use custom", and choose the downloaded `.img` file.
 3.  **Boot:** Insert the MicroSD/NVMe into your Pi 5 and power it on. The system will automatically perform a Zero-Trust integrity check on first boot.
 
