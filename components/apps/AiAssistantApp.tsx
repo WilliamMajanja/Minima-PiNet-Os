@@ -8,6 +8,15 @@ interface AiAssistantAppProps {
 
 type Mode = 'fast' | 'complex' | 'thinking' | 'maps';
 
+const isSafeImageUrl = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
 const AiAssistantApp: React.FC<AiAssistantAppProps> = ({ context }) => {
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string; type?: 'text' | 'video' | 'image' }[]>([
     { role: 'assistant', content: "PiNet Inference Gateway Active. I am the intelligence hub for your Beta Node. I orchestrate both Gemini cloud reasoning and local AirLLM shards through the Hailo-8 NPU. How shall we coordinate the cluster today?" }
@@ -174,7 +183,7 @@ const AiAssistantApp: React.FC<AiAssistantAppProps> = ({ context }) => {
                   <video src={m.content} controls className="w-full rounded-lg shadow-2xl border border-white/10" />
                   <p className="text-[10px] text-slate-400 italic">Beta Node Render: Neural UI Transition</p>
                 </div>
-              ) : m.content.startsWith('http') && m.type === 'image' ? (
+              ) : m.type === 'image' && isSafeImageUrl(m.content) ? (
                 <img src={m.content} className="max-w-full rounded-lg" />
               ) : (
                 <div className="prose prose-invert prose-sm max-w-none">
