@@ -10,6 +10,7 @@ import { fileURLToPath } from "url";
 import os from "os";
 import osUtils from "os-utils";
 import si from "systeminformation";
+import rateLimit from "express-rate-limit";
 import { MINIMA_RPC_PORT, MINIMA_RPC_URL, CLUSTER_API_PORT } from "./config/defaults.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -160,6 +161,10 @@ async function startServer() {
   const dappServeLimiter   = makeRateLimiter(120, 60000); // 120 file serves/min
   const authLoginLimiter   = makeRateLimiter(5,  60000);  // 5 login attempts/min
   const securityCheckLimiter = makeRateLimiter(10, 60000); // 10 integrity checks/min
+
+  // express-rate-limit middleware for endpoints that execute system commands
+  // (CodeQL recognises this library as a proper rate-limiter)
+  const clusterCmdRateLimit = rateLimit({ windowMs: 60000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { error: "Too many requests. Try again later." } });
 
   // Global JSON middleware - move to top
   app.use(express.json());
@@ -1172,12 +1177,7 @@ async function startServer() {
   });
 
 
-  app.post("/api/cluster/exec-local", (req, res) => {
-    // Rate limit: max 10 exec requests per minute per IP
-    const clientIp = req.ip || 'unknown';
-    if (!execRateLimiter.check(clientIp)) {
-      return res.status(429).json({ error: "Too many exec requests. Try again later." });
-    }
+  app.post("/api/cluster/exec-local", clusterCmdRateLimit, (req, res) => {
 
     const { workloadId, command: cmd, args = [], timeout: cmdTimeout = 30000 } = req.body;
 
