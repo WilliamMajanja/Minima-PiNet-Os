@@ -31,6 +31,11 @@ const AiAssistantApp: React.FC<AiAssistantAppProps> = ({ context }) => {
     if (!files) return;
 
     Array.from(files).forEach((file: File) => {
+      // Only create previews for image files to avoid interpreting arbitrary data as image/HTML
+      if (!file.type || !file.type.startsWith('image/')) {
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = (ev) => {
         const base64 = (ev.target?.result as string).split(',')[1];
