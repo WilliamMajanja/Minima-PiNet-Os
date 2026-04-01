@@ -30,10 +30,18 @@ const AiAssistantApp: React.FC<AiAssistantAppProps> = ({ context }) => {
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const objectUrlsRef = useRef<string[]>([]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, isLoading]);
+
+  // Revoke any remaining object URLs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      objectUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -48,10 +56,12 @@ const AiAssistantApp: React.FC<AiAssistantAppProps> = ({ context }) => {
       const reader = new FileReader();
       reader.onload = (ev) => {
         const base64 = (ev.target?.result as string).split(',')[1];
+        const preview = URL.createObjectURL(file);
+        objectUrlsRef.current.push(preview);
         setMediaToUpload(prev => [...prev, { 
           data: base64, 
           mimeType: file.type,
-          preview: URL.createObjectURL(file)
+          preview
         }]);
       };
       reader.readAsDataURL(file);
@@ -91,6 +101,8 @@ const AiAssistantApp: React.FC<AiAssistantAppProps> = ({ context }) => {
     const userText = input.trim();
     setInput('');
     const currentMedia = [...mediaToUpload];
+    // Revoke object URLs before clearing to prevent memory leaks
+    mediaToUpload.forEach(m => URL.revokeObjectURL(m.preview));
     setMediaToUpload([]);
 
     setMessages(prev => [...prev, { role: 'user', content: userText || "Analyzing cluster telemetry..." }]);
@@ -217,7 +229,10 @@ const AiAssistantApp: React.FC<AiAssistantAppProps> = ({ context }) => {
                 <img src={m.preview} className="w-16 h-16 object-cover rounded-lg border border-white/20" />
                 <button 
                   type="button"
-                  onClick={() => setMediaToUpload(prev => prev.filter((_, idx) => idx !== i))}
+                  onClick={() => {
+                    URL.revokeObjectURL(m.preview);
+                    setMediaToUpload(prev => prev.filter((_, idx) => idx !== i));
+                  }}
                   className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
@@ -241,7 +256,7 @@ const AiAssistantApp: React.FC<AiAssistantAppProps> = ({ context }) => {
               onClick={() => fileInputRef.current?.click()}
               className="p-3 bg-white/5 border border-white/10 text-slate-400 rounded-xl hover:bg-white/10 transition-all"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2-2v12a2 2 0 002 2z"/></svg>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 0 1 2.828 0L16 16m-2-2l1.586-1.586a2 2 0 0 1 2.828 0L20 14m-6-6h.01M6 20h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z"/></svg>
             </button>
 
             <div className="relative flex-1">

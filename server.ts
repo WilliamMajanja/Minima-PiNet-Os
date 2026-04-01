@@ -1310,9 +1310,24 @@ async function startServer() {
       return res.status(400).json({ error: "to, application, and data required" });
     }
 
+    // Validate 'to' — must be a safe node/address identifier (alphanumerics, dots, colons, hyphens, @)
+    if (typeof to !== 'string' || !/^[a-zA-Z0-9._:@-]+$/.test(to) || to.length > 256) {
+      return res.status(400).json({ error: "Invalid 'to' address" });
+    }
+
+    // Validate 'application' — must be a safe application name (alphanumerics, dots, hyphens, underscores)
+    if (typeof application !== 'string' || !/^[a-zA-Z0-9._-]+$/.test(application) || application.length > 128) {
+      return res.status(400).json({ error: "Invalid application name" });
+    }
+
     try {
-      const jsonStr = JSON.stringify(data).replace(/ /g, '_');
-      const command = `maxima action:send to:${to} application:${application} data:${jsonStr}`;
+      const jsonStr = JSON.stringify(data);
+      // Limit serialized data size to prevent abuse
+      if (jsonStr.length > 10000) {
+        return res.status(400).json({ error: "Data payload too large" });
+      }
+      const safeData = jsonStr.replace(/ /g, '_');
+      const command = `maxima action:send to:${to} application:${application} data:${safeData}`;
       const rpcResp = await fetch(`${MINIMA_RPC_URL}/${encodeURIComponent(command)}`, { signal: AbortSignal.timeout(5000) });
 
       if (rpcResp.ok) {
