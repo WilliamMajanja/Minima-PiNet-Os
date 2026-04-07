@@ -11,7 +11,14 @@ type Mode = 'fast' | 'complex' | 'thinking' | 'maps';
 const isSafeImageUrl = (url: string): boolean => {
   try {
     const parsed = new URL(url);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    const protocolSafe = parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    // Restrict to trusted hosts to avoid loading arbitrary attacker-controlled content.
+    const hostname = parsed.hostname.toLowerCase();
+    const hostSafe =
+      hostname === 'localhost' ||
+      hostname.endsWith('.localhost') ||
+      hostname.endsWith('.example.com');
+    return protocolSafe && hostSafe;
   } catch {
     return false;
   }
