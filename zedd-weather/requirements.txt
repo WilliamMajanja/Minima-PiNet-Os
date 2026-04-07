@@ -1,0 +1,5 @@
+# Zedd Weather — Python dependencies
+# Pinned to the latest stable releases compatible with arm64 / RPi OS Bookworm.
+
+sense-hat>=2.6.0
+influxdb-client>=1.43.0

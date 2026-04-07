@@ -1,0 +1,20 @@
+[Unit]
+Description=PiNet K3s Node Health Monitor
+After=k3s.service k3s-agent.service
+Wants=network-online.target
+Documentation=https://github.com/WilliamMajanja/Minima-PiNet-Os
+
+[Service]
+Type=simple
+User=root
+Environment=CHECK_INTERVAL=30
+Environment=HEALTH_PORT=9191
+ExecStart=/bin/bash /opt/pinet/scripts/k3s-health-monitor.sh
+Restart=always
+RestartSec=15
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pinet-k3s-health
+
+[Install]
+WantedBy=multi-user.target
