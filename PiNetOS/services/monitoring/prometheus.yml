@@ -1,7 +1,73 @@
 global:
   scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: pinet
+    environment: production
+
+# Alertmanager configuration (optional — configure if Alertmanager is deployed)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['alertmanager:9093']
 
 scrape_configs:
+  # PiNet cluster-manager API (custom metrics)
   - job_name: 'pinet-nodes'
     static_configs:
-      - targets: ['localhost:9090']
+      - targets:
+          - 'pinet-alpha:9090'
+          - 'pinet-sigma:9090'
+          - 'pinet-rho:9090'
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '(pinet-[a-z]+):.*'
+        target_label: node
+
+  # Prometheus node-exporter (standard Linux metrics)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets:
+          - 'pinet-alpha:9100'
+          - 'pinet-sigma:9100'
+          - 'pinet-rho:9100'
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '(pinet-[a-z]+):.*'
+        target_label: node
+
+  # K3s built-in metrics endpoint
+  - job_name: 'k3s'
+    scheme: https
+    tls_config:
+      insecure_skip_verify: true
+    bearer_token_file: /var/lib/rancher/k3s/server/node-token
+    static_configs:
+      - targets:
+          - 'pinet-alpha:10250'
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '(pinet-[a-z]+):.*'
+        target_label: node
+
+  # K3s health monitor (PiNet custom — see k3s-health-monitor.sh)
+  - job_name: 'pinet-health'
+    metrics_path: /health
+    static_configs:
+      - targets:
+          - 'pinet-alpha:9191'
+          - 'pinet-sigma:9191'
+          - 'pinet-rho:9191'
+
+  # InfluxDB v2 metrics
+  - job_name: 'influxdb'
+    static_configs:
+      - targets:
+          - 'influxdb.zedd-weather.svc.cluster.local:8086'
+    metrics_path: /metrics
+
+  # Zedd Weather edge sensor (if it exposes /metrics in future)
+  - job_name: 'zedd-weather'
+    static_configs:
+      - targets:
+          - 'pinet-rho:9200'
