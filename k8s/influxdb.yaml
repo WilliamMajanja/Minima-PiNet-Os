@@ -1,6 +1,14 @@
 ---
 # InfluxDB v2 — time-series telemetry database for Zedd Weather
 # Scheduled on pinet-alpha (NVMe storage node) for fast I/O performance.
+#
+# BEFORE APPLYING: create the influxdb-secret first:
+#   kubectl create namespace zedd-weather
+#   kubectl create secret generic influxdb-secret \
+#     --namespace zedd-weather \
+#     --from-literal=admin-token=<strong-token> \
+#     --from-literal=admin-password=<strong-password>
+# See k8s/influxdb-secret.yaml.template for details.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -18,22 +26,6 @@ spec:
     requests:
       storage: 20Gi
   storageClassName: local-path
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: influxdb-secret
-  namespace: zedd-weather
-type: Opaque
-# IMPORTANT: Replace these placeholder values before applying to a cluster.
-# The recommended approach is to create this secret manually:
-#   kubectl create secret generic influxdb-secret -n zedd-weather \
-#     --from-literal=admin-token=<strong-32-char-token> \
-#     --from-literal=admin-password=<strong-password>
-# Or use an external secrets manager (Sealed Secrets, External Secrets Operator).
-stringData:
-  admin-token: "change-me-strong-token-32chars-min"
-  admin-password: "change-me-strong-password"
 ---
 apiVersion: apps/v1
 kind: Deployment

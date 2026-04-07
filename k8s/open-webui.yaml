@@ -81,19 +81,8 @@ spec:
       storage: 5Gi
   storageClassName: local-path
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: open-webui-secret
-  namespace: zedd-weather
-type: Opaque
-# IMPORTANT: Replace this placeholder before applying to a cluster.
-# Recommended: create the secret manually or use an external secrets manager:
-#   kubectl create secret generic open-webui-secret -n zedd-weather \
-#     --from-literal=secret-key=<strong-32-char-key>
-stringData:
-  secret-key: "change-me-strong-secret-key-32ch"
----
+# BEFORE APPLYING: create open-webui-secret first.
+# See k8s/open-webui-secret.yaml.template for instructions.
 apiVersion: v1
 kind: Service
 metadata:

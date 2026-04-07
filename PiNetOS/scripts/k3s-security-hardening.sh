@@ -26,7 +26,16 @@ die()  { err "$*"; exit 1; }
 configure_firewall() {
   log "Configuring iptables rules for K3s…"
 
-  # Flush existing rules
+  # Back up existing rules before making any changes
+  local backup_file="/etc/iptables/rules.v4.pre-k3s-hardening.$(date +%Y%m%d%H%M%S)"
+  mkdir -p /etc/iptables
+  if iptables-save > "$backup_file" 2>/dev/null; then
+    log "Existing iptables rules backed up to $backup_file"
+  else
+    log "Could not back up iptables rules (may not be installed yet)"
+  fi
+
+  # Flush existing rules — backup has been taken above
   iptables -F INPUT   2>/dev/null || true
   iptables -F FORWARD 2>/dev/null || true
 

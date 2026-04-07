@@ -49,9 +49,11 @@ check_node_ready() {
 }
 
 check_system_pods() {
+  # Use jsonpath for reliable field extraction regardless of column width changes
   local failed_pods
-  failed_pods="$($KUBECTL get pods -A --no-headers 2>/dev/null \
-    | awk '$4 ~ /^(Error|CrashLoopBackOff|OOMKilled|ImagePullBackOff|Pending)$/ {print $1"/"$2}' || true)"
+  failed_pods="$($KUBECTL get pods -A \
+    -o jsonpath='{range .items[?(@.status.containerStatuses)]}{.metadata.namespace}/{.metadata.name} {range .status.containerStatuses[*]}{.state.waiting.reason}{end}{"\n"}{end}' 2>/dev/null \
+    | awk '$2 ~ /^(Error|CrashLoopBackOff|OOMKilled|ImagePullBackOff)$/ {print $1}' || true)"
   if [[ -n "$failed_pods" ]]; then
     err "Unhealthy pods detected:"
     echo "$failed_pods" | while read -r pod; do
@@ -64,8 +66,9 @@ check_system_pods() {
 
 restart_failed_pods() {
   log "Attempting to delete/restart failed pods…"
-  $KUBECTL get pods -A --no-headers 2>/dev/null \
-    | awk '$4 ~ /^(Error|CrashLoopBackOff|OOMKilled)$/ {print $1" "$2}' \
+  $KUBECTL get pods -A \
+    -o jsonpath='{range .items[?(@.status.containerStatuses)]}{.metadata.namespace} {.metadata.name} {range .status.containerStatuses[*]}{.state.waiting.reason}{end}{"\n"}{end}' 2>/dev/null \
+    | awk '$3 ~ /^(Error|CrashLoopBackOff|OOMKilled)$/ {print $1" "$2}' \
     | while read -r ns pod; do
         $KUBECTL delete pod "$pod" -n "$ns" --grace-period=0 2>/dev/null || true
       done

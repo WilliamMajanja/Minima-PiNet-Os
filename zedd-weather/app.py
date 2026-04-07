@@ -16,6 +16,7 @@ Optional:
   NODE_NAME       — Kubernetes node name, injected by the Downward API
 """
 
+import json
 import os
 import sys
 import threading
@@ -94,13 +95,12 @@ write_api = influx_client.write_api(write_options=SYNCHRONOUS)
 # ---------------------------------------------------------------------------
 # HTTP health endpoint
 # ---------------------------------------------------------------------------
-import json as _json  # noqa: E402 (late import, after config validation)
 
 
 class _HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         status_code = 200 if _health["status"] == "ok" else 503
-        body = _json.dumps(_health).encode()
+        body = json.dumps(_health).encode()
         self.send_response(status_code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
