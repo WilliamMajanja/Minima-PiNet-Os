@@ -18,9 +18,11 @@ Optional:
 
 import os
 import sys
+import threading
 import time
 import logging
 from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 try:
     from sense_hat import SenseHat
@@ -67,6 +69,10 @@ INFLUXDB_ORG    = os.environ["INFLUXDB_ORG"]
 INFLUXDB_BUCKET = os.environ["INFLUXDB_BUCKET"]
 SENSOR_INTERVAL = int(os.environ.get("SENSOR_INTERVAL", "10"))
 NODE_NAME       = os.environ.get("NODE_NAME", "pinet-rho")
+HEALTH_PORT     = int(os.environ.get("HEALTH_PORT", "9200"))
+
+# Shared health state updated by the main sensor loop
+_health: dict = {"status": "starting", "last_write": None, "consecutive_failures": 0}
 
 # ---------------------------------------------------------------------------
 # Sensor initialisation
@@ -84,6 +90,32 @@ influx_client = InfluxDBClient(
     org=INFLUXDB_ORG,
 )
 write_api = influx_client.write_api(write_options=SYNCHRONOUS)
+
+# ---------------------------------------------------------------------------
+# HTTP health endpoint
+# ---------------------------------------------------------------------------
+import json as _json  # noqa: E402 (late import, after config validation)
+
+
+class _HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self) -> None:  # noqa: N802
+        status_code = 200 if _health["status"] == "ok" else 503
+        body = _json.dumps(_health).encode()
+        self.send_response(status_code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, fmt: str, *args: object) -> None:  # silence access logs
+        pass
+
+
+def _start_health_server() -> None:
+    server = HTTPServer(("0.0.0.0", HEALTH_PORT), _HealthHandler)
+    log.info("Health endpoint listening on :%d", HEALTH_PORT)
+    server.serve_forever()
+
 
 # ---------------------------------------------------------------------------
 # Main loop
@@ -120,6 +152,10 @@ def main() -> None:
         INFLUXDB_BUCKET,
     )
 
+    # Start the health HTTP server in a daemon thread
+    health_thread = threading.Thread(target=_start_health_server, daemon=True)
+    health_thread.start()
+
     consecutive_failures = 0
     max_backoff = 60  # seconds
 
@@ -134,9 +170,14 @@ def main() -> None:
                 data["pressure"],
             )
             consecutive_failures = 0
+            _health["status"] = "ok"
+            _health["last_write"] = datetime.now(tz=timezone.utc).isoformat()
+            _health["consecutive_failures"] = 0
         except InfluxDBError as exc:
             consecutive_failures += 1
             backoff = min(SENSOR_INTERVAL * consecutive_failures, max_backoff)
+            _health["status"] = "degraded"
+            _health["consecutive_failures"] = consecutive_failures
             log.warning(
                 "InfluxDB write failed (attempt %d): %s — retrying in %ds",
                 consecutive_failures,
@@ -147,7 +188,18 @@ def main() -> None:
             continue
         except Exception as exc:  # noqa: BLE001
             consecutive_failures += 1
-            log.error("Unexpected error reading sensors: %s", exc)
+            backoff = min(SENSOR_INTERVAL * consecutive_failures, max_backoff)
+            _health["status"] = "error"
+            _health["consecutive_failures"] = consecutive_failures
+            log.error(
+                "Unexpected error (attempt %d): %s — retrying in %ds",
+                consecutive_failures,
+                exc,
+                backoff,
+                exc_info=True,
+            )
+            time.sleep(backoff)
+            continue
 
         time.sleep(SENSOR_INTERVAL)
 

@@ -65,9 +65,9 @@ check_system_pods() {
 restart_failed_pods() {
   log "Attempting to delete/restart failed pods…"
   $KUBECTL get pods -A --no-headers 2>/dev/null \
-    | awk '$4 ~ /^(Error|CrashLoopBackOff|OOMKilled)$/ {print "-n "$1" "$2}' \
-    | while read -r args; do
-        $KUBECTL delete pod $args --grace-period=0 2>/dev/null || true
+    | awk '$4 ~ /^(Error|CrashLoopBackOff|OOMKilled)$/ {print $1" "$2}' \
+    | while read -r ns pod; do
+        $KUBECTL delete pod "$pod" -n "$ns" --grace-period=0 2>/dev/null || true
       done
 }
 
@@ -90,33 +90,57 @@ check_memory_pressure() {
 }
 
 # ---------------------------------------------------------------------------
-# Simple HTTP health endpoint (serves JSON on $HEALTH_PORT)
+# HTTP health endpoint — concurrent Python server (replaces single-shot nc)
 # ---------------------------------------------------------------------------
-serve_health_endpoint() {
-  local healthy=true
-  check_k3s_service  >/dev/null 2>&1 || healthy=false
-  check_node_ready   >/dev/null 2>&1 || healthy=false
-  check_system_pods  >/dev/null 2>&1 || healthy=false
+start_health_server() {
+  # Writes the current health state to a temp file that Python reads.
+  # Python's BaseHTTPServer handles concurrent Prometheus scrapes gracefully.
+  HEALTH_FILE="/tmp/k3s-health-status.json"
+  echo '{"status":"starting"}' > "$HEALTH_FILE"
 
-  local status="ok"
-  $healthy || status="degraded"
+  python3 - "$HEALTH_PORT" "$HEALTH_FILE" <<'PYEOF' &
+import sys, json, os
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
-  local response
-  response="{\"status\":\"${status}\",\"node\":\"$(hostname)\",\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
+port      = int(sys.argv[1])
+state_file = sys.argv[2]
 
-  {
-    printf "HTTP/1.1 200 OK\r\n"
-    printf "Content-Type: application/json\r\n"
-    printf "Content-Length: %d\r\n" "${#response}"
-    printf "\r\n"
-    printf "%s" "$response"
-  } | nc -l -p "$HEALTH_PORT" -q 1 2>/dev/null || true
+class H(BaseHTTPRequestHandler):
+    def do_GET(self):
+        try:
+            body = open(state_file, "rb").read()
+            data = json.loads(body)
+            code = 200 if data.get("status") == "ok" else 503
+        except Exception:
+            body = b'{"status":"unknown"}'
+            code = 503
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+    def log_message(self, *_):
+        pass
+
+HTTPServer(("0.0.0.0", port), H).serve_forever()
+PYEOF
+  HEALTH_SERVER_PID=$!
+  echo "$HEALTH_SERVER_PID"
+}
+
+update_health_file() {
+  local status="$1"
+  echo "{\"status\":\"${status}\",\"node\":\"$(hostname)\",\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" \
+    > /tmp/k3s-health-status.json
 }
 
 # ---------------------------------------------------------------------------
 # Main monitoring loop
 # ---------------------------------------------------------------------------
 log "PiNet K3s Health Monitor starting (interval=${CHECK_INTERVAL}s, health-port=${HEALTH_PORT})"
+
+# Start the persistent health HTTP server once at startup
+start_health_server
 
 failure_count=0
 while true; do
@@ -131,13 +155,12 @@ while true; do
   if $ok; then
     log "All checks passed"
     failure_count=0
+    update_health_file "ok"
   else
     failure_count=$((failure_count + 1))
     err "Health check failed (consecutive failures: $failure_count)"
+    update_health_file "degraded"
   fi
-
-  # Background the health endpoint so it doesn't block the main loop
-  serve_health_endpoint &
 
   sleep "$CHECK_INTERVAL"
 done

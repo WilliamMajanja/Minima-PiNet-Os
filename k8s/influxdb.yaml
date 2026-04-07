@@ -25,6 +25,12 @@ metadata:
   name: influxdb-secret
   namespace: zedd-weather
 type: Opaque
+# IMPORTANT: Replace these placeholder values before applying to a cluster.
+# The recommended approach is to create this secret manually:
+#   kubectl create secret generic influxdb-secret -n zedd-weather \
+#     --from-literal=admin-token=<strong-32-char-token> \
+#     --from-literal=admin-password=<strong-password>
+# Or use an external secrets manager (Sealed Secrets, External Secrets Operator).
 stringData:
   admin-token: "change-me-strong-token-32chars-min"
   admin-password: "change-me-strong-password"

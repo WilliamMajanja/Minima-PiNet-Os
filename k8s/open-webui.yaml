@@ -87,6 +87,10 @@ metadata:
   name: open-webui-secret
   namespace: zedd-weather
 type: Opaque
+# IMPORTANT: Replace this placeholder before applying to a cluster.
+# Recommended: create the secret manually or use an external secrets manager:
+#   kubectl create secret generic open-webui-secret -n zedd-weather \
+#     --from-literal=secret-key=<strong-32-char-key>
 stringData:
   secret-key: "change-me-strong-secret-key-32ch"
 ---
