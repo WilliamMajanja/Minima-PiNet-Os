@@ -55,12 +55,22 @@ spec:
                     operator: In
                     values:
                       - pinet-beta
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
       containers:
         - name: pinet-desktop
           # Replace with your registry/tag after building the PiNet Desktop image:
           #   docker buildx build --platform linux/arm64 -t <registry>/pinet-desktop:latest .
           image: ghcr.io/williammajanja/pinet-desktop:latest
           imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - name: http
               containerPort: 3000
