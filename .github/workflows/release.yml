@@ -77,6 +77,7 @@ jobs:
             PiNetOS-Electron-Desktop.zip \
             PiNetOS-Build-System.zip \
             PiNetOS-Documentation.zip \
+            PiNetOS-K3s-Manifests.zip \
             > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
@@ -103,4 +104,5 @@ jobs:
             PiNetOS-Electron-Desktop.zip
             PiNetOS-Build-System.zip
             PiNetOS-Documentation.zip
+            PiNetOS-K3s-Manifests.zip
             SHA256SUMS.txt

@@ -1,0 +1,33 @@
+# Kustomization — deploy the full PiNet K3s stack with a single command:
+#
+#   kubectl apply -k k8s/
+#
+# This applies all manifests in the correct order, creating namespaces first,
+# then secrets templates, workloads, networking, and security policies.
+#
+# Prerequisites:
+#   1. K3s installed on all nodes (see docs/K3S_CLUSTER_GUIDE.md)
+#   2. Node labels applied (see PiNetOS/scripts/k3s-node-label.sh)
+#   3. Secrets created (see influxdb-secret.yaml.template & open-webui-secret.yaml.template)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ""   # preserve per-resource namespaces
+
+resources:
+  # ─── Core PiNet services (pinet-system namespace) ────────────────────────
+  - minima.yaml
+  - pinet-desktop.yaml
+
+  # ─── Zedd Weather / AI stack (zedd-weather namespace) ────────────────────
+  - influxdb.yaml
+  - grafana.yaml
+  - ollama.yaml
+  - open-webui.yaml
+
+  # ─── Networking ──────────────────────────────────────────────────────────
+  - ingress.yaml
+  - network-policy.yaml
+
+commonLabels:
+  app.kubernetes.io/managed-by: pinet-k3s

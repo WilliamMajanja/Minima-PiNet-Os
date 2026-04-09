@@ -31,15 +31,41 @@
   "cluster": [
     {
       "id": "n1",
-      "name": "Pi-Alpha (Local Host)",
-      "ip": "127.0.0.1",
+      "name": "Pi-Alpha",
+      "ip": "192.168.1.10",
       "hat": "SSD_NVME",
       "status": "online",
       "metrics": {
-        "cpu": 12,
-        "ram": 2.1,
-        "temp": 45,
-        "iops": 12500
+        "cpu": 0,
+        "ram": 0,
+        "temp": 0,
+        "iops": 0
+      }
+    },
+    {
+      "id": "n2",
+      "name": "Pi-Beta",
+      "ip": "192.168.1.11",
+      "hat": "SSD_NVME",
+      "status": "online",
+      "metrics": {
+        "cpu": 0,
+        "ram": 0,
+        "temp": 0,
+        "iops": 0
+      }
+    },
+    {
+      "id": "n3",
+      "name": "Pi-Sigma",
+      "ip": "192.168.1.12",
+      "hat": "AI_NPU",
+      "status": "online",
+      "metrics": {
+        "cpu": 0,
+        "ram": 0,
+        "temp": 0,
+        "iops": 0
       }
     }
   ],

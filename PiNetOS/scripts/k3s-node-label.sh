@@ -25,6 +25,7 @@ die() { err "$*"; exit 1; }
 # ---------------------------------------------------------------------------
 declare -A NODE_LABELS
 NODE_LABELS["pinet-alpha"]="storage=nvme pinet.io/role=control-plane"
+NODE_LABELS["pinet-beta"]="storage=nvme pinet.io/role=worker"
 NODE_LABELS["pinet-sigma"]="accelerator=hailo-10h pinet.io/role=ai-worker"
 NODE_LABELS["pinet-rho"]="sensor=sense-hat pinet.io/role=sensor-worker"
 
@@ -35,7 +36,7 @@ label_node() {
   local node_name="$1"
 
   if [[ -z "${NODE_LABELS[$node_name]+x}" ]]; then
-    die "Unknown node name: $node_name (expected pinet-alpha, pinet-sigma, or pinet-rho)"
+    die "Unknown node name: $node_name (expected pinet-alpha, pinet-beta, pinet-sigma, or pinet-rho)"
   fi
 
   log "Applying labels to node: $node_name"
@@ -56,7 +57,7 @@ label_node() {
 }
 
 label_all_nodes() {
-  for node in pinet-alpha pinet-sigma pinet-rho; do
+  for node in pinet-alpha pinet-beta pinet-sigma pinet-rho; do
     label_node "$node"
     echo
   done

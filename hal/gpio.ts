@@ -11,7 +11,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
+
 
 // ---------------------------------------------------------------------------
 // Types
@@ -58,30 +58,30 @@ export class GpioController {
   private exportedPins       = new Set<number>();
   private callbacks          = new Map<number, EdgeCallback>();
   private watchers           = new Map<number, fs.FSWatcher>();
-  private useSimulation      = false;
 
   constructor() {
-    // Detect if we are running on actual hardware
-    this.useSimulation = !fs.existsSync(this.gpiochip) &&
-                         !fs.existsSync(this.sysfsBase);
-    if (this.useSimulation) {
-      console.warn('[GPIO] GPIO hardware not found — running in simulation mode');
+    if (!fs.existsSync(this.gpiochip) && !fs.existsSync(this.sysfsBase)) {
+      console.warn('[GPIO] GPIO hardware not found — GPIO operations will be no-ops until hardware is available');
     }
   }
 
   async init(): Promise<void> {
-    if (!this.useSimulation) {
-      // Ensure gpio group or root access
+    if (fs.existsSync(this.sysfsBase)) {
       const stat = fs.statSync(this.sysfsBase);
       if (!stat) throw new Error('[GPIO] Cannot access sysfs GPIO interface');
     }
   }
 
+  private get hardwareAvailable(): boolean {
+    return fs.existsSync(this.gpiochip) || fs.existsSync(this.sysfsBase);
+  }
+
   // ---- Export / unexport ---------------------------------------------------
 
   async export(pin: number, config: GpioPinConfig): Promise<void> {
-    if (this.useSimulation) {
+    if (!this.hardwareAvailable) {
       this.exportedPins.add(pin);
+      console.debug(`[GPIO] Pin ${pin} export deferred — no GPIO hardware`);
       return;
     }
     const pinPath = path.join(this.sysfsBase, `gpio${pin}`);
@@ -103,7 +103,7 @@ export class GpioController {
   }
 
   async unexport(pin: number): Promise<void> {
-    if (this.useSimulation) { this.exportedPins.delete(pin); return; }
+    if (!this.hardwareAvailable) { this.exportedPins.delete(pin); return; }
     const pinPath = path.join(this.sysfsBase, `gpio${pin}`);
     this.removeWatcher(pin);
     if (fs.existsSync(pinPath)) {
@@ -115,8 +115,8 @@ export class GpioController {
   // ---- Read / Write --------------------------------------------------------
 
   async write(pin: number, value: boolean): Promise<void> {
-    if (this.useSimulation) {
-      console.debug(`[GPIO-SIM] Pin ${pin} → ${value ? 'HIGH' : 'LOW'}`);
+    if (!this.hardwareAvailable) {
+      console.debug(`[GPIO] Pin ${pin} write deferred — no GPIO hardware`);
       return;
     }
     const valuePath = path.join(this.sysfsBase, `gpio${pin}`, 'value');
@@ -124,7 +124,7 @@ export class GpioController {
   }
 
   async read(pin: number): Promise<boolean> {
-    if (this.useSimulation) return false;
+    if (!this.hardwareAvailable) return false;
     const valuePath = path.join(this.sysfsBase, `gpio${pin}`, 'value');
     const raw = fs.readFileSync(valuePath, 'utf8').trim();
     return raw === '1';
@@ -161,7 +161,7 @@ export class GpioController {
 
   watch(pin: number, callback: EdgeCallback): void {
     this.callbacks.set(pin, callback);
-    if (this.useSimulation) return;
+    if (!this.hardwareAvailable) return;
     const valuePath = path.join(this.sysfsBase, `gpio${pin}`, 'value');
     if (!fs.existsSync(valuePath)) return;
     const watcher = fs.watch(valuePath, () => {
@@ -184,7 +184,7 @@ export class GpioController {
 
   async getStatus(pin: number): Promise<GpioPinStatus> {
     const dirPath = path.join(this.sysfsBase, `gpio${pin}`, 'direction');
-    const direction = this.useSimulation
+    const direction = !this.hardwareAvailable
       ? 'out'
       : (fs.existsSync(dirPath) ? fs.readFileSync(dirPath, 'utf8').trim() as GpioDirection : 'out');
     return {

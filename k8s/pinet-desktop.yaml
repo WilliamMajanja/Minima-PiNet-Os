@@ -1,0 +1,105 @@
+---
+# PiNet Desktop — web-based desktop UI and API server
+# Scheduled on NVMe storage nodes (pinet-alpha preferred) for fast file I/O.
+# Provides the browser-based desktop experience at http://<node>:3000.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pinet-desktop-config
+  namespace: pinet-system
+data:
+  PINET_DESKTOP_PORT: "3000"
+  PINET_MINIMA_RPC_PORT: "9001"
+  PINET_CLUSTER_API_PORT: "9090"
+  # Point to the in-cluster Minima headless service
+  MINIMA_RPC_URL: "http://minima.pinet-system.svc.cluster.local:9001"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pinet-desktop
+  namespace: pinet-system
+  labels:
+    app: pinet-desktop
+    component: control-plane
+    app.kubernetes.io/part-of: pinet
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pinet-desktop
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: pinet-desktop
+        component: control-plane
+    spec:
+      nodeSelector:
+        storage: nvme
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - pinet-alpha
+            - weight: 50
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - pinet-beta
+      containers:
+        - name: pinet-desktop
+          # Replace with your registry/tag after building the PiNet Desktop image:
+          #   docker buildx build --platform linux/arm64 -t <registry>/pinet-desktop:latest .
+          image: ghcr.io/williammajanja/pinet-desktop:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: pinet-desktop-config
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /api/system/health
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /api/system/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pinet-desktop
+  namespace: pinet-system
+  labels:
+    app: pinet-desktop
+spec:
+  selector:
+    app: pinet-desktop
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+      nodePort: 30300
+  type: NodePort

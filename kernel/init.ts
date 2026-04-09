@@ -13,6 +13,9 @@ import type {
   InitTarget,
 } from '../types/kernel.js';
 
+import * as fs from 'fs';
+import { execFileSync } from 'child_process';
+
 // ─── Init System ────────────────────────────────────────────────────────────
 
 class InitSystem {
@@ -47,52 +50,75 @@ class InitSystem {
 
   // ─── Core Service Registration ────────────────────────────────────────
 
+  /** Look up real PID of a process by name using pgrep */
+  private findRealPid(processName: string): number | undefined {
+    try {
+      const raw = execFileSync('pgrep', ['-x', '-o', processName], { stdio: 'pipe' }).toString().trim();
+      const pid = parseInt(raw, 10);
+      return Number.isFinite(pid) ? pid : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   private registerCoreServices(): void {
     const now = Date.now();
+
+    // Attempt to find real PIDs for each service
+    const pidMap: Record<string, number | undefined> = {
+      'systemd-journald': this.findRealPid('systemd-journald'),
+      'systemd-udevd': this.findRealPid('systemd-udevd'),
+      'systemd-logind': this.findRealPid('systemd-logind'),
+      'sshd': this.findRealPid('sshd'),
+      'chronyd': this.findRealPid('chronyd'),
+      'NetworkManager': this.findRealPid('NetworkManager'),
+      'java': this.findRealPid('java'), // minima
+    };
+
     const defs: Array<Omit<ServiceUnit, 'state' | 'restartCount' | 'logs' | 'startedAt'>> = [
       {
         name: 'systemd-journald', description: 'Journal Logging Service',
-        type: 'notify', pid: 7, mainPid: 7, autoRestart: true, maxRestarts: 5,
+        type: 'notify', pid: pidMap['systemd-journald'] ?? 7, mainPid: pidMap['systemd-journald'] ?? 7, autoRestart: true, maxRestarts: 5,
         restartDelayMs: 1000, dependencies: [], wantedBy: ['multi-user.target'],
         execStart: '/lib/systemd/systemd-journald', runLevel: [1, 2, 3, 4, 5], enabled: true,
       },
       {
         name: 'systemd-udevd', description: 'Device Manager',
-        type: 'notify', pid: 8, mainPid: 8, autoRestart: true, maxRestarts: 5,
+        type: 'notify', pid: pidMap['systemd-udevd'] ?? 8, mainPid: pidMap['systemd-udevd'] ?? 8, autoRestart: true, maxRestarts: 5,
         restartDelayMs: 1000, dependencies: ['systemd-journald'], wantedBy: ['multi-user.target'],
         execStart: '/lib/systemd/systemd-udevd', runLevel: [3, 4, 5], enabled: true,
       },
       {
         name: 'systemd-logind', description: 'Login Service',
-        type: 'notify', pid: 9, mainPid: 9, autoRestart: true, maxRestarts: 5,
+        type: 'notify', pid: pidMap['systemd-logind'] ?? 9, mainPid: pidMap['systemd-logind'] ?? 9, autoRestart: true, maxRestarts: 5,
         restartDelayMs: 2000, dependencies: ['systemd-journald', 'systemd-udevd'],
         wantedBy: ['multi-user.target'], execStart: '/lib/systemd/systemd-logind',
         runLevel: [2, 3, 4, 5], enabled: true,
       },
       {
         name: 'NetworkManager', description: 'Network Manager',
-        type: 'simple', pid: 12, mainPid: 12, autoRestart: true, maxRestarts: 10,
+        type: 'simple', pid: pidMap['NetworkManager'] ?? 12, mainPid: pidMap['NetworkManager'] ?? 12, autoRestart: true, maxRestarts: 10,
         restartDelayMs: 5000, dependencies: ['systemd-udevd'],
         wantedBy: ['multi-user.target'], execStart: '/usr/sbin/NetworkManager --no-daemon',
         runLevel: [3, 4, 5], enabled: true,
       },
       {
         name: 'sshd', description: 'OpenSSH Server',
-        type: 'simple', pid: 10, mainPid: 10, autoRestart: true, maxRestarts: 10,
+        type: 'simple', pid: pidMap['sshd'] ?? 10, mainPid: pidMap['sshd'] ?? 10, autoRestart: true, maxRestarts: 10,
         restartDelayMs: 3000, dependencies: ['systemd-logind', 'NetworkManager'],
         wantedBy: ['multi-user.target'], execStart: '/usr/sbin/sshd -D',
         user: 'root', runLevel: [1, 2, 3, 4, 5], enabled: true,
       },
       {
         name: 'chronyd', description: 'NTP Time Synchronization',
-        type: 'simple', pid: 11, mainPid: 11, autoRestart: true, maxRestarts: 5,
+        type: 'simple', pid: pidMap['chronyd'] ?? 11, mainPid: pidMap['chronyd'] ?? 11, autoRestart: true, maxRestarts: 5,
         restartDelayMs: 5000, dependencies: ['NetworkManager'],
         wantedBy: ['multi-user.target'], execStart: '/usr/sbin/chronyd -F 1',
         runLevel: [2, 3, 4, 5], enabled: true,
       },
       {
         name: 'minima', description: 'Minima Blockchain Node',
-        type: 'simple', pid: 13, mainPid: 13, autoRestart: true, maxRestarts: 10,
+        type: 'simple', pid: pidMap['java'] ?? 13, mainPid: pidMap['java'] ?? 13, autoRestart: true, maxRestarts: 10,
         restartDelayMs: 10000, dependencies: ['NetworkManager'],
         wantedBy: ['multi-user.target'],
         execStart: '/usr/bin/java -jar /opt/minima/minima.jar -rpcenable -rpc 9001',

@@ -1,6 +1,7 @@
 ---
 # InfluxDB v2 — time-series telemetry database for Zedd Weather
-# Scheduled on pinet-alpha (NVMe storage node) for fast I/O performance.
+# Scheduled on NVMe storage nodes (pinet-alpha preferred, pinet-beta fallback)
+# for fast I/O performance across the 3-node cluster.
 #
 # BEFORE APPLYING: create the influxdb-secret first:
 #   kubectl create namespace zedd-weather
@@ -50,6 +51,34 @@ spec:
     spec:
       nodeSelector:
         storage: nvme
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - pinet-alpha
+            - weight: 50
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - pinet-beta
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 50
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - open-webui
+                topologyKey: kubernetes.io/hostname
       containers:
         - name: influxdb
           image: influxdb:2.7-alpine

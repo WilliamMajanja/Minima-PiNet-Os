@@ -52,19 +52,15 @@ const SPI_IOC_MAGIC = 'k'.charCodeAt(0);
 // ---------------------------------------------------------------------------
 export class SpiController {
   private readonly devBase = '/dev/spidev';
-  private useSimulation    = false;
 
   constructor() {
-    this.useSimulation = !fs.existsSync(`${this.devBase}0.0`);
-    if (this.useSimulation) {
-      console.warn('[SPI] SPI hardware not found — running in simulation mode');
+    if (!fs.existsSync(`${this.devBase}0.0`)) {
+      console.warn('[SPI] SPI hardware not found — transfers will fail gracefully');
     }
   }
 
   async init(): Promise<void> {
-    if (!this.useSimulation) {
-      try { execFileSync('modprobe', ['spidev'], { stdio: 'ignore' }); } catch {}
-    }
+    try { execFileSync('modprobe', ['spidev'], { stdio: 'ignore' }); } catch {}
   }
 
   // ---- Transfer -----------------------------------------------------------
@@ -79,11 +75,6 @@ export class SpiController {
   ): Promise<Buffer> {
     const cfg = { ...DEFAULT_CONFIG, ...config };
     const devPath = `${this.devBase}${cfg.bus}.${cfg.cs}`;
-
-    if (this.useSimulation) {
-      console.debug(`[SPI-SIM] Transfer ${txData.length} bytes on ${devPath}`);
-      return Buffer.alloc(txData.length, 0x00);
-    }
 
     if (!fs.existsSync(devPath)) {
       throw new Error(`[SPI] Device ${devPath} not found. Check dtparam=spi=on in /boot/config.txt`);
