@@ -43,9 +43,19 @@ spec:
           operator: Equal
           value: hailo-10h
           effect: NoSchedule
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
       containers:
         - name: ollama
           image: ollama/ollama:latest
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - name: http
               containerPort: 11434

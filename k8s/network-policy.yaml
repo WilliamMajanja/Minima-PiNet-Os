@@ -1,13 +1,19 @@
 ---
 # Network Policies — namespace-scoped zero-trust network segmentation
-# Default-deny ingress in each namespace, then allowlist specific pod-to-pod
-# communication paths required by the PiNet stack.
+# Default-deny ingress AND egress in each namespace, then allowlist specific
+# pod-to-pod communication paths required by the PiNet stack.
 #
 # Requires a CNI that supports NetworkPolicy (K3s with Flannel + netpol
 # controller, or Calico / Cilium).
+#
+# Live-cluster ready — includes egress lockdown, DNS allowlists, and
+# Traefik ingress-controller source rules.
 
-# ─── pinet-system namespace ──────────────────────────────────────────────────
+# =============================================================================
+# pinet-system namespace
+# =============================================================================
 
+# Default-deny all ingress traffic
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -18,11 +24,44 @@ spec:
   policyTypes:
     - Ingress
 ---
-# Allow PiNet Desktop to receive traffic from any source (NodePort / Ingress)
+# Default-deny all egress traffic
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-pinet-desktop
+  name: default-deny-egress
+  namespace: pinet-system
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+---
+# Allow all pods in pinet-system to reach kube-dns for name resolution
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: pinet-system
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+# Allow PiNet Desktop to receive traffic from Traefik ingress controller
+# and via NodePort
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-pinet-desktop-ingress
   namespace: pinet-system
 spec:
   podSelector:
@@ -31,15 +70,59 @@ spec:
   policyTypes:
     - Ingress
   ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - port: 3000
+          protocol: TCP
+    # NodePort traffic (source is any node IP)
     - ports:
         - port: 3000
+          protocol: TCP
+---
+# Allow PiNet Desktop egress to Minima RPC and to the Kubernetes API
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-pinet-desktop-egress
+  namespace: pinet-system
+spec:
+  podSelector:
+    matchLabels:
+      app: pinet-desktop
+  policyTypes:
+    - Egress
+  egress:
+    # → Minima RPC/P2P/Maxima within the namespace
+    - to:
+        - podSelector:
+            matchLabels:
+              app: minima
+      ports:
+        - port: 9001
+          protocol: TCP
+        - port: 9002
+          protocol: TCP
+        - port: 9003
+          protocol: TCP
+    # → Kubernetes API server (for cluster health/status)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - port: 6443
           protocol: TCP
 ---
 # Allow Minima pods to receive RPC, P2P, and Maxima traffic
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-minima
+  name: allow-minima-ingress
   namespace: pinet-system
 spec:
   podSelector:
@@ -48,6 +131,19 @@ spec:
   policyTypes:
     - Ingress
   ingress:
+    # From PiNet Desktop (in-cluster)
+    - from:
+        - podSelector:
+            matchLabels:
+              app: pinet-desktop
+      ports:
+        - port: 9001
+          protocol: TCP
+        - port: 9002
+          protocol: TCP
+        - port: 9003
+          protocol: TCP
+    # P2P and Maxima traffic from other Minima pods and external peers
     - ports:
         - port: 9001
           protocol: TCP
@@ -56,44 +152,80 @@ spec:
         - port: 9003
           protocol: TCP
 ---
-# Allow PiNet Desktop to talk to Minima (RPC)
+# Allow Minima egress for P2P network participation and Maxima messaging
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-desktop-to-minima
+  name: allow-minima-egress
   namespace: pinet-system
 spec:
   podSelector:
     matchLabels:
       app: minima
   policyTypes:
-    - Ingress
-  ingress:
-    - from:
-        - podSelector:
-            matchLabels:
-              app: pinet-desktop
-      ports:
+    - Egress
+  egress:
+    # P2P / Maxima — needs to reach other Minima peers on the internet
+    - ports:
         - port: 9001
           protocol: TCP
+        - port: 9002
+          protocol: TCP
+        - port: 9003
+          protocol: TCP
 
-# ─── zedd-weather namespace ──────────────────────────────────────────────────
+# =============================================================================
+# zedd-weather namespace
+# =============================================================================
 ---
+# Default-deny all ingress traffic
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: default-deny-ingress-zedd
+  name: default-deny-ingress
   namespace: zedd-weather
 spec:
   podSelector: {}
   policyTypes:
     - Ingress
 ---
-# Allow Grafana to receive HTTP traffic (Ingress / NodePort)
+# Default-deny all egress traffic
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-grafana
+  name: default-deny-egress
+  namespace: zedd-weather
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+---
+# Allow all pods in zedd-weather to reach kube-dns
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: zedd-weather
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+# Allow Grafana ingress from Traefik and NodePort traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-grafana-ingress
   namespace: zedd-weather
 spec:
   podSelector:
@@ -102,15 +234,46 @@ spec:
   policyTypes:
     - Ingress
   ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - port: 3000
+          protocol: TCP
     - ports:
         - port: 3000
           protocol: TCP
 ---
-# Allow InfluxDB to receive writes from Zedd Weather and queries from Grafana
+# Allow Grafana egress to InfluxDB for dashboard queries
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-influxdb
+  name: allow-grafana-egress
+  namespace: zedd-weather
+spec:
+  podSelector:
+    matchLabels:
+      app: grafana
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: influxdb
+      ports:
+        - port: 8086
+          protocol: TCP
+---
+# Allow InfluxDB ingress from Grafana and Zedd Weather sensor
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-influxdb-ingress
   namespace: zedd-weather
 spec:
   podSelector:
@@ -129,12 +292,23 @@ spec:
       ports:
         - port: 8086
           protocol: TCP
+    # Traefik for the influxdb.pinet.local Ingress route
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - port: 8086
+          protocol: TCP
 ---
-# Allow Open WebUI to receive HTTP traffic
+# Allow Open WebUI ingress from Traefik and NodePort traffic
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-open-webui
+  name: allow-open-webui-ingress
   namespace: zedd-weather
 spec:
   podSelector:
@@ -143,15 +317,46 @@ spec:
   policyTypes:
     - Ingress
   ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - port: 8080
+          protocol: TCP
     - ports:
         - port: 8080
           protocol: TCP
 ---
-# Allow Ollama to receive inference requests from Open WebUI
+# Allow Open WebUI egress to Ollama for inference requests
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-ollama
+  name: allow-open-webui-egress
+  namespace: zedd-weather
+spec:
+  podSelector:
+    matchLabels:
+      app: open-webui
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: ollama
+      ports:
+        - port: 11434
+          protocol: TCP
+---
+# Allow Ollama ingress from Open WebUI only
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ollama-ingress
   namespace: zedd-weather
 spec:
   podSelector:
@@ -168,11 +373,11 @@ spec:
         - port: 11434
           protocol: TCP
 ---
-# Allow Zedd Weather sensor pod to receive liveness probes
+# Allow Zedd Weather sensor pod to receive liveness probes and send data
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-zedd-weather
+  name: allow-zedd-weather-ingress
   namespace: zedd-weather
 spec:
   podSelector:
@@ -183,4 +388,25 @@ spec:
   ingress:
     - ports:
         - port: 9200
+          protocol: TCP
+---
+# Allow Zedd Weather egress to InfluxDB for telemetry writes
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-zedd-weather-egress
+  namespace: zedd-weather
+spec:
+  podSelector:
+    matchLabels:
+      app: zedd-weather
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: influxdb
+      ports:
+        - port: 8086
           protocol: TCP

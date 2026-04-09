@@ -1,0 +1,90 @@
+---
+# Resource Quotas & Limit Ranges — per-namespace resource guardrails
+# Prevents runaway pods from starving the cluster during a live test.
+# Tuned for a 3-node Raspberry Pi 5 (8 GB) cluster.
+
+# =============================================================================
+# pinet-system namespace
+# =============================================================================
+
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: pinet-system-quota
+  namespace: pinet-system
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 4Gi
+    limits.cpu: "8"
+    limits.memory: 8Gi
+    pods: "30"
+    persistentvolumeclaims: "10"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: pinet-system-limits
+  namespace: pinet-system
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: 500m
+        memory: 512Mi
+      defaultRequest:
+        cpu: 100m
+        memory: 128Mi
+      max:
+        cpu: "2"
+        memory: 2Gi
+      min:
+        cpu: 50m
+        memory: 64Mi
+    - type: Pod
+      max:
+        cpu: "4"
+        memory: 4Gi
+
+# =============================================================================
+# zedd-weather namespace
+# =============================================================================
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: zedd-weather-quota
+  namespace: zedd-weather
+spec:
+  hard:
+    requests.cpu: "6"
+    requests.memory: 8Gi
+    limits.cpu: "12"
+    limits.memory: 12Gi
+    pods: "20"
+    persistentvolumeclaims: "10"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: zedd-weather-limits
+  namespace: zedd-weather
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: 500m
+        memory: 512Mi
+      defaultRequest:
+        cpu: 100m
+        memory: 128Mi
+      max:
+        cpu: "4"
+        memory: 4Gi
+      min:
+        cpu: 50m
+        memory: 64Mi
+    - type: Pod
+      max:
+        cpu: "6"
+        memory: 8Gi

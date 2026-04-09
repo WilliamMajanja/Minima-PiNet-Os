@@ -11,8 +11,9 @@ We maintain a strict rolling-release security model. Only the latest stable rele
 
 | Version | Supported | Notes |
 | :--- | :--- | :--- |
-| **2.0.x (Current)** | ✅ Yes | Enterprise Hypervisor, Zero Trust Attestation. |
-| **1.0.x (Legacy)** | ✅ Yes | Active development and critical security patches. |
+| **3.0.x (Current)** | ✅ Yes | K3s cluster, zero-trust NetworkPolicy, PodSecurity hardening. |
+| **2.0.x (LTS)** | ✅ Yes | Enterprise Hypervisor, Zero Trust Attestation. |
+| **1.0.x (Legacy)** | ⚠️ Critical only | Critical security patches only. |
 | **< 0.9.x** | ❌ No | End of Life. |
 
 *Note: Upstream components (Debian Bookworm, Docker, Minima Node) are subject to their respective maintainers' security lifecycles. Our OTA (Over-The-Air) update mechanism will push upstream patches as they are verified against our stack.*
@@ -43,7 +44,8 @@ Minima-PiNet-Os is engineered under a **Zero-Trust** paradigm. When auditing or 
 *   **Cryptographic Authentication:** SSH is strictly limited to `ed25519` key-based authentication.
 *   **Network Perimeter:** UFW (Uncomplicated Firewall) is configured to default-deny all ingress traffic. Only ports `22` (SSH), `9001` (Minima P2P), `9002` (Minima RPC), `51820` (WireGuard), and `6443` (k3s API) are exposed.
 *   **Cluster Mesh Networking:** All inter-node communication is encrypted via WireGuard tunnels managed by the PiNet Cluster Manager.
-*   **Container Isolation:** k3s workloads are isolated using strict AppArmor profiles and rootless container execution where possible.
+*   **Container Isolation:** k3s workloads are isolated using strict AppArmor profiles, rootless container execution where possible, and Kubernetes NetworkPolicy egress/ingress lockdowns enforced per-namespace.
+*   **Pod Security Hardening:** All production workloads run with `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem` where feasible, and `capabilities: drop: [ALL]`. ResourceQuota and LimitRange policies prevent resource exhaustion.
 *   **MiniDAPP Sandboxing:** Decentralized applications run in a restricted runtime environment with limited access to the host filesystem and network.
 *   **Real-Time Hypervisor & Terminal Security:** The native terminal integration and real-time hypervisor switching are executed with strict privilege separation, ensuring that Web3 UI interactions cannot arbitrarily escalate privileges on the host OS.
 *   **Brute-Force Mitigation:** `fail2ban` is actively monitoring auth logs and will permanently drop IPs (`bantime = -1`) attempting SSH brute-force attacks.

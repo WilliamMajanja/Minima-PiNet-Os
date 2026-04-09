@@ -6,8 +6,9 @@ This document outlines the operational, security, and ethical policies governing
 
 ## 1. Security & Attestation Policy
 *   **Remote Attestation:** All PiNet 3.0 nodes must support remote attestation. System integrity is verified by hashing `/boot/firmware` and `/etc/pinet` against the Minima blockchain.
-*   **Zero Trust:** No service is trusted by default. All inter-container communication must occur over encrypted WireGuard veth pairs.
+*   **Zero Trust:** No service is trusted by default. All inter-container communication must occur over encrypted WireGuard veth pairs. Kubernetes NetworkPolicy enforces default-deny ingress and egress per namespace with explicit allowlists.
 *   **LXC Isolation:** Enterprise workloads must run within LXC containers. Direct host access is restricted to the `pinet-admin` group.
+*   **Pod Security:** All K3s workloads must run as non-root, drop all Linux capabilities, and disable privilege escalation. ResourceQuota and LimitRange are enforced per namespace to prevent resource exhaustion.
 
 ## 2. Data Privacy Policy
 *   **Decentralized-First:** PiNet 3.0 prioritizes decentralized storage (IPFS) and communication (Maxima). Personal data should never be stored in centralized cloud environments.
@@ -35,5 +36,5 @@ This document outlines the operational, security, and ethical policies governing
 
 ---
 
-*Last Updated: March 25, 2026*
+*Last Updated: April 9, 2026*
 *Architect: William Majanja*

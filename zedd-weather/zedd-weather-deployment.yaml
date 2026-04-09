@@ -43,6 +43,13 @@ spec:
           image: ghcr.io/williammajanja/zedd-weather:latest
           imagePullPolicy: Always
 
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+
           env:
             - name: INFLUXDB_URL
               value: "http://influxdb.zedd-weather.svc.cluster.local:8086"

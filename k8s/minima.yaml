@@ -50,11 +50,21 @@ spec:
       tolerations:
         - operator: Exists
       hostNetwork: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
       containers:
         - name: minima
           # Official Minima Docker image for arm64
           image: minimaglobal/minima:latest
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - name: rpc
               containerPort: 9001

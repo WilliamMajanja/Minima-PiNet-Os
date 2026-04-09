@@ -30,5 +30,8 @@ resources:
   - ingress.yaml
   - network-policy.yaml
 
+  # ─── Resource policies ──────────────────────────────────────────────────
+  - resource-quotas.yaml
+
 commonLabels:
   app.kubernetes.io/managed-by: pinet-k3s
