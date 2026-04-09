@@ -82,7 +82,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: default-deny-ingress
+  name: default-deny-ingress-zedd
   namespace: zedd-weather
 spec:
   podSelector: {}

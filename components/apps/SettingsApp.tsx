@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { settingsService } from '../../services/settingsService';
 import { getApiUrl } from '../../utils/api';
+import { PINET_VERSION } from '../../config/defaults';
 
 const SettingsApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState('system');
@@ -191,7 +192,7 @@ const SettingsApp: React.FC = () => {
                      <div className="p-4 rounded-xl bg-white/5 border border-white/10">
                          <div className="text-xs font-bold text-white mb-2">OS Version</div>
                          <div className="text-[10px] text-slate-400 font-mono">
-                           {osInfo ? `PiNet OS v2.5.0-LTS (${osInfo.osName} ${osInfo.architecture})` : 'PiNet OS v2.5.0-LTS (Debian Bookworm ARM64)'}
+                           {osInfo ? `PiNet OS v${PINET_VERSION} (${osInfo.osName} ${osInfo.architecture})` : `PiNet OS v${PINET_VERSION} (Debian Bookworm ARM64)`}
                          </div>
                          {osInfo?.hardwareModel && (
                            <>

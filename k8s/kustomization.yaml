@@ -24,6 +24,7 @@ resources:
   - grafana.yaml
   - ollama.yaml
   - open-webui.yaml
+  - ../zedd-weather/zedd-weather-deployment.yaml
 
   # ─── Networking ──────────────────────────────────────────────────────────
   - ingress.yaml

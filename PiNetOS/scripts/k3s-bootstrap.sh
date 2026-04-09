@@ -68,7 +68,6 @@ install_k3s_server() {
   log "Installing K3s server (control-plane)…"
 
   local install_args=(
-    "--disable" "traefik"     # PiNet uses its own ingress
     "--disable" "servicelb"   # Lightweight; use MetalLB or node-port
     "--write-kubeconfig-mode" "0644"
     "--kube-apiserver-arg" "audit-log-path=/var/log/k3s-audit.log"

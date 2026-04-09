@@ -11,7 +11,7 @@ import os from "os";
 import osUtils from "os-utils";
 import si from "systeminformation";
 import rateLimit from "express-rate-limit";
-import { MINIMA_RPC_PORT, MINIMA_RPC_URL, CLUSTER_API_PORT, DESKTOP_PORT } from "./config/defaults.js";
+import { MINIMA_RPC_PORT, MINIMA_RPC_URL, CLUSTER_API_PORT, DESKTOP_PORT, PINET_VERSION } from "./config/defaults.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1224,7 +1224,7 @@ async function startServer() {
         joinedAt: Date.now(),
         metrics: n.metrics || { cpu: 0, ram: 0, temp: 0, disk: 0, networkIn: 0, networkOut: 0 },
         capabilities: [],
-        version: '3.0.0',
+        version: PINET_VERSION,
       })),
       createdAt: Date.now(),
       lastUpdated: Date.now(),
@@ -1266,7 +1266,7 @@ async function startServer() {
           nodeId: 'local-node',
           hostname: os.hostname(),
           platform: `${os.type()} ${os.arch()}`,
-          version: '3.0.0',
+          version: PINET_VERSION,
           capabilities: [],
         },
       });
