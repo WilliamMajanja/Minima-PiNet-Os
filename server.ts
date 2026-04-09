@@ -11,7 +11,7 @@ import os from "os";
 import osUtils from "os-utils";
 import si from "systeminformation";
 import rateLimit from "express-rate-limit";
-import { MINIMA_RPC_PORT, MINIMA_RPC_URL, CLUSTER_API_PORT } from "./config/defaults.js";
+import { MINIMA_RPC_PORT, MINIMA_RPC_URL, CLUSTER_API_PORT, DESKTOP_PORT } from "./config/defaults.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -573,7 +573,7 @@ async function startServer() {
               // Node is reachable — try to fetch metrics from its PiNet API
               let metrics = { cpu: 0, ram: 0, temp: 0, iops: 0 };
               try {
-                const resp = await fetch(`http://${node.ip}:3000/api/system/health`, { signal: AbortSignal.timeout(2000) });
+                const resp = await fetch(`http://${node.ip}:${DESKTOP_PORT}/api/system/health`, { signal: AbortSignal.timeout(2000) });
                 if (resp.ok) {
                   const data = await resp.json() as any;
                   metrics = {

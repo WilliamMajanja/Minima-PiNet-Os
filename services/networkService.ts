@@ -171,7 +171,14 @@ class NetworkService {
           const osIface = this.interfaces.get(parts[0]);
           if (osIface) {
             const addr = osIface.addresses.find(a => a.family === 'inet');
-            if (addr) currentIface.address = `${addr.address}/${addr.netmask}`;
+            if (addr) {
+              // Convert netmask to CIDR prefix length
+              const prefix = addr.netmask.split('.').reduce((bits, octet) => {
+                const n = parseInt(octet, 10);
+                return bits + (n >>> 0).toString(2).split('1').length - 1;
+              }, 0);
+              currentIface.address = `${addr.address}/${prefix}`;
+            }
           }
         } else if (parts.length >= 8 && currentIface) {
           // Peer line: <iface> <public-key> <preshared-key> <endpoint> <allowed-ips> <latest-handshake> <transfer-rx> <transfer-tx> <persistent-keepalive>
