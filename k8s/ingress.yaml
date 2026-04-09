@@ -41,6 +41,7 @@ metadata:
 spec:
   rules:
     # Grafana — http://grafana.pinet.local
+    # Service port is 3001 (targetPort 3000 inside the container)
     - host: grafana.pinet.local
       http:
         paths:
