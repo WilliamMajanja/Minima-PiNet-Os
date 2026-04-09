@@ -4,8 +4,8 @@
 # through a single entrypoint on port 80/443 of any cluster node.
 #
 # Prerequisites:
-#   Traefik is enabled by default on K3s.  If you disabled it during
-#   bootstrap (--disable traefik), deploy your own ingress controller first.
+#   Traefik is enabled by default on K3s and is required by these manifests.
+#   The PiNet bootstrap script preserves Traefik for this purpose.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

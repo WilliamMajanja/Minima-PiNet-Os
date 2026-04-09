@@ -40,7 +40,7 @@ spec:
         - name: zedd-weather
           # Replace with your registry/tag after building with:
           #   docker buildx build --platform linux/arm64 -t <registry>/zedd-weather:latest .
-          image: ghcr.io/williamwajanja/zedd-weather:latest
+          image: ghcr.io/williammajanja/zedd-weather:latest
           imagePullPolicy: Always
 
           env:

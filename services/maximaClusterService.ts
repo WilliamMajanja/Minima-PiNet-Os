@@ -7,7 +7,7 @@
  */
 
 import { MinimaRpcClient } from './minimaRpcClient';
-import { MAXIMA_APPLICATION, MAXIMA_POLL_INTERVAL, HEARTBEAT_INTERVAL, HEARTBEAT_TIMEOUT, NODE_OFFLINE_TIMEOUT } from '../config/defaults';
+import { MAXIMA_APPLICATION, MAXIMA_POLL_INTERVAL, HEARTBEAT_INTERVAL, HEARTBEAT_TIMEOUT, NODE_OFFLINE_TIMEOUT, PINET_VERSION } from '../config/defaults';
 import type {
   ClusterMessage,
   ClusterMessageType,
@@ -80,7 +80,7 @@ class MaximaClusterServiceImpl {
           joinedAt: Date.now(),
           metrics: { cpu: 0, ram: 0, temp: 0, disk: 0, networkIn: 0, networkOut: 0 },
           capabilities: [],
-          version: '3.0.0',
+          version: PINET_VERSION,
         }],
         createdAt: Date.now(),
         lastUpdated: Date.now(),
@@ -140,7 +140,7 @@ class MaximaClusterServiceImpl {
       nodeId: this.localNodeId,
       hostname: typeof window !== 'undefined' ? window.location.hostname : 'localhost',
       platform: 'Linux aarch64',
-      version: '3.0.0',
+      version: PINET_VERSION,
       capabilities: [],
     });
 
@@ -213,7 +213,7 @@ class MaximaClusterServiceImpl {
         joinedAt: Date.now(),
         metrics: { cpu: 0, ram: 0, temp: 0, disk: 0, networkIn: 0, networkOut: 0 },
         capabilities: [],
-        version: '3.0.0',
+        version: PINET_VERSION,
       })),
       createdAt: Date.now(),
       lastUpdated: Date.now(),

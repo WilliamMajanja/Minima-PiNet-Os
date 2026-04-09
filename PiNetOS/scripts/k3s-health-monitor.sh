@@ -25,17 +25,21 @@ err()  { echo "[$(date '+%Y-%m-%dT%H:%M:%S')] ERROR: $*" >&2; }
 # Health checks
 # ---------------------------------------------------------------------------
 check_k3s_service() {
-  if ! systemctl is-active --quiet k3s 2>/dev/null && \
-     ! systemctl is-active --quiet k3s-agent 2>/dev/null; then
-    err "K3s service is not running — attempting restart"
-    if systemctl is-active --quiet k3s 2>/dev/null; then
-      systemctl restart k3s
-    else
-      systemctl restart k3s-agent
-    fi
-    return 1
+  if systemctl is-active --quiet k3s 2>/dev/null || \
+     systemctl is-active --quiet k3s-agent 2>/dev/null; then
+    return 0
   fi
-  return 0
+
+  err "K3s service is not running — attempting restart"
+  # Determine which unit is installed and restart it
+  if systemctl list-unit-files k3s.service 2>/dev/null | grep -q k3s; then
+    systemctl restart k3s
+  elif systemctl list-unit-files k3s-agent.service 2>/dev/null | grep -q k3s-agent; then
+    systemctl restart k3s-agent
+  else
+    err "Neither k3s.service nor k3s-agent.service is installed"
+  fi
+  return 1
 }
 
 check_node_ready() {
