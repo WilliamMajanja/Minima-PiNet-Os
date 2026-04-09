@@ -1,0 +1,75 @@
+---
+# Ingress — exposes cluster services via K3s built-in Traefik
+# Provides external HTTP access to Grafana, Open WebUI, and PiNet Desktop
+# through a single entrypoint on port 80/443 of any cluster node.
+#
+# Prerequisites:
+#   Traefik is enabled by default on K3s.  If you disabled it during
+#   bootstrap (--disable traefik), deploy your own ingress controller first.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pinet-ingress
+  namespace: pinet-system
+  labels:
+    app.kubernetes.io/part-of: pinet
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+    # PiNet Desktop — http://pinet.local or http://<node-ip>/
+    - host: pinet.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pinet-desktop
+                port:
+                  number: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: zedd-weather-ingress
+  namespace: zedd-weather
+  labels:
+    app.kubernetes.io/part-of: pinet
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+    # Grafana — http://grafana.pinet.local
+    - host: grafana.pinet.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3001
+    # Open WebUI — http://ai.pinet.local
+    - host: ai.pinet.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: open-webui
+                port:
+                  number: 8080
+    # InfluxDB API — http://influxdb.pinet.local
+    - host: influxdb.pinet.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: influxdb
+                port:
+                  number: 8086

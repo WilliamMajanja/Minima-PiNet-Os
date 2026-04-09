@@ -96,6 +96,7 @@ We are proud to announce **Minima-PiNet-OS v3.0.0**, a major release delivering 
 | `PiNetOS-Electron-Desktop.zip` | Cross-platform desktop client source |
 | `PiNetOS-Build-System.zip` | Build pipeline and imager utilities |
 | `PiNetOS-Documentation.zip` | Full documentation archive |
+| `PiNetOS-K3s-Manifests.zip` | K3s/Kubernetes manifests for full cluster deployment |
 | `SHA256SUMS.txt` | Cryptographic checksums for all artifacts |
 
 ---

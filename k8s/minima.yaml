@@ -1,0 +1,146 @@
+---
+# Minima Blockchain Node — DaemonSet
+# Runs one Minima validator on every cluster node so each Pi participates
+# in the Minima Layer 1 network independently.  Data is stored on a
+# hostPath volume unique to each node.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pinet-system
+  labels:
+    app.kubernetes.io/part-of: pinet
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: minima-config
+  namespace: pinet-system
+data:
+  # RPC port for the Minima node — must match PINET_MINIMA_RPC_PORT
+  MINIMA_RPC_PORT: "9001"
+  # Auto-connect to the Minima network on startup
+  MINIMA_AUTOCONNECT: "true"
+  # Enable Maxima encrypted P2P messaging (used for cluster coordination)
+  MINIMA_MAXIMA: "true"
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: minima
+  namespace: pinet-system
+  labels:
+    app: minima
+    component: blockchain
+    app.kubernetes.io/part-of: pinet
+spec:
+  selector:
+    matchLabels:
+      app: minima
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: minima
+        component: blockchain
+    spec:
+      # Run on all nodes — each Pi is an independent Minima validator
+      tolerations:
+        - operator: Exists
+      hostNetwork: false
+      containers:
+        - name: minima
+          # Official Minima Docker image for arm64
+          image: minimaglobal/minima:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: rpc
+              containerPort: 9001
+              protocol: TCP
+            - name: p2p
+              containerPort: 9002
+              protocol: TCP
+            - name: maxima
+              containerPort: 9003
+              protocol: TCP
+          env:
+            - name: MINIMA_RPC_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: minima-config
+                  key: MINIMA_RPC_PORT
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: minima-data
+              mountPath: /home/minima
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 9001
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 9001
+            initialDelaySeconds: 30
+            periodSeconds: 15
+      volumes:
+        - name: minima-data
+          hostPath:
+            path: /var/lib/pinet/minima
+            type: DirectoryOrCreate
+---
+# Internal service for RPC access to any Minima node from within the cluster
+apiVersion: v1
+kind: Service
+metadata:
+  name: minima
+  namespace: pinet-system
+  labels:
+    app: minima
+spec:
+  selector:
+    app: minima
+  ports:
+    - name: rpc
+      port: 9001
+      targetPort: 9001
+    - name: p2p
+      port: 9002
+      targetPort: 9002
+    - name: maxima
+      port: 9003
+      targetPort: 9003
+  clusterIP: None   # headless — DNS returns all pod IPs
+---
+# NodePort service for external access to the Minima RPC on each node
+apiVersion: v1
+kind: Service
+metadata:
+  name: minima-external
+  namespace: pinet-system
+  labels:
+    app: minima
+spec:
+  selector:
+    app: minima
+  ports:
+    - name: rpc
+      port: 9001
+      targetPort: 9001
+      nodePort: 30901
+  type: NodePort

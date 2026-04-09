@@ -126,6 +126,11 @@ label_node() {
       k3s kubectl label node "$hostname" storage=nvme --overwrite
       k3s kubectl label node "$hostname" pinet.io/role=control-plane --overwrite
       ;;
+    pinet-beta)
+      log "Labelling $hostname as storage=nvme (worker / NVMe node)…"
+      k3s kubectl label node "$hostname" storage=nvme --overwrite
+      k3s kubectl label node "$hostname" pinet.io/role=worker --overwrite
+      ;;
     pinet-sigma)
       log "Labelling $hostname as accelerator=hailo-10h (AI worker)…"
       k3s kubectl label node "$hostname" accelerator=hailo-10h --overwrite
@@ -137,7 +142,7 @@ label_node() {
       k3s kubectl label node "$hostname" pinet.io/role=sensor-worker --overwrite
       ;;
     *)
-      die "Unknown role: $role — use pinet-alpha, pinet-sigma, or pinet-rho"
+      die "Unknown role: $role — use pinet-alpha, pinet-beta, pinet-sigma, or pinet-rho"
       ;;
   esac
 
@@ -172,7 +177,7 @@ case "$ACTION" in
     echo "Usage: $0 {server|agent <server-ip> <token>|label <role>}"
     echo "  server                 — Install K3s control-plane (run on pinet-alpha)"
     echo "  agent <ip> <token>     — Install K3s agent and join cluster"
-    echo "  label <role>           — Label this node (pinet-alpha|pinet-sigma|pinet-rho)"
+    echo "  label <role>           — Label this node (pinet-alpha|pinet-beta|pinet-sigma|pinet-rho)"
     exit 0
     ;;
 esac

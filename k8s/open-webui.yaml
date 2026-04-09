@@ -61,8 +61,8 @@ spec:
               name: http
           env:
             - name: OLLAMA_BASE_URL
-              # pinet-sigma hosts the Ollama inference engine on port 11434
-              value: "http://pinet-sigma:11434"
+              # Ollama runs as a separate K3s deployment in the same namespace
+              value: "http://ollama.zedd-weather.svc.cluster.local:11434"
             - name: WEBUI_AUTH
               value: "true"
             - name: WEBUI_SECRET_KEY
@@ -127,20 +127,4 @@ spec:
       port: 8080
       targetPort: 8080
   type: ClusterIP
----
-# Ollama Service — points to pinet-sigma's external Ollama daemon.
-# Provides stable in-cluster DNS for the Open WebUI OLLAMA_BASE_URL.
-apiVersion: v1
-kind: Service
-metadata:
-  name: pinet-sigma
-  namespace: zedd-weather
-  labels:
-    app: ollama-proxy
-spec:
-  type: ExternalName
-  externalName: pinet-sigma.local
-  ports:
-    - name: ollama
-      port: 11434
-      targetPort: 11434
+

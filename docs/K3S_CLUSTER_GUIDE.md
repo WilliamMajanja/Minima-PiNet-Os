@@ -1,15 +1,29 @@
-# K3s Cluster Guide — PiNet Zedd Weather
+# K3s Cluster Guide — PiNet 3-Node Cluster
 
-This guide walks through deploying a 3-node K3s cluster on Raspberry Pi 5 hardware
-and bringing up the full Zedd Weather stack.
+This guide walks through deploying the full PiNet K3s stack on a 3-node
+Raspberry Pi 5 cluster and bringing up all services with a single command.
 
 ## Cluster Architecture
 
-| Node | Hostname | Role | Key Hardware | K3s Label |
-|------|----------|------|-------------|-----------|
-| pinet-alpha | `pinet-alpha` | Control Plane | NVMe SSD | `storage=nvme` |
-| pinet-sigma | `pinet-sigma` | AI Worker | Hailo-10H NPU | `accelerator=hailo-10h` |
-| pinet-rho | `pinet-rho` | Sensor Worker | Sense HAT (I2C) | `sensor=sense-hat` |
+| Node | Hostname | IP | Role | Key Hardware | K3s Labels |
+|------|----------|-----|------|-------------|-----------|
+| pinet-alpha | `pinet-alpha` | 192.168.1.10 | Control Plane | NVMe SSD | `storage=nvme` |
+| pinet-beta | `pinet-beta` | 192.168.1.11 | Worker | NVMe SSD | `storage=nvme` |
+| pinet-sigma | `pinet-sigma` | 192.168.1.12 | AI Worker | Hailo-10H NPU | `accelerator=hailo-10h` |
+
+### Service Distribution
+
+| Service | Preferred Node | Namespace | Port |
+|---------|---------------|-----------|------|
+| Minima Blockchain | All (DaemonSet) | pinet-system | 9001 |
+| PiNet Desktop | pinet-alpha | pinet-system | 3000 (NodePort 30300) |
+| InfluxDB | pinet-alpha | zedd-weather | 8086 |
+| Grafana | pinet-alpha | zedd-weather | 3001 |
+| Open WebUI | pinet-beta | zedd-weather | 8080 |
+| Ollama LLM | pinet-sigma | zedd-weather | 11434 |
+| Zedd Weather Sensor | pinet-rho* | zedd-weather | 9200 |
+
+*\*pinet-rho is an optional 4th Sense HAT node for edge sensor data collection.*
 
 ## Prerequisites
 
@@ -33,23 +47,25 @@ sudo cat /var/lib/rancher/k3s/server/node-token
 
 ## 2. Join Worker Nodes
 
-On **pinet-sigma** and **pinet-rho**, run:
+On **pinet-beta** and **pinet-sigma**, run:
 
 ```bash
 # Replace <SERVER_IP> and <JOIN_TOKEN> with the values from step 1
 sudo bash PiNetOS/scripts/k3s-bootstrap.sh agent <SERVER_IP> <JOIN_TOKEN>
 ```
 
-## 3. Label the Worker Nodes
+## 3. Label All Nodes
 
 From pinet-alpha (where `kubectl` is available):
 
 ```bash
-# Label the AI worker
-sudo bash PiNetOS/scripts/k3s-node-label.sh --node pinet-sigma
+# Label all nodes at once
+sudo bash PiNetOS/scripts/k3s-node-label.sh --all
 
-# Label the sensor worker
-sudo bash PiNetOS/scripts/k3s-node-label.sh --node pinet-rho
+# Or label individually
+sudo bash PiNetOS/scripts/k3s-node-label.sh --node pinet-alpha
+sudo bash PiNetOS/scripts/k3s-node-label.sh --node pinet-beta
+sudo bash PiNetOS/scripts/k3s-node-label.sh --node pinet-sigma
 ```
 
 Verify labels:
@@ -62,8 +78,8 @@ Expected output:
 ```
 NAME           STATUS   ROLES                  AGE   VERSION   LABELS
 pinet-alpha    Ready    control-plane,master   5m    v1.29.x   storage=nvme,...
+pinet-beta     Ready    <none>                 3m    v1.29.x   storage=nvme,...
 pinet-sigma    Ready    <none>                 3m    v1.29.x   accelerator=hailo-10h,...
-pinet-rho      Ready    <none>                 3m    v1.29.x   sensor=sense-hat,...
 ```
 
 ## 4. Apply Security Hardening
@@ -75,7 +91,7 @@ On each node:
 sudo bash PiNetOS/scripts/k3s-security-hardening.sh server   # on pinet-alpha
 
 # Worker nodes
-sudo bash PiNetOS/scripts/k3s-security-hardening.sh agent    # on pinet-sigma and pinet-rho
+sudo bash PiNetOS/scripts/k3s-security-hardening.sh agent    # on pinet-beta and pinet-sigma
 ```
 
 ## 5. Enable Health Monitoring
@@ -89,50 +105,127 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now pinet-k3s-health
 ```
 
-## 6. Deploy the Zedd Weather Stack
+## 6. Create Secrets
 
-From pinet-alpha, with `kubectl` in your PATH:
+Before deploying workloads, create the required secrets:
 
 ```bash
-# Create namespace and core services
-kubectl apply -f k8s/influxdb.yaml
-kubectl apply -f k8s/grafana.yaml
-kubectl apply -f k8s/open-webui.yaml
+# Create namespace
+kubectl create namespace zedd-weather
 
-# Deploy the edge sensor app (runs exclusively on pinet-rho)
-kubectl apply -f zedd-weather/zedd-weather-deployment.yaml
+# InfluxDB secret
+kubectl create secret generic influxdb-secret \
+  --namespace zedd-weather \
+  --from-literal=admin-token=$(openssl rand -hex 16) \
+  --from-literal=admin-password=$(openssl rand -base64 24)
+
+# Open WebUI secret
+kubectl create secret generic open-webui-secret \
+  --namespace zedd-weather \
+  --from-literal=secret-key=$(openssl rand -hex 16)
+```
+
+## 7. Deploy the Full Stack
+
+From pinet-alpha, deploy everything with a single command using Kustomize:
+
+```bash
+kubectl apply -k k8s/
+```
+
+Or deploy individual components:
+
+```bash
+# Core PiNet services
+kubectl apply -f k8s/minima.yaml           # Minima blockchain on all nodes
+kubectl apply -f k8s/pinet-desktop.yaml     # Web desktop UI
+
+# Zedd Weather / AI stack
+kubectl apply -f k8s/influxdb.yaml          # Time-series database
+kubectl apply -f k8s/grafana.yaml           # Visualization dashboard
+kubectl apply -f k8s/ollama.yaml            # LLM inference engine (on sigma)
+kubectl apply -f k8s/open-webui.yaml        # AI chat interface
+
+# Networking & security
+kubectl apply -f k8s/ingress.yaml           # HTTP ingress routes
+kubectl apply -f k8s/network-policy.yaml    # Zero-trust network policies
 ```
 
 Verify all pods are running:
 
 ```bash
-kubectl get pods -n zedd-weather
+kubectl get pods -A
 ```
 
-## 7. Access the Dashboards
+Expected output:
+```
+NAMESPACE       NAME                             READY   STATUS    RESTARTS   AGE
+pinet-system    minima-xxxxx                     1/1     Running   0          2m    (on each node)
+pinet-system    pinet-desktop-xxxxx              1/1     Running   0          2m
+zedd-weather    influxdb-xxxxx                   1/1     Running   0          2m
+zedd-weather    grafana-xxxxx                    1/1     Running   0          2m
+zedd-weather    ollama-xxxxx                     1/1     Running   0          2m
+zedd-weather    open-webui-xxxxx                 1/1     Running   0          2m
+```
+
+## 8. Access the Dashboards
+
+### Via NodePort (direct)
 
 | Service | URL | Notes |
 |---------|-----|-------|
-| Grafana | `http://pinet-alpha:3001` | admin / password from secret |
-| InfluxDB | `http://pinet-alpha:8086` | Direct API access |
-| Open WebUI | `http://pinet-alpha:8080` | Connects to Ollama on pinet-sigma |
+| PiNet Desktop | `http://pinet-alpha:30300` | Full web desktop OS |
+| Minima RPC | `http://<any-node>:30901` | Blockchain RPC on every node |
 
-To expose services externally use `kubectl port-forward` or configure an ingress.
+### Via Ingress (requires DNS or /etc/hosts)
 
-## 8. Building the Zedd Weather Image
+Add to your `/etc/hosts` (or configure DNS):
+```
+192.168.1.10  pinet.local grafana.pinet.local ai.pinet.local influxdb.pinet.local
+```
+
+| Service | URL | Notes |
+|---------|-----|-------|
+| PiNet Desktop | `http://pinet.local` | Web desktop |
+| Grafana | `http://grafana.pinet.local` | Telemetry dashboards |
+| Open WebUI | `http://ai.pinet.local` | AI chat (connects to Ollama on sigma) |
+| InfluxDB | `http://influxdb.pinet.local` | Time-series API |
+
+## 9. Building Container Images
+
+### PiNet Desktop
+
+```bash
+# From the repository root
+docker buildx build \
+  --platform linux/arm64 \
+  -t ghcr.io/<your-org>/pinet-desktop:latest \
+  --push .
+```
+
+### Zedd Weather Sensor
 
 ```bash
 cd zedd-weather
-
-# Build for arm64 (requires Docker Buildx and QEMU)
 docker buildx build \
   --platform linux/arm64 \
   -t ghcr.io/<your-org>/zedd-weather:latest \
   --push .
 ```
 
-Update the `image:` field in `zedd-weather/zedd-weather-deployment.yaml` with your
-registry path, then re-apply the manifest.
+Update the `image:` fields in the respective manifests with your registry path.
+
+## K3s Manifest Packages
+
+The `PiNetOS-K3s-Manifests.zip` release artifact contains all manifests needed
+to deploy the full PiNet stack on a K3s cluster. Download it from the
+[latest release](https://github.com/WilliamMajanja/Minima-PiNet-Os/releases/latest)
+and apply:
+
+```bash
+unzip PiNetOS-K3s-Manifests.zip
+kubectl apply -k k8s/
+```
 
 ## Troubleshooting
 
@@ -144,7 +237,40 @@ grep -c cgroup /boot/firmware/cmdline.txt
 # Should be non-zero; if 0 run k3s-bootstrap.sh again and reboot
 ```
 
-### Sense HAT not detected
+### Pods pending due to node selector
+
+Verify labels are applied:
+```bash
+kubectl get nodes --show-labels | grep -E 'storage|accelerator'
+```
+
+If missing, re-run:
+```bash
+sudo bash PiNetOS/scripts/k3s-node-label.sh --all
+```
+
+### Ollama not starting on pinet-sigma
+
+Check that the taint toleration is correct:
+```bash
+kubectl describe node pinet-sigma | grep Taints
+```
+
+The Ollama deployment tolerates `accelerator=hailo-10h:NoSchedule`.
+
+### InfluxDB token errors
+
+Regenerate the secret and restart pods:
+```bash
+kubectl delete secret influxdb-secret -n zedd-weather
+kubectl create secret generic influxdb-secret \
+  --namespace zedd-weather \
+  --from-literal=admin-token=$(openssl rand -hex 16) \
+  --from-literal=admin-password=$(openssl rand -base64 24)
+kubectl rollout restart deployment -n zedd-weather
+```
+
+### Sense HAT not detected (optional pinet-rho node)
 
 Verify I2C is enabled on pinet-rho:
 ```bash
@@ -155,13 +281,4 @@ i2cdetect -y 1
 Check the container can access the device:
 ```bash
 kubectl exec -n zedd-weather deploy/zedd-weather -- ls /dev/i2c-*
-```
-
-### InfluxDB token errors
-
-Regenerate the secret and restart pods:
-```bash
-kubectl delete secret influxdb-secret -n zedd-weather
-kubectl apply -f k8s/influxdb.yaml   # recreates with default values; update before apply
-kubectl rollout restart deployment -n zedd-weather
 ```

@@ -19,6 +19,11 @@ const packages = [
     source: 'build-system/docs',
     output: 'PiNetOS-Documentation.zip',
     targetFolder: 'docs'
+  },
+  {
+    source: 'k8s',
+    output: 'PiNetOS-K3s-Manifests.zip',
+    targetFolder: 'k8s'
   }
 ];
 

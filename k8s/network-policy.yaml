@@ -1,0 +1,186 @@
+---
+# Network Policies — namespace-scoped zero-trust network segmentation
+# Default-deny ingress in each namespace, then allowlist specific pod-to-pod
+# communication paths required by the PiNet stack.
+#
+# Requires a CNI that supports NetworkPolicy (K3s with Flannel + netpol
+# controller, or Calico / Cilium).
+
+# ─── pinet-system namespace ──────────────────────────────────────────────────
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: pinet-system
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+# Allow PiNet Desktop to receive traffic from any source (NodePort / Ingress)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-pinet-desktop
+  namespace: pinet-system
+spec:
+  podSelector:
+    matchLabels:
+      app: pinet-desktop
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 3000
+          protocol: TCP
+---
+# Allow Minima pods to receive RPC, P2P, and Maxima traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-minima
+  namespace: pinet-system
+spec:
+  podSelector:
+    matchLabels:
+      app: minima
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 9001
+          protocol: TCP
+        - port: 9002
+          protocol: TCP
+        - port: 9003
+          protocol: TCP
+---
+# Allow PiNet Desktop to talk to Minima (RPC)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-desktop-to-minima
+  namespace: pinet-system
+spec:
+  podSelector:
+    matchLabels:
+      app: minima
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: pinet-desktop
+      ports:
+        - port: 9001
+          protocol: TCP
+
+# ─── zedd-weather namespace ──────────────────────────────────────────────────
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: zedd-weather
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+# Allow Grafana to receive HTTP traffic (Ingress / NodePort)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-grafana
+  namespace: zedd-weather
+spec:
+  podSelector:
+    matchLabels:
+      app: grafana
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 3000
+          protocol: TCP
+---
+# Allow InfluxDB to receive writes from Zedd Weather and queries from Grafana
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-influxdb
+  namespace: zedd-weather
+spec:
+  podSelector:
+    matchLabels:
+      app: influxdb
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: grafana
+        - podSelector:
+            matchLabels:
+              app: zedd-weather
+      ports:
+        - port: 8086
+          protocol: TCP
+---
+# Allow Open WebUI to receive HTTP traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-open-webui
+  namespace: zedd-weather
+spec:
+  podSelector:
+    matchLabels:
+      app: open-webui
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 8080
+          protocol: TCP
+---
+# Allow Ollama to receive inference requests from Open WebUI
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ollama
+  namespace: zedd-weather
+spec:
+  podSelector:
+    matchLabels:
+      app: ollama
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: open-webui
+      ports:
+        - port: 11434
+          protocol: TCP
+---
+# Allow Zedd Weather sensor pod to receive liveness probes
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-zedd-weather
+  namespace: zedd-weather
+spec:
+  podSelector:
+    matchLabels:
+      app: zedd-weather
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 9200
+          protocol: TCP
