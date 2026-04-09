@@ -55,14 +55,12 @@ export interface SystemHealth {
 // ---------------------------------------------------------------------------
 export class ThermalMonitor {
   private readonly thermalZone = '/sys/class/thermal/thermal_zone0/temp';
-  private useSimulation        = false;
   private pollingInterval?: ReturnType<typeof setInterval>;
   private subscribers          = new Set<(h: SystemHealth) => void>();
 
   constructor() {
-    this.useSimulation = !fs.existsSync(this.thermalZone);
-    if (this.useSimulation) {
-      console.warn('[THERMAL] Thermal hardware not found — running in simulation mode');
+    if (!fs.existsSync(this.thermalZone)) {
+      console.warn('[THERMAL] Thermal zone not found — readings will use vcgencmd or return 0');
     }
   }
 
@@ -71,19 +69,28 @@ export class ThermalMonitor {
   // ---- Single readings ----------------------------------------------------
 
   async getCpuTemp(): Promise<number> {
-    if (this.useSimulation) return 45 + Math.random() * 10;
-    const raw = fs.readFileSync(this.thermalZone, 'utf8').trim();
-    return parseInt(raw, 10) / 1000;
+    try {
+      const raw = fs.readFileSync(this.thermalZone, 'utf8').trim();
+      return parseInt(raw, 10) / 1000;
+    } catch {
+      // Fallback: try vcgencmd
+      try {
+        const raw = execFileSync('vcgencmd', ['measure_temp'], { stdio: 'pipe' }).toString();
+        const m   = raw.match(/temp=([\d.]+)/);
+        return m ? parseFloat(m[1]) : 0;
+      } catch {
+        return 0;
+      }
+    }
   }
 
   async getGpuTemp(): Promise<number> {
-    if (this.useSimulation) return 42 + Math.random() * 8;
     try {
       const raw = execFileSync('vcgencmd', ['measure_temp'], { stdio: 'pipe' }).toString();
       const m   = raw.match(/temp=([\d.]+)/);
       return m ? parseFloat(m[1]) : 0;
     } catch {
-      return await this.getCpuTemp();  // fallback
+      return await this.getCpuTemp();  // fallback to CPU temp
     }
   }
 
@@ -98,12 +105,6 @@ export class ThermalMonitor {
   // ---- Power / voltage ----------------------------------------------------
 
   async getPowerReading(): Promise<PowerReading> {
-    if (this.useSimulation) {
-      return {
-        coreVoltage:   1.1, sdramIVoltage: 1.1,
-        sdramPVoltage: 1.1, sdramCVoltage: 1.1, timestamp: Date.now(),
-      };
-    }
     const ALLOWED_VOLTAGE_PARAMS = new Set(['core', 'sdram_i', 'sdram_p', 'sdram_c']);
     const read = (param: string): number => {
       if (!ALLOWED_VOLTAGE_PARAMS.has(param)) return 0;
@@ -125,14 +126,6 @@ export class ThermalMonitor {
   // ---- Throttle status ----------------------------------------------------
 
   async getThrottleStatus(): Promise<ThrottleStatus> {
-    if (this.useSimulation) {
-      return {
-        raw: 0, underVoltageDetected: false, armFrequencyCapped: false,
-        currentlyThrottled: false, softTempLimitActive: false,
-        underVoltageOccurred: false, armFrequencyCapOccurred: false,
-        throttlingOccurred: false, softTempLimitOccurred: false,
-      };
-    }
     let raw = 0;
     try {
       const output = execFileSync('vcgencmd', ['get_throttled'], { stdio: 'pipe' }).toString();

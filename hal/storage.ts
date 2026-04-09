@@ -11,10 +11,7 @@
 
 import * as fs   from 'fs';
 import * as path from 'path';
-import { exec, execFileSync } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import { execFileSync } from 'child_process';
 
 // Validate that a string looks like a safe device path (e.g. /dev/sda1, /dev/mmcblk0p1)
 const isValidDevicePath = (p: string): boolean =>
@@ -64,10 +61,10 @@ export interface MountResult {
 // Storage Manager
 // ---------------------------------------------------------------------------
 export class StorageManager {
-  private useSimulation = false;
-
   constructor() {
-    this.useSimulation = !fs.existsSync('/proc/partitions');
+    if (!fs.existsSync('/proc/partitions')) {
+      console.warn('[STORAGE] /proc/partitions not found — storage operations will use lsblk fallback');
+    }
   }
 
   async init(): Promise<void> {}
@@ -76,28 +73,6 @@ export class StorageManager {
 
   /** List all block devices using `lsblk --json` */
   async listDevices(): Promise<BlockDevice[]> {
-    if (this.useSimulation) {
-      return [
-        {
-          name: 'mmcblk0', path: '/dev/mmcblk0', size: 32 * 1024 * 1024 * 1024,
-          type: 'disk', fstype: '', mountpoint: '', label: 'SD Card',
-          removable: true, readonly: false,
-          children: [
-            {
-              name: 'mmcblk0p1', path: '/dev/mmcblk0p1', size: 256 * 1024 * 1024,
-              type: 'part', fstype: 'vfat', mountpoint: '/boot', label: 'BOOT',
-              removable: true, readonly: false,
-            },
-            {
-              name: 'mmcblk0p2', path: '/dev/mmcblk0p2', size: 31 * 1024 * 1024 * 1024,
-              type: 'part', fstype: 'ext4', mountpoint: '/', label: 'rootfs',
-              removable: true, readonly: false,
-            },
-          ],
-        },
-      ];
-    }
-
     try {
       const raw = execFileSync('lsblk', ['-J', '-b', '-o', 'NAME,PATH,SIZE,TYPE,FSTYPE,MOUNTPOINT,LABEL,RM,RO'], { stdio: 'pipe' }).toString();
       const data = JSON.parse(raw) as { blockdevices: any[] };
@@ -109,15 +84,6 @@ export class StorageManager {
 
   /** List mounted filesystems and their usage (similar to `df`) */
   async getDiskUsage(): Promise<DiskUsage[]> {
-    if (this.useSimulation) {
-      return [
-        { device: '/dev/mmcblk0p1', mountpoint: '/boot', fstype: 'vfat',
-          totalBytes: 256e6, usedBytes: 50e6, freeBytes: 206e6, usePercent: 20 },
-        { device: '/dev/mmcblk0p2', mountpoint: '/', fstype: 'ext4',
-          totalBytes: 31e9, usedBytes: 4e9, freeBytes: 27e9, usePercent: 13 },
-      ];
-    }
-
     try {
       const raw = execFileSync('df', ['-B1', '--output=source,target,fstype,size,used,avail'], { stdio: 'pipe' }).toString();
       const lines = raw.trim().split('\n').slice(1);
@@ -139,9 +105,6 @@ export class StorageManager {
   // ---- Mount / unmount ----------------------------------------------------
 
   async mount(device: string, mountpoint: string, fstype?: string): Promise<MountResult> {
-    if (this.useSimulation) {
-      return { success: true, message: `[SIM] Mounted ${device} at ${mountpoint}` };
-    }
     if (!isValidDevicePath(device)) {
       return { success: false, message: `Invalid device path: ${device}` };
     }
@@ -161,9 +124,6 @@ export class StorageManager {
   }
 
   async unmount(mountpointOrDevice: string): Promise<MountResult> {
-    if (this.useSimulation) {
-      return { success: true, message: `[SIM] Unmounted ${mountpointOrDevice}` };
-    }
     if (!isValidDevicePath(mountpointOrDevice) && !isValidMountPath(mountpointOrDevice)) {
       return { success: false, message: `Invalid path: ${mountpointOrDevice}` };
     }
@@ -179,7 +139,6 @@ export class StorageManager {
 
   /** Run fsck on an unmounted partition */
   async checkFilesystem(device: string): Promise<{ healthy: boolean; output: string }> {
-    if (this.useSimulation) return { healthy: true, output: '[SIM] Filesystem OK' };
     if (!isValidDevicePath(device)) {
       return { healthy: false, output: `Invalid device path: ${device}` };
     }

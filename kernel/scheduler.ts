@@ -5,6 +5,7 @@
  */
 
 import os from 'os';
+import * as fs from 'fs';
 import type {
   SchedulerEntry,
   SchedulerPolicy,
@@ -193,8 +194,29 @@ class SchedulerImpl {
     entry.lastScheduled = now;
   }
 
-  /** Simulate a scheduling tick. */
+  /** Perform a scheduling tick — update real process stats from /proc if available. */
   tick(): void {
+    // Attempt to read real CPU time for tracked processes from /proc/[pid]/stat
+    for (const entry of this.entries.values()) {
+      try {
+        const statPath = `/proc/${entry.pid}/stat`;
+        if (fs.existsSync(statPath)) {
+          const raw = fs.readFileSync(statPath, 'utf8');
+          // Fields: pid (comm) state ppid pgrp session tty_nr tpgid flags minflt cminflt majflt cmajflt utime stime
+          const parts = raw.split(') ');
+          if (parts.length >= 2) {
+            const fields = parts[1].split(' ');
+            const utime = parseInt(fields[11], 10) || 0;
+            const stime = parseInt(fields[12], 10) || 0;
+            // Convert jiffies to ms (assume 100 Hz / CONFIG_HZ=100)
+            const totalJiffies = utime + stime;
+            entry.totalCpuMs = totalJiffies * 10;
+          }
+        }
+      } catch {
+        // Process may have exited — skip
+      }
+    }
     this.pickNext();
   }
 

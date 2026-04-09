@@ -42,29 +42,22 @@ const toHex = (n: number): string => `0x${n.toString(16)}`;
 // ---------------------------------------------------------------------------
 export class I2cController {
   private readonly devBase    = '/dev/i2c-';
-  private useSimulation       = false;
-  private openBuses           = new Map<number, number>();  // bus → fd (simulated)
+  private openBuses           = new Map<number, number>();  // bus → fd
 
   constructor() {
-    this.useSimulation = !fs.existsSync(`${this.devBase}1`);
-    if (this.useSimulation) {
-      console.warn('[I2C] I2C hardware not found — running in simulation mode');
+    if (!fs.existsSync(`${this.devBase}1`)) {
+      console.warn('[I2C] I2C hardware not found — operations will fail gracefully');
     }
   }
 
   async init(): Promise<void> {
-    if (!this.useSimulation) {
-      // Ensure i2c-dev module is loaded
-      try { execFileSync('modprobe', ['i2c-dev'], { stdio: 'ignore' }); } catch {}
-    }
+    // Ensure i2c-dev module is loaded
+    try { execFileSync('modprobe', ['i2c-dev'], { stdio: 'ignore' }); } catch {}
   }
 
   // ---- Bus scanning -------------------------------------------------------
 
   async scan(bus: number = 1): Promise<I2cScanResult> {
-    if (this.useSimulation) {
-      return { bus, addresses: [0x3c, 0x48, 0x68] };  // simulated devices
-    }
     const safeBus = safeInt(bus, 255);
     const found: number[] = [];
     try {
@@ -83,64 +76,79 @@ export class I2cController {
   // ---- Low-level transfers (via i2c-tools or /dev/i2c-N ioctls) -----------
 
   async readByte(device: I2cDevice, register: number): Promise<number> {
-    if (this.useSimulation) return Math.floor(Math.random() * 256);
     const bus = safeInt(device.bus, 255);
     const addr = safeInt(device.address, 0x7F);
     const reg = safeInt(register, 0xFF);
-    const result = execFileSync(
-      'i2cget', ['-y', String(bus), toHex(addr), toHex(reg), 'b'], { stdio: 'pipe' }
-    ).toString().trim();
-    return parseInt(result, 16);
+    try {
+      const result = execFileSync(
+        'i2cget', ['-y', String(bus), toHex(addr), toHex(reg), 'b'], { stdio: 'pipe' }
+      ).toString().trim();
+      return parseInt(result, 16);
+    } catch {
+      console.warn(`[I2C] readByte failed: bus=${bus} addr=${toHex(addr)} reg=${toHex(reg)}`);
+      return 0;
+    }
   }
 
   async writeByte(device: I2cDevice, register: number, value: number): Promise<void> {
-    if (this.useSimulation) {
-      console.debug(`[I2C-SIM] Write bus=${device.bus} addr=0x${device.address.toString(16)} reg=0x${register.toString(16)} val=0x${value.toString(16)}`);
-      return;
-    }
     const bus = safeInt(device.bus, 255);
     const addr = safeInt(device.address, 0x7F);
     const reg = safeInt(register, 0xFF);
     const val = safeInt(value, 0xFF);
-    execFileSync(
-      'i2cset', ['-y', String(bus), toHex(addr), toHex(reg), toHex(val), 'b'], { stdio: 'pipe' }
-    );
+    try {
+      execFileSync(
+        'i2cset', ['-y', String(bus), toHex(addr), toHex(reg), toHex(val), 'b'], { stdio: 'pipe' }
+      );
+    } catch {
+      console.warn(`[I2C] writeByte failed: bus=${bus} addr=${toHex(addr)} reg=${toHex(reg)} val=${toHex(val)}`);
+    }
   }
 
   async readWord(device: I2cDevice, register: number): Promise<number> {
-    if (this.useSimulation) return Math.floor(Math.random() * 65536);
     const bus = safeInt(device.bus, 255);
     const addr = safeInt(device.address, 0x7F);
     const reg = safeInt(register, 0xFF);
-    const result = execFileSync(
-      'i2cget', ['-y', String(bus), toHex(addr), toHex(reg), 'w'], { stdio: 'pipe' }
-    ).toString().trim();
-    return parseInt(result, 16);
+    try {
+      const result = execFileSync(
+        'i2cget', ['-y', String(bus), toHex(addr), toHex(reg), 'w'], { stdio: 'pipe' }
+      ).toString().trim();
+      return parseInt(result, 16);
+    } catch {
+      console.warn(`[I2C] readWord failed: bus=${bus} addr=${toHex(addr)} reg=${toHex(reg)}`);
+      return 0;
+    }
   }
 
   async writeWord(device: I2cDevice, register: number, value: number): Promise<void> {
-    if (this.useSimulation) return;
     const bus = safeInt(device.bus, 255);
     const addr = safeInt(device.address, 0x7F);
     const reg = safeInt(register, 0xFF);
     const val = safeInt(value, 0xFFFF);
-    execFileSync(
-      'i2cset', ['-y', String(bus), toHex(addr), toHex(reg), toHex(val), 'w'], { stdio: 'pipe' }
-    );
+    try {
+      execFileSync(
+        'i2cset', ['-y', String(bus), toHex(addr), toHex(reg), toHex(val), 'w'], { stdio: 'pipe' }
+      );
+    } catch {
+      console.warn(`[I2C] writeWord failed: bus=${bus} addr=${toHex(addr)} reg=${toHex(reg)} val=${toHex(val)}`);
+    }
   }
 
   async readBlock(device: I2cDevice, register: number, length: number): Promise<Buffer> {
-    if (this.useSimulation) return Buffer.alloc(length, 0xAA);
     const bus = safeInt(device.bus, 255);
     const addr = safeInt(device.address, 0x7F);
     const reg = safeInt(register, 0xFF);
     const len = safeInt(length, 256);
     const rangeEnd = Math.min(reg + len - 1, 0xFF);
-    const result = execFileSync(
-      'i2cdump', ['-y', '-r', `${toHex(reg)}-${toHex(rangeEnd)}`, String(bus), toHex(addr), 'b'], { stdio: 'pipe' }
-    ).toString();
-    const bytes = (result.match(/\b[0-9a-f]{2}\b/g) || []).map(h => parseInt(h, 16));
-    return Buffer.from(bytes.slice(0, length));
+    try {
+      const result = execFileSync(
+        'i2cdump', ['-y', '-r', `${toHex(reg)}-${toHex(rangeEnd)}`, String(bus), toHex(addr), 'b'], { stdio: 'pipe' }
+      ).toString();
+      const bytes = (result.match(/\b[0-9a-f]{2}\b/g) || []).map(h => parseInt(h, 16));
+      return Buffer.from(bytes.slice(0, length));
+    } catch {
+      console.warn(`[I2C] readBlock failed: bus=${bus} addr=${toHex(addr)} reg=${toHex(reg)} len=${len}`);
+      return Buffer.alloc(length, 0);
+    }
   }
 
   // ---- Convenience: common sensor helpers ---------------------------------

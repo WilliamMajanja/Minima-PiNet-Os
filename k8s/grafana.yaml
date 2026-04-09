@@ -1,6 +1,7 @@
 ---
 # Grafana — visualization dashboard for Zedd Weather telemetry
-# Scheduled on pinet-alpha (NVMe storage node) alongside InfluxDB.
+# Scheduled on the NVMe storage node (pinet-alpha or pinet-beta) for fast disk I/O.
+# Node labels: storage=nvme on alpha/beta, role=ai on sigma.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -58,6 +59,23 @@ spec:
     spec:
       nodeSelector:
         storage: nvme
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - pinet-alpha
+            - weight: 50
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - pinet-beta
       securityContext:
         runAsNonRoot: true
         runAsUser: 472
@@ -75,7 +93,7 @@ spec:
                   name: influxdb-secret
                   key: admin-password
             - name: GF_SERVER_ROOT_URL
-              value: "http://pinet-alpha:3001"
+              value: "http://grafana.zedd-weather.svc.cluster.local:3001"
             - name: GF_ANALYTICS_REPORTING_ENABLED
               value: "false"
             - name: INFLUXDB_TOKEN

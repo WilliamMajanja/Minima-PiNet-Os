@@ -5,6 +5,8 @@
  */
 
 import os from 'os';
+import * as fs from 'fs';
+import { execFileSync } from 'child_process';
 import type {
   NetworkInterface,
   NetworkAddress,
@@ -36,6 +38,9 @@ class NetworkService {
     const osInterfaces = os.networkInterfaces();
     let idx = 1;
 
+    // Read real network stats from /proc/net/dev if available
+    const procNetStats = this.readProcNetDev();
+
     for (const [name, addrs] of Object.entries(osInterfaces)) {
       if (!addrs) continue;
 
@@ -46,6 +51,8 @@ class NetworkService {
         scope: a.internal ? 'host' : 'global',
       }));
 
+      const stats = procNetStats.get(name);
+
       const iface: NetworkInterface = {
         name,
         index: idx++,
@@ -54,12 +61,12 @@ class NetworkService {
         mtu: 1500,
         type: name === 'lo' ? 'loopback' : name.startsWith('wlan') ? 'wifi' : name.startsWith('wg') ? 'wireguard' : name.startsWith('br') ? 'bridge' : name.startsWith('veth') ? 'virtual' : 'ethernet',
         addresses,
-        rxBytes: Math.floor(Math.random() * 1024 * 1024 * 1024),
-        txBytes: Math.floor(Math.random() * 512 * 1024 * 1024),
-        rxPackets: Math.floor(Math.random() * 1000000),
-        txPackets: Math.floor(Math.random() * 500000),
-        rxErrors: 0,
-        txErrors: 0,
+        rxBytes: stats?.rxBytes ?? 0,
+        txBytes: stats?.txBytes ?? 0,
+        rxPackets: stats?.rxPackets ?? 0,
+        txPackets: stats?.txPackets ?? 0,
+        rxErrors: stats?.rxErrors ?? 0,
+        txErrors: stats?.txErrors ?? 0,
         speed: name.startsWith('eth') ? 1000 : name.startsWith('wlan') ? 867 : undefined,
         duplex: name.startsWith('eth') ? 'full' : undefined,
         carrier: true,
@@ -68,54 +75,57 @@ class NetworkService {
       this.interfaces.set(name, iface);
     }
 
-    // Fallback: add well-known Pi network interfaces if no real interfaces
-    // were detected (e.g. running in development or inside a container).
-    // In production on a real Pi these will be populated from the OS above.
-    if (!this.interfaces.has('eth0')) {
-      this.interfaces.set('eth0', {
-        name: 'eth0', index: idx++, state: 'up',
-        mac: 'dc:a6:32:12:34:56', mtu: 1500, type: 'ethernet',
-        addresses: [
-          { family: 'inet', address: '192.168.1.100', netmask: '255.255.255.0', broadcast: '192.168.1.255', scope: 'global' },
-          { family: 'inet6', address: 'fe80::dea6:32ff:fe12:3456', netmask: 'ffff:ffff:ffff:ffff::', scope: 'link' },
-        ],
-        rxBytes: 1024 * 1024 * 850, txBytes: 1024 * 1024 * 320,
-        rxPackets: 650000, txPackets: 280000, rxErrors: 0, txErrors: 0,
-        speed: 1000, duplex: 'full', carrier: true,
-      });
-    }
-    if (!this.interfaces.has('wlan0')) {
-      this.interfaces.set('wlan0', {
-        name: 'wlan0', index: idx++, state: 'up',
-        mac: 'dc:a6:32:78:9a:bc', mtu: 1500, type: 'wifi',
-        addresses: [
-          { family: 'inet', address: '192.168.1.101', netmask: '255.255.255.0', broadcast: '192.168.1.255', scope: 'global' },
-        ],
-        rxBytes: 1024 * 1024 * 120, txBytes: 1024 * 1024 * 45,
-        rxPackets: 95000, txPackets: 42000, rxErrors: 2, txErrors: 0,
-        speed: 867, carrier: true,
-      });
-    }
-    if (!this.interfaces.has('wg0')) {
-      this.interfaces.set('wg0', {
-        name: 'wg0', index: idx++, state: 'up',
-        mac: '(none)', mtu: 1420, type: 'wireguard',
-        addresses: [
-          { family: 'inet', address: '10.0.0.1', netmask: '255.255.255.0', scope: 'global' },
-        ],
-        rxBytes: 1024 * 1024 * 50, txBytes: 1024 * 1024 * 30,
-        rxPackets: 40000, txPackets: 25000, rxErrors: 0, txErrors: 0,
-        carrier: true,
-      });
-    }
+    // Populate routes from real system if possible
+    this.routes = this.readSystemRoutes();
+  }
 
-    // Default routes
-    this.routes = [
-      { destination: 'default', gateway: '192.168.1.1', interface: 'eth0', metric: 100, scope: 'global', protocol: 'dhcp', flags: ['UP', 'GATEWAY'] },
-      { destination: '192.168.1.0/24', gateway: '0.0.0.0', interface: 'eth0', metric: 100, scope: 'link', protocol: 'kernel', flags: ['UP'] },
-      { destination: '10.0.0.0/24', gateway: '0.0.0.0', interface: 'wg0', metric: 50, scope: 'link', protocol: 'kernel', flags: ['UP'] },
-      { destination: '169.254.0.0/16', gateway: '0.0.0.0', interface: 'eth0', metric: 1000, scope: 'link', protocol: 'kernel', flags: ['UP'] },
-    ];
+  /** Read real network interface statistics from /proc/net/dev */
+  private readProcNetDev(): Map<string, { rxBytes: number; txBytes: number; rxPackets: number; txPackets: number; rxErrors: number; txErrors: number }> {
+    const result = new Map<string, { rxBytes: number; txBytes: number; rxPackets: number; txPackets: number; rxErrors: number; txErrors: number }>();
+    try {
+      const raw = fs.readFileSync('/proc/net/dev', 'utf8');
+      const lines = raw.trim().split('\n').slice(2); // skip header lines
+      for (const line of lines) {
+        const parts = line.trim().split(/[:\s]+/);
+        if (parts.length >= 11) {
+          const name = parts[0];
+          result.set(name, {
+            rxBytes: parseInt(parts[1], 10) || 0,
+            rxPackets: parseInt(parts[2], 10) || 0,
+            rxErrors: parseInt(parts[3], 10) || 0,
+            txBytes: parseInt(parts[9], 10) || 0,
+            txPackets: parseInt(parts[10], 10) || 0,
+            txErrors: parseInt(parts[11], 10) || 0,
+          });
+        }
+      }
+    } catch {
+      // /proc/net/dev not available — return empty
+    }
+    return result;
+  }
+
+  /** Read real routing table from `ip route` */
+  private readSystemRoutes(): Route[] {
+    try {
+      const raw = execFileSync('ip', ['-j', 'route'], { stdio: 'pipe' }).toString();
+      const routes = JSON.parse(raw) as Array<{ dst: string; gateway?: string; dev: string; metric?: number; scope?: string; protocol?: string; flags?: string[] }>;
+      return routes.map(r => ({
+        destination: r.dst || 'default',
+        gateway: r.gateway || '0.0.0.0',
+        interface: r.dev,
+        metric: r.metric ?? 0,
+        scope: (r.scope || 'global') as Route['scope'],
+        protocol: (r.protocol || 'kernel') as Route['protocol'],
+        flags: r.flags || ['UP'],
+      }));
+    } catch {
+      // Fallback: return default routes
+      return [
+        { destination: 'default', gateway: '192.168.1.1', interface: 'eth0', metric: 100, scope: 'global', protocol: 'dhcp', flags: ['UP', 'GATEWAY'] },
+        { destination: '192.168.1.0/24', gateway: '0.0.0.0', interface: 'eth0', metric: 100, scope: 'link', protocol: 'kernel', flags: ['UP'] },
+      ];
+    }
   }
 
   private initDefaultFirewall(): void {
@@ -135,16 +145,53 @@ class NetworkService {
   }
 
   private initWireGuard(): void {
-    this.wireguardInterfaces.set('wg0', {
-      name: 'wg0',
-      publicKey: 'pinet-node-pubkey-base64==',
-      listenPort: 51820,
-      address: '10.0.0.1/24',
-      peers: [
-        { publicKey: 'peer1-pubkey-base64==', endpoint: '192.168.1.102:51820', allowedIPs: ['10.0.0.2/32'], latestHandshake: Date.now() - 30000, transferRx: 1024 * 1024 * 10, transferTx: 1024 * 1024 * 8, persistentKeepalive: 25 },
-        { publicKey: 'peer2-pubkey-base64==', endpoint: '192.168.1.103:51820', allowedIPs: ['10.0.0.3/32'], latestHandshake: Date.now() - 60000, transferRx: 1024 * 1024 * 5, transferTx: 1024 * 1024 * 3, persistentKeepalive: 25 },
-      ],
-    });
+    // Read real WireGuard interfaces from `wg show` if available
+    try {
+      const raw = execFileSync('wg', ['show', 'all', 'dump'], { stdio: 'pipe' }).toString().trim();
+      if (!raw) return;
+
+      const lines = raw.split('\n');
+      let currentIface: WireGuardInterface | null = null;
+
+      for (const line of lines) {
+        const parts = line.split('\t');
+        if (parts.length === 4) {
+          // Interface line: <iface> <private-key> <public-key> <listen-port>
+          if (currentIface) {
+            this.wireguardInterfaces.set(currentIface.name, currentIface);
+          }
+          currentIface = {
+            name: parts[0],
+            publicKey: parts[2],
+            listenPort: parseInt(parts[3], 10) || 51820,
+            address: '', // populated from interface addresses
+            peers: [],
+          };
+          // Get address from OS interfaces
+          const osIface = this.interfaces.get(parts[0]);
+          if (osIface) {
+            const addr = osIface.addresses.find(a => a.family === 'inet');
+            if (addr) currentIface.address = `${addr.address}/${addr.netmask}`;
+          }
+        } else if (parts.length >= 8 && currentIface) {
+          // Peer line: <iface> <public-key> <preshared-key> <endpoint> <allowed-ips> <latest-handshake> <transfer-rx> <transfer-tx> <persistent-keepalive>
+          currentIface.peers.push({
+            publicKey: parts[1],
+            endpoint: parts[3] !== '(none)' ? parts[3] : undefined,
+            allowedIPs: parts[4] ? parts[4].split(',') : [],
+            latestHandshake: parseInt(parts[5], 10) * 1000 || 0,
+            transferRx: parseInt(parts[6], 10) || 0,
+            transferTx: parseInt(parts[7], 10) || 0,
+            persistentKeepalive: parts[8] ? parseInt(parts[8], 10) : undefined,
+          });
+        }
+      }
+      if (currentIface) {
+        this.wireguardInterfaces.set(currentIface.name, currentIface);
+      }
+    } catch {
+      // WireGuard not available — no VPN interfaces
+    }
   }
 
   // ─── Interface Management ─────────────────────────────────────────────

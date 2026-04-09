@@ -18,16 +18,25 @@
   },
   "nodes": [
     {
-      "mac_address": "b8:27:eb:xx:xx:xx",
+      "mac_address": "d8:3a:dd:aa:aa:aa",
       "ip_address": "192.168.1.10",
       "hostname": "pinet-alpha",
-      "role": "master"
+      "role": "master",
+      "hat": "SSD_NVME"
     },
     {
-      "mac_address": "b8:27:eb:yy:yy:yy",
+      "mac_address": "d8:3a:dd:bb:bb:bb",
       "ip_address": "192.168.1.11",
       "hostname": "pinet-beta",
-      "role": "worker"
+      "role": "worker",
+      "hat": "SSD_NVME"
+    },
+    {
+      "mac_address": "d8:3a:dd:cc:cc:cc",
+      "ip_address": "192.168.1.12",
+      "hostname": "pinet-sigma",
+      "role": "worker",
+      "hat": "AI_NPU"
     }
   ]
 }

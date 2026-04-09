@@ -530,7 +530,7 @@ async function startServer() {
     
     try {
       const base = `${octets[0]}.${octets[1]}.${octets[2]}`;
-      const activeNodes = [];
+      const activeNodes: any[] = [];
       
       // Get real local host metrics
       let localCpu = 0;
@@ -548,27 +548,90 @@ async function startServer() {
         localTemp = tempInfo.main || 0;
       } catch { /* ignore */ }
 
-      // Always include localhost with real metrics
+      // Always include localhost (Pi-Alpha) with real metrics
       activeNodes.push({
         id: 'n1',
-        name: 'Pi-Alpha (Local Host)',
-        ip: '127.0.0.1',
+        name: 'Pi-Alpha',
+        ip: '192.168.1.10',
         hat: 'SSD_NVME',
         status: 'online',
         metrics: { cpu: localCpu, ram: localRam, temp: localTemp, iops: 0 }
       });
 
-      // Scan the /24 subnet with real ping sweep — batch with limited concurrency
+      // Known cluster nodes — attempt real health checks via the cluster API
+      const knownNodes = [
+        { id: 'n2', name: 'Pi-Beta', ip: '192.168.1.11', hat: 'SSD_NVME' },
+        { id: 'n3', name: 'Pi-Sigma', ip: '192.168.1.12', hat: 'AI_NPU' },
+      ];
+
+      // Check known cluster nodes first via ping + optional metrics fetch
+      const knownNodeChecks = knownNodes.map(node => {
+        return new Promise<void>((resolve) => {
+          const pingProc = spawn("ping", ["-c", "1", "-W", "2", node.ip]);
+          pingProc.on("close", async (code) => {
+            if (code === 0) {
+              // Node is reachable — try to fetch metrics from its PiNet API
+              let metrics = { cpu: 0, ram: 0, temp: 0, iops: 0 };
+              try {
+                const resp = await fetch(`http://${node.ip}:3000/api/system/health`, { signal: AbortSignal.timeout(2000) });
+                if (resp.ok) {
+                  const data = await resp.json() as any;
+                  metrics = {
+                    cpu: data.cpu || 0,
+                    ram: data.ram || 0,
+                    temp: data.temp || 0,
+                    iops: data.iops || 0,
+                  };
+                }
+              } catch { /* metrics unavailable — use zero defaults */ }
+              activeNodes.push({
+                id: node.id,
+                name: node.name,
+                ip: node.ip,
+                hat: node.hat,
+                status: 'online',
+                metrics,
+              });
+            } else {
+              activeNodes.push({
+                id: node.id,
+                name: node.name,
+                ip: node.ip,
+                hat: node.hat,
+                status: 'offline',
+                metrics: { cpu: 0, ram: 0, temp: 0, iops: 0 },
+              });
+            }
+            resolve();
+          });
+          pingProc.on("error", () => {
+            activeNodes.push({
+              id: node.id,
+              name: node.name,
+              ip: node.ip,
+              hat: node.hat,
+              status: 'offline',
+              metrics: { cpu: 0, ram: 0, temp: 0, iops: 0 },
+            });
+            resolve();
+          });
+        });
+      });
+      await Promise.all(knownNodeChecks);
+
+      // Also scan the /24 subnet for any additional unknown nodes
+      const knownIps = new Set(['192.168.1.10', '192.168.1.11', '192.168.1.12', '127.0.0.1']);
       const scanRange = Array.from({ length: 254 }, (_, i) => i + 1);
       const PING_CONCURRENCY = 30;
       for (let batch = 0; batch < scanRange.length; batch += PING_CONCURRENCY) {
         const chunk = scanRange.slice(batch, batch + PING_CONCURRENCY);
         const pingPromises = chunk.map(i => {
           const ip = `${base}.${i}`;
+          if (knownIps.has(ip)) return Promise.resolve();
           return new Promise<void>((resolve) => {
             const pingProc = spawn("ping", ["-c", "1", "-W", "1", ip]);
             pingProc.on("close", (code) => {
-              if (code === 0 && ip !== '127.0.0.1') {
+              if (code === 0) {
                 activeNodes.push({
                   id: `n_${ip.replace(/\./g, '_')}`,
                   name: `Node-${ip}`,
@@ -734,9 +797,25 @@ async function startServer() {
     cluster: [
       { 
         id: 'n1', 
-        name: 'Pi-Alpha (Local Host)', 
-        ip: '127.0.0.1', 
+        name: 'Pi-Alpha', 
+        ip: '192.168.1.10', 
         hat: 'SSD_NVME', 
+        status: 'online', 
+        metrics: { cpu: 0, ram: 0, temp: 0, iops: 0 } 
+      },
+      { 
+        id: 'n2', 
+        name: 'Pi-Beta', 
+        ip: '192.168.1.11', 
+        hat: 'SSD_NVME', 
+        status: 'online', 
+        metrics: { cpu: 0, ram: 0, temp: 0, iops: 0 } 
+      },
+      { 
+        id: 'n3', 
+        name: 'Pi-Sigma', 
+        ip: '192.168.1.12', 
+        hat: 'AI_NPU', 
         status: 'online', 
         metrics: { cpu: 0, ram: 0, temp: 0, iops: 0 } 
       }
