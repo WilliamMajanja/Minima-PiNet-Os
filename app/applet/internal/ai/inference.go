@@ -22,7 +22,11 @@ func RunModel(model string) {
 		Stream: false,
 	}
 	
-	jsonData, _ := json.Marshal(reqBody)
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		fmt.Printf("Failed to marshal request: %v\n", err)
+		return
+	}
 	
 	resp, err := http.Post("http://localhost:11434/api/generate", "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {

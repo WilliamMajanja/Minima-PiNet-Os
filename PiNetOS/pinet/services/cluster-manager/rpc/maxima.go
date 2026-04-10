@@ -102,7 +102,11 @@ func (c *MaximaClient) Send(to string, data interface{}) error {
 		return fmt.Errorf("maxima send rejected: %s", result.Error)
 	}
 
-	log.Printf("[Maxima] Message sent to %s (app: %s)", to[:16]+"...", c.application)
+	truncated := to
+	if len(to) > 16 {
+		truncated = to[:16] + "..."
+	}
+	log.Printf("[Maxima] Message sent to %s (app: %s)", truncated, c.application)
 	return nil
 }
 
