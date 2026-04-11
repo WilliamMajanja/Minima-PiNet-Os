@@ -1,6 +1,6 @@
 # Kustomization — deploy the full PiNet K3s stack with a single command:
 #
-#   kubectl apply -k k8s/
+#   kubectl apply -k k3s/
 #
 # This applies all manifests in the correct order, creating namespaces first,
 # then secrets templates, workloads, networking, and security policies.

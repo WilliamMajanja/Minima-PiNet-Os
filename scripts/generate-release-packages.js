@@ -21,9 +21,9 @@ const packages = [
     targetFolder: 'docs'
   },
   {
-    source: 'k8s',
+    source: 'k3s',
     output: 'PiNetOS-K3s-Manifests.zip',
-    targetFolder: 'k8s'
+    targetFolder: 'k3s'
   }
 ];
 

@@ -88,8 +88,8 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ── Lint Kubernetes manifests ─────────────────────────────────────────────
-  lint-k8s-manifests:
-    name: Lint Kubernetes Manifests
+  lint-k3s-manifests:
+    name: Lint K3s Manifests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -100,13 +100,13 @@ jobs:
           curl -sL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz \
             | tar -xz -C /usr/local/bin kubeconform
 
-      - name: Validate k8s manifests
+      - name: Validate K3s manifests
         run: |
           kubeconform \
             -strict \
             -summary \
             -kubernetes-version 1.29.0 \
-            k8s/*.yaml zedd-weather/zedd-weather-deployment.yaml
+            k3s/*.yaml zedd-weather/zedd-weather-deployment.yaml
 
   # ── Shell script static analysis ─────────────────────────────────────────
   shellcheck:

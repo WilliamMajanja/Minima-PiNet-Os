@@ -121,7 +121,7 @@ spec:
   storageClassName: local-path
 ---
 # BEFORE APPLYING: create open-webui-secret first.
-# See k8s/open-webui-secret.yaml.template for instructions.
+# See k3s/open-webui-secret.yaml.template for instructions.
 apiVersion: v1
 kind: Service
 metadata:

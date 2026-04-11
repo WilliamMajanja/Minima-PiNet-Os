@@ -163,7 +163,7 @@ case "$ACTION" in
     install_k3s_server
     label_node "pinet-alpha"
     log "Bootstrap complete.  Apply Kubernetes manifests with:"
-    log "  kubectl apply -f k8s/"
+    log "  kubectl apply -f k3s/"
     ;;
   agent)
     apply_pi_optimisations
