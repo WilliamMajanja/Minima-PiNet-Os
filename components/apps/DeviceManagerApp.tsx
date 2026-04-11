@@ -12,9 +12,9 @@ const DeviceManagerApp: React.FC = () => {
   const [selectedDevice, setSelectedDevice] = useState<any>(null);
 
   const fetchAll = () => {
-    fetch(getApiUrl('/api/devices')).then(r => r.json()).then(d => { setDevices(d.devices ?? []); setTree(d.tree ?? {}); setStats(d.stats ?? {}); }).catch(() => {});
-    fetch(getApiUrl('/api/devices/rules/list')).then(r => r.json()).then(d => setRules(d.rules ?? [])).catch(() => {});
-    fetch(getApiUrl('/api/devices/events/recent')).then(r => r.json()).then(d => setEvents(d.events ?? [])).catch(() => {});
+    fetch(getApiUrl('/api/devices')).then(r => r.json()).then(d => { setDevices(d.devices ?? []); setTree(d.tree ?? {}); setStats(d.stats ?? {}); }).catch(() => { /* Device API unavailable */ });
+    fetch(getApiUrl('/api/devices/rules/list')).then(r => r.json()).then(d => setRules(d.rules ?? [])).catch(() => { /* Device API unavailable */ });
+    fetch(getApiUrl('/api/devices/events/recent')).then(r => r.json()).then(d => setEvents(d.events ?? [])).catch(() => { /* Device API unavailable */ });
   };
 
   useEffect(() => { fetchAll(); const i = setInterval(fetchAll, 5000); return () => clearInterval(i); }, []);

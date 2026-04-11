@@ -16,8 +16,8 @@ const PowerManagerApp: React.FC = () => {
       setWatchdog(d.watchdog);
       setScheduledShutdown(d.scheduledShutdown);
       setGovernors(d.governors ?? []);
-    }).catch(() => {});
-    fetch(getApiUrl('/api/kernel/services')).then(r => r.json()).then(d => setServices(d.services ?? [])).catch(() => {});
+    }).catch(() => { /* Power API unavailable */ });
+    fetch(getApiUrl('/api/kernel/services')).then(r => r.json()).then(d => setServices(d.services ?? [])).catch(() => { /* Services API unavailable */ });
   };
 
   useEffect(() => { fetchAll(); const i = setInterval(fetchAll, 3000); return () => clearInterval(i); }, []);

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { ClusterNode } from '../../types';
 import { clusterService } from '../../services/clusterService';
+import { getApiUrl } from '../../utils/api';
 
 interface ClusterManagerAppProps {
   nodes: ClusterNode[];
@@ -16,8 +17,12 @@ const ClusterManagerApp: React.FC<ClusterManagerAppProps> = ({ nodes }) => {
   };
 
   const toggleBroadcast = () => {
-    setIsBroadcasting(!isBroadcasting);
-    // Real discovery logic would happen on the backend
+    const newState = !isBroadcasting;
+    setIsBroadcasting(newState);
+    if (newState) {
+      fetch(getApiUrl('/api/cluster/discover'), { method: 'POST' })
+        .catch(() => { setIsBroadcasting(false); });
+    }
   };
 
   return (

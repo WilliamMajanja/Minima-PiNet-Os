@@ -34,12 +34,12 @@ const LogViewerApp: React.FC = () => {
     fetch(getApiUrl(`/api/syslog?${params.toString()}`))
       .then(r => r.json())
       .then(d => setLogs(d.logs ?? []))
-      .catch(() => {});
+      .catch(() => { /* Syslog API unavailable */ });
   };
 
   const fetchMeta = () => {
-    fetch(getApiUrl('/api/syslog/stats')).then(r => r.json()).then(d => setStats(d)).catch(() => {});
-    fetch(getApiUrl('/api/syslog/processes')).then(r => r.json()).then(d => setProcesses(d.processes ?? [])).catch(() => {});
+    fetch(getApiUrl('/api/syslog/stats')).then(r => r.json()).then(d => setStats(d)).catch(() => { /* Syslog API unavailable */ });
+    fetch(getApiUrl('/api/syslog/processes')).then(r => r.json()).then(d => setProcesses(d.processes ?? [])).catch(() => { /* Syslog API unavailable */ });
   };
 
   useEffect(() => { fetchLogs(); fetchMeta(); const i = setInterval(fetchLogs, 2000); const j = setInterval(fetchMeta, 10000); return () => { clearInterval(i); clearInterval(j); }; }, [filter, paused]);

@@ -1,77 +1,15 @@
 {
   "minima": {
-    "balance": 1250.45,
-    "blockHeight": 1245773,
-    "status": "Synced",
-    "peers": 14,
-    "transactions": [
-      {
-        "id": 1,
-        "type": "Received",
-        "amount": "+42.50 MIN",
-        "date": "2024-05-20",
-        "status": "Confirmed"
-      },
-      {
-        "id": 2,
-        "type": "Sent",
-        "amount": "-10.00 MIN",
-        "date": "2024-05-18",
-        "status": "Confirmed"
-      },
-      {
-        "id": 3,
-        "type": "Staking Reward",
-        "amount": "+0.15 MIN",
-        "date": "2024-05-17",
-        "status": "Confirmed"
-      }
-    ]
+    "balance": 0,
+    "blockHeight": 0,
+    "status": "Not Connected",
+    "peers": 0,
+    "transactions": []
   },
-  "cluster": [
-    {
-      "id": "n1",
-      "name": "Pi-Alpha",
-      "ip": "192.168.1.10",
-      "hat": "SSD_NVME",
-      "status": "online",
-      "metrics": {
-        "cpu": 0,
-        "ram": 0,
-        "temp": 0,
-        "iops": 0
-      }
-    },
-    {
-      "id": "n2",
-      "name": "Pi-Beta",
-      "ip": "192.168.1.11",
-      "hat": "SSD_NVME",
-      "status": "online",
-      "metrics": {
-        "cpu": 0,
-        "ram": 0,
-        "temp": 0,
-        "iops": 0
-      }
-    },
-    {
-      "id": "n3",
-      "name": "Pi-Sigma",
-      "ip": "192.168.1.12",
-      "hat": "AI_NPU",
-      "status": "online",
-      "metrics": {
-        "cpu": 0,
-        "ram": 0,
-        "temp": 0,
-        "iops": 0
-      }
-    }
-  ],
+  "cluster": [],
   "settings": {
     "wallpaper": "carbon",
-    "nodeAlias": "Pi-Alpha-Node",
+    "nodeAlias": "",
     "torEnabled": false
   }
 }

@@ -15,8 +15,22 @@ Thumbs.db
 *.swp
 *.swo
 
-# Release artifacts (generated during CI)
+# Release artifacts (generated during CI — do not commit)
 PiNetOS-RaspberryPi-Package-*.zip
+PiNetOS-RaspberryPi.img
+PiNetOS-Enterprise.zip
+PiNetOS-Electron-Desktop.zip
+PiNetOS-Build-System.zip
+PiNetOS-Documentation.zip
+PiNetOS-K3s-Manifests.zip
+Minima-PiNet-Os-Full.zip
+Minima-PiNet-Os-v*.zip
+Minima-PiNet-Os-v*.tar.gz
+pinet-cluster-update.tar.zst
+SHA256SUMS.txt
+
+# Ad-hoc test/debug scripts
+test-*.js
 
 # Logs
 *.log

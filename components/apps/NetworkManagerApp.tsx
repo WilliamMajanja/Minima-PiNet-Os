@@ -12,11 +12,11 @@ const NetworkManagerApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'interfaces' | 'routes' | 'firewall' | 'dns' | 'vpn'>('interfaces');
 
   const fetchAll = () => {
-    fetch(getApiUrl('/api/network/interfaces')).then(r => r.json()).then(d => { setInterfaces(d.interfaces ?? []); setStats(d.stats ?? {}); }).catch(() => {});
-    fetch(getApiUrl('/api/network/routes')).then(r => r.json()).then(d => setRoutes(d.routes ?? [])).catch(() => {});
-    fetch(getApiUrl('/api/network/firewall')).then(r => r.json()).then(d => setFirewallRules(d.rules ?? [])).catch(() => {});
-    fetch(getApiUrl('/api/network/dns')).then(r => r.json()).then(d => setDns(d)).catch(() => {});
-    fetch(getApiUrl('/api/network/wireguard')).then(r => r.json()).then(d => setWireguard(d.interfaces ?? [])).catch(() => {});
+    fetch(getApiUrl('/api/network/interfaces')).then(r => r.json()).then(d => { setInterfaces(d.interfaces ?? []); setStats(d.stats ?? {}); }).catch(() => { /* Network API unavailable */ });
+    fetch(getApiUrl('/api/network/routes')).then(r => r.json()).then(d => setRoutes(d.routes ?? [])).catch(() => { /* Network API unavailable */ });
+    fetch(getApiUrl('/api/network/firewall')).then(r => r.json()).then(d => setFirewallRules(d.rules ?? [])).catch(() => { /* Network API unavailable */ });
+    fetch(getApiUrl('/api/network/dns')).then(r => r.json()).then(d => setDns(d)).catch(() => { /* Network API unavailable */ });
+    fetch(getApiUrl('/api/network/wireguard')).then(r => r.json()).then(d => setWireguard(d.interfaces ?? [])).catch(() => { /* Network API unavailable */ });
   };
 
   useEffect(() => { fetchAll(); const i = setInterval(fetchAll, 5000); return () => clearInterval(i); }, []);
