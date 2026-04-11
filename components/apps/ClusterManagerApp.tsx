@@ -21,7 +21,7 @@ const ClusterManagerApp: React.FC<ClusterManagerAppProps> = ({ nodes }) => {
     setIsBroadcasting(newState);
     if (newState) {
       fetch(getApiUrl('/api/cluster/discover'), { method: 'POST' })
-        .catch(() => { /* Cluster API unavailable */ });
+        .catch(() => { setIsBroadcasting(false); });
     }
   };
 
