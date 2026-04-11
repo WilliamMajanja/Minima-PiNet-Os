@@ -93,6 +93,8 @@ create_user() {
     else
         useradd -m -s /bin/bash -G sudo,video,audio,plugdev,netdev pi
         echo "pi:pinet" | chpasswd
+        # Force password change on first interactive login
+        chage -d 0 pi 2>/dev/null || true
         mkdir -p /etc/sudoers.d
         echo "pi ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/010_pi-nopasswd
         chmod 0440 /etc/sudoers.d/010_pi-nopasswd
