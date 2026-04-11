@@ -122,7 +122,7 @@ On the first boot, PiNetOS will:
 
 | Component | Minimum | Recommended |
 | :--- | :--- | :--- |
-| Platform | Raspberry Pi 4 (4 GB) | **Raspberry Pi 5 (8 GB)** |
+| Platform | Raspberry Pi 4 (4 GB) | **Raspberry Pi 5 (16 GB)** |
 | AI Accelerator | ARM NEON (CPU) | **Hailo-8L NPU (13 TOPS)** |
 | Storage | 16 GB MicroSD | 128 GB NVMe SSD (PCIe Gen 3) |
 | Network | Gigabit Ethernet | Gigabit Ethernet + WireGuard mesh |

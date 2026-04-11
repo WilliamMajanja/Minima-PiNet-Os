@@ -84,7 +84,7 @@ export const ZOMBIE_REAP_INTERVAL = 5000;     // 5s between zombie reaping
 // ─── Memory Manager ─────────────────────────────────────────────────────────
 
 export const OOM_THRESHOLD_PERCENT = 95;      // OOM killer triggers at 95% usage
-export const DEFAULT_PROCESS_MEM_LIMIT = 256 * 1024 * 1024; // 256MB default per-process
+export const DEFAULT_PROCESS_MEM_LIMIT = 512 * 1024 * 1024; // 512MB default per-process
 export const PAGE_SIZE = 4096;
 
 // ─── Scheduler ──────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 ---
 # Resource Quotas & Limit Ranges — per-namespace resource guardrails
 # Prevents runaway pods from starving the cluster during a live test.
-# Tuned for a 3-node Raspberry Pi 5 (8 GB) cluster.
+# Tuned for a 3-node Raspberry Pi 5 (16 GB) cluster (48 GB total).
 
 # =============================================================================
 # pinet-system namespace
@@ -14,12 +14,12 @@ metadata:
   namespace: pinet-system
 spec:
   hard:
-    requests.cpu: "4"
-    requests.memory: 4Gi
-    limits.cpu: "8"
-    limits.memory: 8Gi
-    pods: "30"
-    persistentvolumeclaims: "10"
+    requests.cpu: "8"
+    requests.memory: 8Gi
+    limits.cpu: "12"
+    limits.memory: 16Gi
+    pods: "50"
+    persistentvolumeclaims: "20"
 ---
 apiVersion: v1
 kind: LimitRange
@@ -31,20 +31,20 @@ spec:
     - type: Container
       default:
         cpu: 500m
-        memory: 512Mi
+        memory: 1Gi
       defaultRequest:
         cpu: 100m
-        memory: 128Mi
+        memory: 256Mi
       max:
-        cpu: "2"
-        memory: 2Gi
+        cpu: "4"
+        memory: 4Gi
       min:
         cpu: 50m
         memory: 64Mi
     - type: Pod
       max:
-        cpu: "4"
-        memory: 4Gi
+        cpu: "8"
+        memory: 8Gi
 
 # =============================================================================
 # zedd-weather namespace
@@ -57,12 +57,12 @@ metadata:
   namespace: zedd-weather
 spec:
   hard:
-    requests.cpu: "6"
-    requests.memory: 8Gi
-    limits.cpu: "8"
-    limits.memory: 8Gi
-    pods: "20"
-    persistentvolumeclaims: "10"
+    requests.cpu: "8"
+    requests.memory: 12Gi
+    limits.cpu: "12"
+    limits.memory: 16Gi
+    pods: "30"
+    persistentvolumeclaims: "20"
 ---
 apiVersion: v1
 kind: LimitRange
@@ -74,17 +74,17 @@ spec:
     - type: Container
       default:
         cpu: 500m
-        memory: 512Mi
+        memory: 1Gi
       defaultRequest:
         cpu: 100m
-        memory: 128Mi
+        memory: 256Mi
       max:
         cpu: "4"
-        memory: 4Gi
+        memory: 8Gi
       min:
         cpu: 50m
         memory: 64Mi
     - type: Pod
       max:
-        cpu: "6"
-        memory: 8Gi
+        cpu: "8"
+        memory: 12Gi

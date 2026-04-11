@@ -225,7 +225,7 @@ Tailored specifically for modern ARM-based Raspberry Pi boards.
 
 | Component | Minimum Specification | Recommended Specification |
 | :--- | :--- | :--- |
-| **Platform** | Raspberry Pi 4 Model B (4GB) | **Raspberry Pi 5 (8GB)** |
+| **Platform** | Raspberry Pi 4 Model B (4GB) | **Raspberry Pi 5 (16GB)** |
 | **AI Accelerator** | ARM NEON (CPU) | **Hailo-8L NPU (13 TOPS)** |
 | **Architecture** | ARM64 (aarch64) | ARM64 (aarch64) |
 | **Storage** | 16GB High-Endurance MicroSD | 128GB NVMe SSD (via PCIe Gen 3) |

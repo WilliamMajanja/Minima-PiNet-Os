@@ -16,7 +16,7 @@ This document outlines the operational, security, and ethical policies governing
 *   **Telemetry:** PiNet 3.0 does not collect telemetry. System logs remain local to the node unless explicitly shared by the user for debugging.
 
 ## 3. Hardware Support Policy
-*   **Primary Target:** Raspberry Pi 5 (8GB) is the reference platform for all PiNet 3.0 development.
+*   **Primary Target:** Raspberry Pi 5 (16GB) is the reference platform for all PiNet 3.0 development.
 *   **Backward Compatibility:** PiNet 3.0 maintains "Best Effort" support for Raspberry Pi 4 (4GB+). Features requiring NPU acceleration (Hailo-8L) will fall back to ARM NEON CPU inference on older hardware.
 *   **Storage:** NVMe SSDs via PCIe Gen 3 are strictly recommended for Enterprise workloads to prevent I/O bottlenecks.
 

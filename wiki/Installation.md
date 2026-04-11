@@ -8,7 +8,7 @@ Complete guide for installing Minima PiNet OS on Raspberry Pi hardware.
 
 | Component | Minimum | Recommended |
 |---|---|---|
-| **Board** | Raspberry Pi 4 (4 GB) | Raspberry Pi 5 (8 GB) |
+| **Board** | Raspberry Pi 4 (4 GB) | Raspberry Pi 5 (16 GB) |
 | **Storage** | 16 GB MicroSD (Class 10) | 128 GB+ NVMe SSD (PCIe Gen 3) |
 | **Power Supply** | USB-C 5V/3A | Official RPi 27W USB-C PSU |
 | **Display** | Micro-HDMI to HDMI cable | Micro-HDMI 2.0 (4K capable) |
