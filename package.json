@@ -23,6 +23,7 @@
     "preview": "vite preview --host",
     "lint": "tsc --noEmit",
     "release:validate-boot": "node scripts/validate-boot-config.js",
+    "release:img": "bash scripts/create-release-img.sh",
     "release:packages": "node scripts/generate-release-packages.js",
     "deploy": "npm install && npm run build && npm run preview",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && tsc -p electron && electron .\"",
