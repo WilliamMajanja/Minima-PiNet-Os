@@ -197,7 +197,7 @@ export class GpioController {
 
   async shutdown(): Promise<void> {
     for (const pin of this.exportedPins) {
-      await this.unexport(pin).catch(() => {});
+      await this.unexport(pin).catch(() => { /* Best-effort cleanup on shutdown */ });
     }
   }
 

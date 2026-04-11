@@ -27,11 +27,11 @@ const ProcessManagerApp: React.FC = () => {
     fetch(getApiUrl(`/api/kernel/processes/top?sort=${sortBy === 'memory' ? 'memory' : 'cpu'}&limit=50`))
       .then(res => res.json())
       .then(data => { setProcesses(data.processes ?? []); })
-      .catch(() => {});
+      .catch(() => { /* Process API unavailable */ });
     fetch(getApiUrl('/api/kernel/processes'))
       .then(res => res.json())
       .then(data => { setProcessCount(data.count ?? {}); })
-      .catch(() => {});
+      .catch(() => { /* Process API unavailable */ });
   };
 
   useEffect(() => {

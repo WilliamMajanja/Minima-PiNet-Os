@@ -2,22 +2,92 @@
 import React, { useState, useEffect } from 'react';
 import { getApiUrl } from '../../utils/api';
 
+interface SecurityDashboard {
+  threatLevel: string;
+  openThreats: number;
+  failedLogins24h: number;
+  policyCount: number;
+  firewallActive: boolean;
+  vpnActive: boolean;
+  auditingEnabled: boolean;
+  integrityStatus: string;
+}
+
+interface SecurityPolicy {
+  id: string;
+  name: string;
+  mode: string;
+  enabled: boolean;
+  description: string;
+  rules?: unknown[];
+}
+
+interface AuditEvent {
+  id: string;
+  timestamp: number;
+  result: string;
+  type: string;
+  message: string;
+}
+
+interface SecurityProfile {
+  name: string;
+  pid?: number;
+  seccompFilter: string;
+  capabilities: string[];
+  noNewPrivileges: boolean;
+  readOnlyPaths?: string[];
+}
+
+interface IntegrityResult {
+  valid: boolean;
+  path: string;
+  algorithm: string;
+  expectedHash?: string;
+}
+
+interface IntegrityReport {
+  valid: boolean;
+  results: IntegrityResult[];
+}
+
+interface Threat {
+  id: string;
+  level: string;
+  category: string;
+  mitigated: boolean;
+  description: string;
+  timestamp: number;
+}
+
 const SecurityCenterApp: React.FC = () => {
-  const [dashboard, setDashboard] = useState<any>(null);
-  const [policies, setPolicies] = useState<any[]>([]);
-  const [audit, setAudit] = useState<any[]>([]);
-  const [profiles, setProfiles] = useState<any[]>([]);
-  const [threats, setThreats] = useState<any[]>([]);
-  const [integrity, setIntegrity] = useState<any>(null);
+  const [dashboard, setDashboard] = useState<SecurityDashboard | null>(null);
+  const [policies, setPolicies] = useState<SecurityPolicy[]>([]);
+  const [audit, setAudit] = useState<AuditEvent[]>([]);
+  const [profiles, setProfiles] = useState<SecurityProfile[]>([]);
+  const [threats, setThreats] = useState<Threat[]>([]);
+  const [integrity, setIntegrity] = useState<IntegrityReport | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'policies' | 'audit' | 'profiles' | 'integrity' | 'threats'>('overview');
 
   const fetchAll = () => {
-    fetch(getApiUrl('/api/security/dashboard')).then(r => r.json()).then(d => setDashboard(d)).catch(() => {});
-    fetch(getApiUrl('/api/security/policies')).then(r => r.json()).then(d => setPolicies(d.policies ?? [])).catch(() => {});
-    fetch(getApiUrl('/api/security/audit?limit=50')).then(r => r.json()).then(d => setAudit(d.events ?? [])).catch(() => {});
-    fetch(getApiUrl('/api/security/profiles')).then(r => r.json()).then(d => setProfiles(d.profiles ?? [])).catch(() => {});
-    fetch(getApiUrl('/api/security/threats')).then(r => r.json()).then(d => setThreats(d.threats ?? [])).catch(() => {});
-    fetch(getApiUrl('/api/security/integrity')).then(r => r.json()).then(d => setIntegrity(d)).catch(() => {});
+    fetch(getApiUrl('/api/security/dashboard')).then(r => r.json()).then(d => setDashboard(d)).catch(() => { /* Security API unavailable */ });
+    fetch(getApiUrl('/api/security/policies')).then(r => r.json()).then(d => setPolicies(d.policies ?? [])).catch(() => { /* Security API unavailable */ });
+    fetch(getApiUrl('/api/security/audit?limit=50')).then(r => r.json()).then(d => setAudit(d.events ?? [])).catch(() => { /* Security API unavailable */ });
+    fetch(getApiUrl('/api/security/profiles')).then(r => r.json()).then(d => setProfiles(d.profiles ?? [])).catch(() => { /* Security API unavailable */ });
+    fetch(getApiUrl('/api/security/threats')).then(r => r.json()).then(d => setThreats(d.threats ?? [])).catch(() => { /* Security API unavailable */ });
+    fetch(getApiUrl('/api/security/integrity')).then(r => r.json()).then(d => setIntegrity(d)).catch(() => { /* Security API unavailable */ });
+  };
+
+  const runIntegrityCheck = () => {
+    fetch(getApiUrl('/api/security/integrity'))
+      .then(r => r.json())
+      .then(d => { setIntegrity(d); setActiveTab('integrity'); })
+      .catch(() => { /* Integrity check unavailable */ });
+  };
+
+  const generateSecurityReport = () => {
+    fetchAll();
+    setActiveTab('overview');
   };
 
   useEffect(() => { fetchAll(); const i = setInterval(fetchAll, 10000); return () => clearInterval(i); }, []);
@@ -79,8 +149,8 @@ const SecurityCenterApp: React.FC = () => {
               <div className="p-4 rounded-2xl border border-white/5 bg-black/20 space-y-2">
                 <h3 className="text-sm font-bold text-white">Quick Actions</h3>
                 <button className="w-full px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 rounded-xl text-xs text-left transition-all" onClick={fetchAll}>🔄 Refresh Security Status</button>
-                <button className="w-full px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 rounded-xl text-xs text-left transition-all">🔍 Run Integrity Check</button>
-                <button className="w-full px-3 py-2 bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-300 rounded-xl text-xs text-left transition-all">📊 Generate Security Report</button>
+                <button className="w-full px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 rounded-xl text-xs text-left transition-all" onClick={runIntegrityCheck}>🔍 Run Integrity Check</button>
+                <button className="w-full px-3 py-2 bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-300 rounded-xl text-xs text-left transition-all" onClick={generateSecurityReport}>📊 Generate Security Report</button>
               </div>
             </div>
           </div>
@@ -89,7 +159,7 @@ const SecurityCenterApp: React.FC = () => {
         {activeTab === 'policies' && (
           <div className="space-y-4">
             <h1 className="text-lg font-bold text-white uppercase tracking-tight">Security Policies</h1>
-            {policies.map((p: any) => (
+            {policies.map((p: SecurityPolicy) => (
               <div key={p.id} className="p-4 rounded-2xl border border-white/5 bg-black/20">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
@@ -109,7 +179,7 @@ const SecurityCenterApp: React.FC = () => {
           <div className="space-y-4">
             <h1 className="text-lg font-bold text-white uppercase tracking-tight">Audit Log</h1>
             <div className="space-y-1">
-              {audit.map((e: any) => (
+              {audit.map((e: AuditEvent) => (
                 <div key={e.id} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 text-xs">
                   <span className="text-slate-600 font-mono w-36 flex-shrink-0">{new Date(e.timestamp).toLocaleString()}</span>
                   <span className={`w-16 font-bold ${e.result === 'success' ? 'text-emerald-400' : e.result === 'denied' ? 'text-red-400' : 'text-yellow-400'}`}>{e.result}</span>
@@ -124,7 +194,7 @@ const SecurityCenterApp: React.FC = () => {
         {activeTab === 'profiles' && (
           <div className="space-y-4">
             <h1 className="text-lg font-bold text-white uppercase tracking-tight">Security Profiles</h1>
-            {profiles.map((p: any) => (
+            {profiles.map((p: SecurityProfile) => (
               <div key={p.name} className="p-4 rounded-2xl border border-white/5 bg-black/20">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-white font-bold text-sm">{p.name}</span>
@@ -150,7 +220,7 @@ const SecurityCenterApp: React.FC = () => {
               <div className="text-lg font-bold">{integrity.valid ? '✅ System Integrity Valid' : '❌ Integrity Compromised'}</div>
             </div>
             <div className="space-y-2">
-              {(integrity.results ?? []).map((r: any, i: number) => (
+              {(integrity.results ?? []).map((r: IntegrityResult, i: number) => (
                 <div key={i} className="flex items-center gap-3 p-3 rounded-xl border border-white/5 bg-black/20 text-xs">
                   <span>{r.valid ? '✅' : '❌'}</span>
                   <span className="text-white font-mono flex-1">{r.path}</span>
@@ -171,7 +241,7 @@ const SecurityCenterApp: React.FC = () => {
                 <div className="text-sm">No threats detected</div>
               </div>
             ) : (
-              threats.map((t: any) => (
+              threats.map((t: Threat) => (
                 <div key={t.id} className={`p-4 rounded-2xl border border-white/5 bg-black/20`}>
                   <div className="flex items-center gap-2 mb-1">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${threatColor(t.level)}`}>{t.level}</span>

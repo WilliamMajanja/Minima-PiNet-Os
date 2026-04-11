@@ -1,1 +1,0 @@
-Due to container environment limitations (requires root, loop devices, and qemu-user-static), the full 4GB Raspberry Pi OS image cannot be generated here. Please download PiNetOS-Build-System.zip and run 'sudo ./build-all.sh' on a Linux machine to generate the actual PiNetOS-RaspberryPi.img file.

@@ -3,18 +3,38 @@ import React, { useEffect, useState } from 'react';
 import { SystemStats } from '../../types';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { getApiUrl } from '../../utils/api';
+import { THERMAL_WARNING, THERMAL_CRITICAL } from '../../config/defaults';
 
-// Pi 5 thermal thresholds
-const THERMAL_WARNING = 80;
-const THERMAL_CRITICAL = 85;
+interface PiNet2Status {
+  lxcStatus: string;
+  resourcePriority: string;
+  aiAcceleration: string;
+  healthStatus: string;
+  lastHealthCheck: number | null;
+  systemHash: string | null;
+}
+
+interface ClusterNodeMetric {
+  nodeId: string;
+  hostname?: string;
+  status: string;
+  metrics?: { cpu: number; ram: number; temp: number };
+}
+
+interface HistoryEntry {
+  time: number;
+  cpu: number;
+  ram: number;
+  temp: number;
+}
 
 interface SystemMonitorAppProps {
   stats: SystemStats;
 }
 
 const SystemMonitorApp: React.FC<SystemMonitorAppProps> = ({ stats }) => {
-  const [realStats, setRealStats] = useState<any>(null);
-  const [pinet2Status, setPinet2Status] = useState<any>({
+  const [realStats, setRealStats] = useState<{ cpuUsage: number; freeMem: number; totalMem: number } | null>(null);
+  const [pinet2Status, setPinet2Status] = useState<PiNet2Status>({
     lxcStatus: 'uninitialized',
     resourcePriority: 'host',
     aiAcceleration: 'detecting',
@@ -22,13 +42,13 @@ const SystemMonitorApp: React.FC<SystemMonitorAppProps> = ({ stats }) => {
     lastHealthCheck: null,
     systemHash: null
   });
-  const [clusterMetrics, setClusterMetrics] = useState<any[]>([]);
+  const [clusterMetrics, setClusterMetrics] = useState<ClusterNodeMetric[]>([]);
 
   const fetchPinet2Status = () => {
     fetch(getApiUrl('/api/pinet2/status'))
       .then(res => res.json())
       .then(data => setPinet2Status(data))
-      .catch(err => console.error("Failed to load PiNet 2.0 status", err));
+      .catch(() => { /* PiNet 2.0 status endpoint unavailable */ });
   };
 
   const fetchClusterMetrics = () => {
@@ -39,12 +59,12 @@ const SystemMonitorApp: React.FC<SystemMonitorAppProps> = ({ stats }) => {
           setClusterMetrics(data.nodes);
         }
       })
-      .catch(() => {});
+      .catch(() => { /* Cluster state unavailable */ });
   };
 
   if (!stats) return null;
 
-  const [history, setHistory] = useState<any[]>([]);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -194,7 +214,7 @@ const SystemMonitorApp: React.FC<SystemMonitorAppProps> = ({ stats }) => {
         <div className="space-y-4">
           <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-widest">Cluster Node Metrics</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {clusterMetrics.map((node: any) => (
+            {clusterMetrics.map((node: ClusterNodeMetric) => (
               <div key={node.nodeId} className="glass p-4 rounded-xl border border-white/5">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-[10px] font-bold text-white truncate">{node.hostname || node.nodeId}</span>
@@ -214,8 +234,16 @@ const SystemMonitorApp: React.FC<SystemMonitorAppProps> = ({ stats }) => {
   );
 };
 
-const StatusCard = ({ title, value, subValue, color, icon }: any) => {
-    const colorClasses: any = {
+interface StatusCardProps {
+  title: string;
+  value: string;
+  subValue: string;
+  color: 'blue' | 'pink' | 'emerald';
+  icon: React.ReactNode;
+}
+
+const StatusCard: React.FC<StatusCardProps> = ({ title, value, subValue, color, icon }) => {
+    const colorClasses: Record<string, string> = {
         blue: 'text-blue-400 border-blue-500/20 bg-blue-500/5',
         pink: 'text-pink-400 border-pink-500/20 bg-pink-500/5',
         emerald: 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5'

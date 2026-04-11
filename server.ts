@@ -894,7 +894,7 @@ async function startServer() {
         return res.json(realStatus);
       }
     } catch (e) {
-      // Fallback to state if Minima is not running
+      // Minima RPC unavailable — fall back to last known state
     }
     res.json(pinetState.minima);
   });
@@ -915,32 +915,14 @@ async function startServer() {
         return res.json(data);
       }
     } catch (e) {
-      // Fallback to state if Minima is not running
+      // Minima RPC unavailable
     }
 
-    // Real logic for some commands (fallback)
+    // Minima RPC is unavailable — return cached state for read-only commands
     if (command === "status") {
       res.json({ status: true, response: pinetState.minima });
-    } else if (command.startsWith("send")) {
-      // send to:xxx amount:yyy
-      const amountMatch = command.match(/amount:([\d.]+)/);
-      const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
-      if (amount > 0 && amount <= pinetState.minima.balance) {
-        pinetState.minima.balance -= amount;
-        pinetState.minima.transactions.unshift({
-          id: Date.now(),
-          type: 'Sent',
-          amount: `-${amount.toFixed(2)} MIN`,
-          date: new Date().toISOString().split('T')[0],
-          status: 'Confirmed'
-        });
-        saveState();
-        res.json({ status: true, response: { message: "Transaction sent" } });
-      } else {
-        res.json({ status: false, error: "Insufficient balance" });
-      }
     } else {
-      res.json({ status: true, response: { message: "Command executed" } });
+      res.status(503).json({ status: false, error: "Minima node is not reachable" });
     }
   });
 
@@ -1417,7 +1399,7 @@ async function startServer() {
       // Fallback
     }
 
-    res.json({ status: true, delivered: true }); // Optimistic fallback
+    res.status(503).json({ status: false, delivered: false, error: "Maxima RPC is not reachable" });
   });
 
   app.get("/api/maxima/messages", async (req, res) => {

@@ -48,7 +48,7 @@ const UserManagerApp: React.FC = () => {
         setGroups(data.groups ?? []);
         setSessions(data.sessions ?? []);
       })
-      .catch(() => {});
+      .catch(() => { /* User API unavailable */ });
   };
 
   useEffect(() => {
