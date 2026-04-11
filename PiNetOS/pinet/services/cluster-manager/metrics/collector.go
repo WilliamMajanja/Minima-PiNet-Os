@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"log"
 	"os"
 	"runtime"
 	"strconv"

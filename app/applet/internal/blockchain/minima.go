@@ -31,7 +31,7 @@ func VerifyWorkload(workloadID string) bool {
 		return false
 	}
 	defer resp.Body.Close()
-	io.ReadAll(resp.Body) // drain body
+	io.ReadAll(resp.Body) // drain body; result intentionally discarded
 
 	if resp.StatusCode == 200 {
 		fmt.Println("Workload verified successfully.")
