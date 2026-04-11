@@ -61,7 +61,7 @@ This launches the native cross-platform desktop application alongside the dev se
 **Default credentials:** username `pinet`, password `pinet` — change immediately with `passwd`.
 
 ### Minimum Hardware
-- Raspberry Pi 5 (8 GB recommended)
+- Raspberry Pi 5 (16 GB recommended)
 - 16 GB+ MicroSD or NVMe SSD
 - Gigabit Ethernet or Wi-Fi
 

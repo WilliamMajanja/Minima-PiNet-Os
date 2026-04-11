@@ -69,11 +69,11 @@ spec:
               mountPath: /models
           resources:
             requests:
-              cpu: 500m
-              memory: 1Gi
+              cpu: "1"
+              memory: 2Gi
             limits:
               cpu: "4"
-              memory: 4Gi
+              memory: 8Gi
           livenessProbe:
             httpGet:
               path: /

@@ -10,7 +10,7 @@ This guide walks you through installing **PiNetOS** on a Raspberry Pi 5. PiNetOS
 
 | Component | Minimum | Recommended |
 |---|---|---|
-| **Board** | Raspberry Pi 5 (4GB) | Raspberry Pi 5 (8GB) |
+| **Board** | Raspberry Pi 5 (4GB) | Raspberry Pi 5 (16GB) |
 | **Storage** | 16 GB microSD (Class 10) | 128 GB NVMe SSD (via PCIe) |
 | **Power supply** | USB-C 5V/3A | Official RPi 27W USB-C PSU |
 | **Display** | micro-HDMI to HDMI cable | micro-HDMI to HDMI 2.0 (4K) |
@@ -176,7 +176,7 @@ bash tests/system/run-tests.sh --suite all
 Expected output:
 ```
 ✔ CPU: BCM2712 (Cortex-A76) detected
-✔ RAM: 8 GB (≥ 4 GB required)
+✔ RAM: 16 GB (≥ 4 GB required)
 ✔ I2C: 2 bus(es) found
 ✔ SPI: 2 device(s) found
 ✔ Thermal: CPU temperature 42°C (normal)

@@ -130,25 +130,25 @@ kubectl create secret generic open-webui-secret \
 From pinet-alpha, deploy everything with a single command using Kustomize:
 
 ```bash
-kubectl apply -k k8s/
+kubectl apply -k k3s/
 ```
 
 Or deploy individual components:
 
 ```bash
 # Core PiNet services
-kubectl apply -f k8s/minima.yaml           # Minima blockchain on all nodes
-kubectl apply -f k8s/pinet-desktop.yaml     # Web desktop UI
+kubectl apply -f k3s/minima.yaml           # Minima blockchain on all nodes
+kubectl apply -f k3s/pinet-desktop.yaml     # Web desktop UI
 
 # Zedd Weather / AI stack
-kubectl apply -f k8s/influxdb.yaml          # Time-series database
-kubectl apply -f k8s/grafana.yaml           # Visualization dashboard
-kubectl apply -f k8s/ollama.yaml            # LLM inference engine (on sigma)
-kubectl apply -f k8s/open-webui.yaml        # AI chat interface
+kubectl apply -f k3s/influxdb.yaml          # Time-series database
+kubectl apply -f k3s/grafana.yaml           # Visualization dashboard
+kubectl apply -f k3s/ollama.yaml            # LLM inference engine (on sigma)
+kubectl apply -f k3s/open-webui.yaml        # AI chat interface
 
 # Networking & security
-kubectl apply -f k8s/ingress.yaml           # HTTP ingress routes
-kubectl apply -f k8s/network-policy.yaml    # Zero-trust network policies
+kubectl apply -f k3s/ingress.yaml           # HTTP ingress routes
+kubectl apply -f k3s/network-policy.yaml    # Zero-trust network policies
 ```
 
 Verify all pods are running:
@@ -224,7 +224,7 @@ and apply:
 
 ```bash
 unzip PiNetOS-K3s-Manifests.zip
-kubectl apply -k k8s/
+kubectl apply -k k3s/
 ```
 
 ## Troubleshooting

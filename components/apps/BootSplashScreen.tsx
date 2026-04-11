@@ -125,7 +125,7 @@ const BootSplashScreen: React.FC<BootSplashScreenProps> = ({ onComplete }) => {
         </div>
 
         <div className="flex justify-between items-center text-[9px] font-bold text-slate-600 uppercase tracking-widest">
-          <span>AARCH64 (v8.1) • 8GB RAM • BCM2712</span>
+          <span>AARCH64 (v8.1) • 16GB RAM • BCM2712</span>
           <span>© 2026 MINIMA GLOBAL</span>
         </div>
       </div>

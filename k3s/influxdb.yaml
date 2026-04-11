@@ -9,7 +9,7 @@
 #     --namespace zedd-weather \
 #     --from-literal=admin-token=<strong-token> \
 #     --from-literal=admin-password=<strong-password>
-# See k8s/influxdb-secret.yaml.template for details.
+# See k3s/influxdb-secret.yaml.template for details.
 apiVersion: v1
 kind: Namespace
 metadata:

@@ -6,8 +6,8 @@
 # ===========================================================================
 # MEMORY SPLIT
 # ===========================================================================
-# Reserve 256 MB for VideoCore GPU (needed for dual HDMI @ 4K)
-gpu_mem=256
+# Reserve 512 MB for VideoCore GPU (16 GB model — headroom for dual HDMI @ 4K)
+gpu_mem=512
 
 # ===========================================================================
 # KERNEL SELECTION
