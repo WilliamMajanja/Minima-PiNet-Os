@@ -28,6 +28,7 @@ Minima-PiNet-Os-v*.zip
 Minima-PiNet-Os-v*.tar.gz
 pinet-cluster-update.tar.zst
 SHA256SUMS.txt
+rootfs-overlay/
 
 # Ad-hoc test/debug scripts
 test-*.js

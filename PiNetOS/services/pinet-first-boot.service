@@ -1,0 +1,19 @@
+[Unit]
+Description=PiNetOS First-Boot Provisioning
+Documentation=https://github.com/WilliamMajanja/Minima-PiNet-Os
+After=local-fs.target
+Before=network.target minima.service pinet-desktop.service
+ConditionPathExists=!/var/lib/pinetos/.first-boot-done
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/bash /opt/pinet/scripts/pinet-first-boot.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pinet-first-boot
+TimeoutStartSec=300
+
+[Install]
+WantedBy=sysinit.target

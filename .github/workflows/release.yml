@@ -54,8 +54,11 @@ jobs:
 
           ls -lh "${ARCHIVE_BASE}.zip" "${ARCHIVE_BASE}.tar.gz"
 
+      - name: Build web desktop
+        run: npm run build
+
       - name: Install system dependencies
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq mtools
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq mtools e2fsprogs
 
       - name: Generate Raspberry Pi disk image
         run: bash scripts/create-release-img.sh "${{ steps.version.outputs.semver }}"
