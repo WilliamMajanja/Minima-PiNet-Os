@@ -1,5 +1,7 @@
 # Minima-PiNet-OS v1.1.0
 
+<!-- Release: v1.1.0 | Tagged: 2026-04-17 -->
+
 > **Version 1.1.0 Release** — A stable, feature-complete release of the PiNet Enterprise Stack with security hardening, desktop OS experience, DApp platform, and Raspberry Pi image generation.
 
 We are proud to announce **Minima-PiNet-OS v1.1.0**, delivering significant security hardening, a full-featured desktop OS experience, a next-generation DApp platform, and comprehensive dependency updates.
