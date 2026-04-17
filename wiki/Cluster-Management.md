@@ -80,7 +80,7 @@ Worker requests to join the cluster.
     "ip": "192.168.1.11",
     "hat": "AI_NPU",
     "capabilities": ["inference", "storage"],
-    "version": "3.0.0"
+    "version": "1.1.0"
   }
 }
 ```

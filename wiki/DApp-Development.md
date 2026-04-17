@@ -61,7 +61,7 @@ Every DApp requires a `manifest.json`:
   "entry": "index.html",
   "permissions": ["system.read", "wallet.read"],
   "icon": "icon.png",
-  "minPinetVersion": "3.0.0",
+  "minPinetVersion": "1.1.0",
   "repository": "https://github.com/user/repo",
   "license": "MIT"
 }
@@ -151,7 +151,7 @@ const stats = await PiNet.system.getStats();
 
 // Get OS info
 const info = await PiNet.system.getInfo();
-// { name: "PiNet OS", version: "3.0.0", kernel: "6.1.0-rpi5", arch: "aarch64" }
+// { name: "PiNet OS", version: "1.1.0", kernel: "6.1.0-rpi5", arch: "aarch64" }
 ```
 
 #### Wallet

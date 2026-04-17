@@ -30,7 +30,7 @@ class SyslogService {
 
   /** Emit initial boot log messages. */
   private logBootMessages(): void {
-    this.log('kern', 'notice', 'kernel', 'PiNet-OS v3.0.0 booting on aarch64 (BCM2712)');
+    this.log('kern', 'notice', 'kernel', 'PiNet-OS v1.1.0 booting on aarch64 (BCM2712)');
     this.log('kern', 'info', 'kernel', 'Linux 6.6.y arm64 SMP PREEMPT');
     this.log('kern', 'info', 'kernel', 'Memory: 8192MB total, 256MB reserved for GPU');
     this.log('kern', 'info', 'kernel', 'CPU: 4x Cortex-A76 @ 2.4GHz');

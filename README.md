@@ -4,7 +4,7 @@
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
 ![Architecture](https://img.shields.io/badge/arch-ARM64-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Version](https://img.shields.io/badge/version-3.0.0--enterprise-blueviolet)
+![Version](https://img.shields.io/badge/version-1.1.0--enterprise-blueviolet)
 ![Security](https://img.shields.io/badge/security-Zero--Trust--Attestation-red)
 ![Virtualization](https://img.shields.io/badge/virt-LXC--Enterprise-blue)
 ![DApp Platform](https://img.shields.io/badge/DApps-Next--Gen%20%2B%20Classic-orange)

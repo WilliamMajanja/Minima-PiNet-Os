@@ -11,7 +11,7 @@ Minima blockchain network — no central API server needed.
 - **Application ID**: `pinet-cluster`
 - **Transport**: Maxima (Minima's encrypted P2P message bus)
 - **Encoding**: JSON
-- **Version**: 3.0.0
+- **Version**: 1.1.0
 
 ## Message Envelope
 
@@ -51,7 +51,7 @@ Every cluster message follows this envelope format:
   "nodeId": "pinet-pi-beta",
   "hostname": "raspberrypi-02",
   "platform": "Linux aarch64",
-  "version": "3.0.0",
+  "version": "1.1.0",
   "capabilities": ["ai-npu", "ssd-nvme"]
 }
 ```
