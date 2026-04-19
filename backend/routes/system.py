@@ -6,6 +6,7 @@ import os
 import platform
 import re
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
@@ -51,7 +52,6 @@ async def system_stats():
     except Exception:
         pass
 
-    import time
     uptime = time.time() - psutil.boot_time()
 
     return {"cpu": cpu, "ram": ram, "temp": temp, "disk": disk, "uptime": uptime}
@@ -194,10 +194,10 @@ async def switch_os(body: dict):
             "stdout": "",
             "stderr": "",
         }
-    except Exception as exc:
+    except Exception:
         return {
             "success": False,
-            "error": str(exc),
+            "error": "An unexpected error occurred during OS switch.",
             "targetOS": target_os,
             "nodeId": node_id or "localhost",
             "transport": transport,
@@ -214,7 +214,8 @@ async def switch_os(body: dict):
 @router.get("/system/scan-subnet", dependencies=[Depends(rate_limit_dependency(sys_exec_limiter))])
 async def scan_subnet(subnet: str = Query(...)):
     """ARP-style subnet scanning with ping concurrency."""
-    subnet_match = re.match(r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$", subnet.strip())
+    sanitized = subnet.strip()
+    subnet_match = re.match(r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$", sanitized)
     if not subnet_match:
         raise HTTPException(400, "Invalid subnet format")
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 import urllib.parse
 
 import httpx
@@ -23,7 +24,6 @@ async def get_contacts():
             if resp.status_code == 200:
                 data = resp.json()
                 if data.get("status") and data.get("response"):
-                    import time
                     contacts = []
                     for c in data["response"]:
                         extra = c.get("extradata") or {}
