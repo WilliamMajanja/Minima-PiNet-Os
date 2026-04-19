@@ -16,7 +16,7 @@ set -euo pipefail
 KUBECTL="${KUBECTL:-kubectl}"
 CHECK_INTERVAL="${CHECK_INTERVAL:-30}"   # seconds between health checks
 HEALTH_PORT="${HEALTH_PORT:-9191}"       # port for the HTTP health endpoint
-MAX_RESTART_ATTEMPTS=3
+MAX_RESTART_ATTEMPTS="${MAX_RESTART_ATTEMPTS:-3}"
 
 log()  { echo "[$(date '+%Y-%m-%dT%H:%M:%S')] $*"; }
 err()  { echo "[$(date '+%Y-%m-%dT%H:%M:%S')] ERROR: $*" >&2; }
@@ -155,7 +155,7 @@ while true; do
 
   check_k3s_service  || ok=false
   check_node_ready   || ok=false
-  check_system_pods  || { restart_failed_pods; ok=false; }
+  check_system_pods  || { if [[ "$failure_count" -lt "$MAX_RESTART_ATTEMPTS" ]]; then restart_failed_pods; fi; ok=false; }
   check_disk_pressure
   check_memory_pressure
 

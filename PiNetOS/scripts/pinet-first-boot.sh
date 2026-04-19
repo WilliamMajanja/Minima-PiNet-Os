@@ -36,7 +36,7 @@ log "=== PiNetOS First-Boot Provisioning ==="
 # ---- 1. Expand root filesystem ---------------------------------------------
 expand_rootfs() {
     log "[1/7] Expanding root filesystem..."
-    local ROOT_DEV ROOT_PART DISK_DEV PART_NUM
+    local ROOT_DEV DISK_DEV PART_NUM
 
     ROOT_DEV="$(findmnt -n -o SOURCE /)"
     # Resolve symlinks (e.g. /dev/mapper/* → /dev/mmcblk0p2)
