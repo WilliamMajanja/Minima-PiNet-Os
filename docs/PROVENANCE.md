@@ -21,12 +21,12 @@ Each burn transaction contains:
 ```json
 {
   "type": "pinet-provenance",
-  "version": "3.0.0",
+  "version": "1.1.0",
   "clusterId": "cluster-1711461600000-xyz789",
   "batchSize": 3,
   "events": [
     {
-      "pinetVersion": "3.0.0",
+      "pinetVersion": "1.1.0",
       "eventType": "NODE_JOIN",
       "clusterId": "cluster-1711461600000-xyz789",
       "nodeId": "pinet-pi-alpha",

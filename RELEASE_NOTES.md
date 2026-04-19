@@ -1,12 +1,14 @@
-# Minima-PiNet-OS v3.0.0 — Version 3
+# Minima-PiNet-OS v1.1.0
 
-> **Version 3 Stable Release** — A hardened, feature-complete release of the PiNet 3.0 Enterprise Stack with all stable changes applied.
+<!-- Release: v1.1.0 | Tagged: 2026-04-17 -->
 
-We are proud to announce **Minima-PiNet-OS v3.0.0**, a major release delivering significant security hardening, a full-featured desktop OS experience, a next-generation DApp platform, and comprehensive dependency updates — all built on the solid foundation of PiNet 2.0.
+> **Version 1.1.0 Release** — A stable, feature-complete release of the PiNet Enterprise Stack with security hardening, desktop OS experience, DApp platform, and Raspberry Pi image generation.
+
+We are proud to announce **Minima-PiNet-OS v1.1.0**, delivering significant security hardening, a full-featured desktop OS experience, a next-generation DApp platform, and comprehensive dependency updates.
 
 ---
 
-## What's New in v3.0.0
+## What's New in v1.1.0
 
 ### 🛡️ Security Hardening
 - **Command Injection Prevention** — Resolved all CodeQL code scanning alerts including uncontrolled command line vulnerabilities across `server.ts`, HAL modules, and OTA scripts.
@@ -16,18 +18,18 @@ We are proud to announce **Minima-PiNet-OS v3.0.0**, a major release delivering 
 - **CORS Improvements** — Improved CORS configuration with better documentation and security defaults.
 
 ### 🖥️ Full Desktop OS Experience
-- **Kernel Subsystems** — Added process manager, memory manager, scheduler, init system, and syscalls layer (`kernel/` directory).
+- **Kernel Subsystems** — Process manager, memory manager, scheduler, init system, and syscalls layer (`kernel/` directory).
 - **Core OS Services** — Singleton-pattern services with `subscribe()` observer: syslog, user management, IPC, device manager, security, network, and power services.
-- **7 Desktop Management Apps** — New system management applications integrated into the desktop: system monitor, file manager, terminal, user admin, network config, device manager, and security center.
+- **7 Desktop Management Apps** — System monitor, file manager, terminal, user admin, network config, device manager, and security center.
 - **Window Management** — Full drag, resize, maximize, and cascading window position support with per-window state tracking.
-- **Real PTY Terminal** — Replaced simulated terminal with real PTY support via `node-pty` with WebSocket resize signaling.
-- **Real System Data** — Replaced simulated data with live system stats, uptime, Minima node status, contacts, and subnet scan.
+- **Real PTY Terminal** — Real PTY support via `node-pty` with WebSocket resize signaling.
+- **Real System Data** — Live system stats, uptime, Minima node status, contacts, and subnet scan.
 - **Refined Taskbar** — Taskbar now shows only open windows; TopBar OS switcher updated for all modes.
 
 ### 📱 Next-Generation DApp Platform
 - **TypeScript DApp Interface** — Full DApp interface system supporting three kinds: `typescript`, `react-dashboard`, and `minidapp`.
 - **DApp Store** — Built-in DApp discovery and installation via `DAppStoreApp.tsx`.
-- **DApp Host Frame** — Sandboxed DApp runtime with secure bridge API for OS integration (`DAppHostFrame.tsx`, `dappBridge.ts`).
+- **DApp Host Frame** — Sandboxed DApp runtime with secure bridge API for OS integration.
 - **DApp API Endpoints** — Server-side DApp management endpoints under `/api/dapps` with rate limiting.
 - **Dynamic AppId System** — Template literal type `dapp:${string}` with `isDAppId()` and `extractDAppId()` helpers for type-safe DApp identification.
 
@@ -35,25 +37,8 @@ We are proud to announce **Minima-PiNet-OS v3.0.0**, a major release delivering 
 - **Comprehensive API Layer** — New API endpoints prefixed under `/api/kernel/`, `/api/syslog`, `/api/users`, `/api/ipc`, `/api/devices`, `/api/security`, `/api/network`, `/api/power`, and `/api/auth`.
 - **Boot Profile Switching** — OS hypervisor context switching with hardened boot-profile switch scripts.
 - **Maxima Cluster Control Plane** — Decentralized cluster coordination using Minima's encrypted P2P Maxima bus — no central API server required.
-
-### 📦 Dependency Updates
-- **Electron** — Bumped from 30.5.1 to 35.7.5.
-- **Vite & esbuild** — Updated to latest stable versions.
-- **brace-expansion** — Bumped from 2.0.2 to 2.0.3.
-- **path-to-regexp** — Bumped from 8.3.0 to 8.4.0.
-- **tar & electron-builder** — Updated to latest stable versions.
-- **google.golang.org/protobuf** — Bumped to 1.33.0 (Go modules).
-- **github.com/quic-go/quic-go** — Bumped to 0.57.0 (Go modules).
-- **golang.org/x/net** — Bumped from 0.21.0 to 0.38.0 (Go modules).
-
-### 📖 Documentation
-- **README Rewrite** — Comprehensive documentation covering next-gen DApps and classic Minima MiniDapps platform.
-- **Deployment Guide** — Updated for v3.0.0 with current instructions.
-- **Policy Updates** — Updated project policies to reflect PiNet 3.0 standards.
-
----
-
-## All v2.0.0 Features (Included)
+- **Raspberry Pi Disk Image** — Automated 256 MB flashable image generation (64 MB FAT32 boot + 192 MB ext4 rootfs) with first-boot provisioning.
+- **K3s Cluster Manifests** — Kubernetes manifests for full multi-node cluster deployment.
 
 ### 🔒 Zero-Trust Security Architecture
 - **Blockchain Remote Attestation** — System integrity hashes verified against the immutable Minima ledger on every boot.
@@ -88,10 +73,10 @@ We are proud to announce **Minima-PiNet-OS v3.0.0**, a major release delivering 
 
 | File | Description |
 | :--- | :--- |
-| `Minima-PiNet-Os-v3.0.0.zip` | Full source archive (ZIP) |
-| `Minima-PiNet-Os-v3.0.0.tar.gz` | Full source archive (TAR.GZ) |
+| `Minima-PiNet-Os-v1.1.0.zip` | Full source archive (ZIP) |
+| `Minima-PiNet-Os-v1.1.0.tar.gz` | Full source archive (TAR.GZ) |
 | `PiNetOS-RaspberryPi.img` | Flashable Raspberry Pi OS image |
-| `PiNetOS-RaspberryPi-Package-v3.0.0.zip` | Image package with flashing instructions and checksums |
+| `PiNetOS-RaspberryPi-Package-v1.1.0.zip` | Image package with flashing instructions and checksums |
 | `PiNetOS-Enterprise.zip` | Enterprise cluster management stack |
 | `PiNetOS-Electron-Desktop.zip` | Cross-platform desktop client source |
 | `PiNetOS-Build-System.zip` | Build pipeline and imager utilities |
@@ -123,15 +108,6 @@ For full setup instructions, see [docs/INSTALL.md](docs/INSTALL.md).
 
 ---
 
-## Upgrading from v2.0.0
-
-1. Back up your existing configuration: `sudo cp -r /etc/pinet /etc/pinet.bak`
-2. Flash the new v3.0.0 image or apply OTA update via the web dashboard.
-3. Your DApps and user data will be preserved during the upgrade.
-4. Review the new security settings in the Security Center app.
-
----
-
 ## Security
 
 All release artifacts are accompanied by `SHA256SUMS.txt`. Verify integrity before flashing:
@@ -145,3 +121,4 @@ Vulnerability reports: email `WilliamMajanja@gmail.com`. See [SECURITY.md](SECUR
 ---
 
 *Minima-PiNet-OS is MIT licensed. Architected by William Majanja.*
+

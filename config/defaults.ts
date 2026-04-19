@@ -65,7 +65,7 @@ export const DAPP_ALLOWED_EXTENSIONS = ['.zip', '.tar.gz', '.mds.zip'] as const;
 
 // ─── Version ─────────────────────────────────────────────────────────────────
 
-export const PINET_VERSION = '3.0.0';
+export const PINET_VERSION = '1.1.0';
 export const MINIMA_VERSION = '1.0.35';
 
 // ─── Kernel / Init System ────────────────────────────────────────────────────

@@ -14,7 +14,7 @@
   "pxe": {
     "tftp_root": "/var/lib/tftpboot",
     "nfs_root": "/export/pis",
-    "default_image": "pinetos-v3.0.0-aarch64"
+    "default_image": "pinetos-v1.1.0-aarch64"
   },
   "nodes": [
     {

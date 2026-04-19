@@ -1094,8 +1094,8 @@ async function startServer() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          tag_name: `v3.0.0-ent-${Date.now()}`,
-          name: `PiNet 3.0 Enterprise Release - ${new Date().toLocaleDateString()}`,
+          tag_name: `v1.1.0-ent-${Date.now()}`,
+          name: `PiNet 1.1.0 Enterprise Release - ${new Date().toLocaleDateString()}`,
           body: "Official Enterprise-grade, Web3-native operating system for Raspberry Pi 5 clusters. Featuring LXC virtualization, Hailo-8L NPU acceleration, and blockchain-backed remote attestation.",
           draft: false,
           prerelease: false

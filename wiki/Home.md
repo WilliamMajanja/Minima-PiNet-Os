@@ -45,7 +45,7 @@ Minima PiNet OS is a **zero-bloat Linux distribution** designed for edge computi
 
 | Property | Value |
 |---|---|
-| **Version** | 3.0.0 |
+| **Version** | 1.1.0 |
 | **Platform** | Raspberry Pi 5 (ARM64) |
 | **Blockchain** | Minima L1 |
 | **License** | MIT |
