@@ -106,6 +106,7 @@ jobs:
             -strict \
             -summary \
             -kubernetes-version 1.29.0 \
+            -ignore-filename-pattern 'kustomization.yaml' \
             k3s/*.yaml zedd-weather/zedd-weather-deployment.yaml
 
   # ── Shell script static analysis ─────────────────────────────────────────
