@@ -143,10 +143,9 @@ def create_app() -> FastAPI:
 
     @app.get("/", include_in_schema=False)
     async def index(request: Request):
-        return templates.TemplateResponse("desktop.html", {
-            "request": request,
-            "version": PINET_VERSION,
-        })
+        return templates.TemplateResponse(
+            request, "desktop.html", {"version": PINET_VERSION}
+        )
 
     # --- Global 404 for /api ---
     @app.exception_handler(404)
@@ -157,9 +156,8 @@ def create_app() -> FastAPI:
                 content={"error": "Not Found", "path": request.url.path},
             )
         # For non-API routes, serve the SPA index
-        return templates.TemplateResponse("desktop.html", {
-            "request": request,
-            "version": PINET_VERSION,
-        })
+        return templates.TemplateResponse(
+            request, "desktop.html", {"version": PINET_VERSION}
+        )
 
     return app
