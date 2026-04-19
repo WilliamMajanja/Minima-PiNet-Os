@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block head %}
+<style>
+    /* Boot splash */
+    #boot-splash {
+        position: fixed; inset: 0; z-index: 9999;
+        background: #020617;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        transition: opacity 0.5s ease;
+    }
+    #boot-splash.fade-out { opacity: 0; pointer-events: none; }
+    #boot-splash .logo { font-size: 2rem; font-weight: 700; color: #f8fafc; margin-bottom: 1rem; }
+    #boot-splash .logo span { color: #ec4899; }
+    #boot-splash .progress-bar { width: 200px; height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
+    #boot-splash .progress-fill { height: 100%; background: linear-gradient(90deg, #ec4899, #8b5cf6); width: 0%; transition: width 0.3s ease; }
+    #boot-splash .status { color: #64748b; font-size: 0.75rem; margin-top: 0.75rem; }
+</style>
+{% endblock %}
+
+{% block body %}
+<!-- Boot Splash -->
+<div id="boot-splash">
+    <div class="logo">PiNet<span>OS</span></div>
+    <div class="progress-bar"><div class="progress-fill" id="boot-progress"></div></div>
+    <div class="status" id="boot-status">Initializing kernel...</div>
+</div>
+
+<!-- Top Bar -->
+<header id="topbar">
+    <div class="topbar-left">
+        <span class="topbar-logo">PiNet<span class="accent">OS</span></span>
+        <span class="topbar-version">v{{ version }}</span>
+        <span class="topbar-sep">|</span>
+        <span id="os-mode" class="topbar-badge">pinet</span>
+    </div>
+    <div class="topbar-center">
+        <div class="stat-group">
+            <span class="stat-label">CPU</span>
+            <span class="stat-value" id="stat-cpu">0%</span>
+        </div>
+        <div class="stat-group">
+            <span class="stat-label">RAM</span>
+            <span class="stat-value" id="stat-ram">0%</span>
+        </div>
+        <div class="stat-group">
+            <span class="stat-label">Temp</span>
+            <span class="stat-value" id="stat-temp">0°C</span>
+        </div>
+        <div class="stat-group">
+            <span class="stat-label">Disk</span>
+            <span class="stat-value" id="stat-disk">0%</span>
+        </div>
+        <div class="stat-group">
+            <span class="stat-label">Block</span>
+            <span class="stat-value" id="stat-block">0</span>
+        </div>
+        <div class="stat-group">
+            <span class="stat-label">Peers</span>
+            <span class="stat-value" id="stat-peers">0</span>
+        </div>
+    </div>
+    <div class="topbar-right">
+        <span id="clock"></span>
+    </div>
+</header>
+
+<!-- Desktop -->
+<main id="desktop">
+    <div id="app-grid">
+        <!-- App icons rendered by JS -->
+    </div>
+</main>
+
+<!-- Window container -->
+<div id="windows-layer"></div>
+
+<!-- Taskbar -->
+<footer id="taskbar">
+    <div id="taskbar-items"></div>
+</footer>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/api.js"></script>
+<script src="/static/js/window-manager.js"></script>
+<script src="/static/js/terminal.js"></script>
+<script src="/static/js/app.js"></script>
+{% endblock %}
