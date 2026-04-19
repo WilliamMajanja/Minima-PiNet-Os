@@ -112,8 +112,14 @@ async def build_image():
 async def build_release():
     github_token = GITHUB_TOKEN
     github_repo = GITHUB_REPO
-    if "github.com/" in github_repo:
-        github_repo = github_repo.split("github.com/")[1].rstrip("/")
+    # Extract owner/repo from full URL if needed
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(github_repo if "://" in github_repo else f"https://{github_repo}")
+        if parsed.hostname == "github.com" and parsed.path:
+            github_repo = parsed.path.strip("/")
+    except Exception:
+        pass
 
     artifact_path = Path(os.getcwd()) / "PiNetOS-RaspberryPi.img"
 

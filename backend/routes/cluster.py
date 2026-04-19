@@ -107,8 +107,8 @@ async def join_cluster(body: dict):
             if resp.status_code == 200:
                 cluster_event_log.append({"type": "JOIN_REQUEST", "target": master_address, "time": int(time.time() * 1000)})
                 return {"success": True, "message": "Join request sent via Maxima"}
-    except Exception as exc:
-        return {"success": False, "message": f"Join failed: {exc}"}
+    except Exception:
+        return {"success": False, "message": "Join failed due to an internal error"}
 
     return {"success": False, "message": "Failed to send join request"}
 
@@ -146,9 +146,11 @@ async def cluster_exec_local(body: dict):
 
     start = time.time()
     try:
+        # cmd is validated against ALLOWED_COMMANDS allowlist; args are sanitized
         result = subprocess.run(
             [cmd] + args,
             capture_output=True, text=True, timeout=cmd_timeout,
+            shell=False,
         )
         return {
             "workloadId": workload_id,
@@ -165,12 +167,12 @@ async def cluster_exec_local(body: dict):
             "stderr": "Command timed out",
             "durationMs": int((time.time() - start) * 1000),
         }
-    except Exception as exc:
+    except Exception:
         return {
             "workloadId": workload_id,
             "exitCode": -1,
             "stdout": "",
-            "stderr": str(exc),
+            "stderr": "Command execution failed",
             "durationMs": int((time.time() - start) * 1000),
         }
 
