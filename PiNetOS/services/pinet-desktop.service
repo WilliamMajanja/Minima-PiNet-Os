@@ -8,11 +8,11 @@ Documentation=https://github.com/WilliamMajanja/Minima-PiNet-Os
 Type=simple
 User=pi
 WorkingDirectory=/opt/pinet/desktop
-Environment=NODE_ENV=production
+Environment=PYTHONUNBUFFERED=1
 Environment=PORT=3000
 Environment=PINET_MINIMA_RPC_PORT=9001
 Environment=PINET_HOME=/home/pi/.pinet
-ExecStart=/usr/bin/node server.ts
+ExecStart=/usr/bin/python3 run.py
 Restart=always
 RestartSec=10
 StandardOutput=journal

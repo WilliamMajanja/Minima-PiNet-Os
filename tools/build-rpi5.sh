@@ -70,21 +70,7 @@ check_deps() {
     info "All dependencies satisfied."
 }
 
-# ---- Step 1: Build Electron/Node app ----------------------------------------
-build_app() {
-    section "Building PiNetOS Web App (Electron)"
-    step "Installing npm dependencies..."
-    cd "${REPO_ROOT}"
-    npm ci --prefer-offline || npm install
-    step "Building Vite production bundle..."
-    npm run build
-    step "Building Electron ARM64 app..."
-    npm run electron:build -- --arm64 --linux tar.gz || \
-        warn "Electron build skipped (electron-builder not configured for ARM64 in this environment)"
-    info "App build complete."
-}
-
-# ---- Step 2: Build Linux kernel (ARM64) ------------------------------------
+# ---- Step 1: Build Linux kernel (ARM64) ------------------------------------
 build_kernel() {
     [[ "${BUILD_KERNEL}" == "true" ]] || { warn "Skipping kernel build (--no-kernel)"; return; }
     section "Building Linux Kernel (ARM64 / BCM2712)"
@@ -92,7 +78,7 @@ build_kernel() {
     info "Kernel build complete."
 }
 
-# ---- Step 3: Bootstrap Debian rootfs ----------------------------------------
+# ---- Step 2: Bootstrap Debian rootfs ----------------------------------------
 build_rootfs() {
     section "Building Debian ${DEBIAN_RELEASE} ARM64 Root Filesystem"
     local rootfs="${BUILD_DIR}/rootfs"
@@ -147,7 +133,6 @@ EOF
             vim nano \
             i2c-tools \
             python3 python3-pip \
-            nodejs npm \
             openjdk-17-jre-headless \
             xorg xserver-xorg-video-fbdev \
             openbox xterm \
@@ -324,7 +309,6 @@ echo
 mkdir -p "${BUILD_DIR}" "${OUTPUT_DIR}"
 
 check_deps
-build_app
 build_kernel
 build_rootfs
 install_kernel

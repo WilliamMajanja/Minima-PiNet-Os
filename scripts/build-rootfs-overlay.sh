@@ -131,22 +131,18 @@ fi
 
 # ---- Copy web desktop build -------------------------------------------------
 echo "[7/8] Copying web desktop..."
-if [ -d "${PROJECT_ROOT}/dist" ]; then
-    cp -r "${PROJECT_ROOT}/dist" "${OVERLAY_DIR}/opt/pinet/desktop/dist"
-    echo "  -> dist/ (Vite build output)"
-fi
-# Include server files needed for production
-for f in server.ts package.json pinet-config.json; do
+for f in run.py requirements.txt .env.example package.json pinet-config.json; do
     if [ -f "${PROJECT_ROOT}/${f}" ]; then
         cp "${PROJECT_ROOT}/${f}" "${OVERLAY_DIR}/opt/pinet/desktop/"
         echo "  -> ${f}"
     fi
 done
-# Include lib/ directory for runtime
-if [ -d "${PROJECT_ROOT}/lib" ]; then
-    cp -r "${PROJECT_ROOT}/lib" "${OVERLAY_DIR}/opt/pinet/desktop/lib"
-    echo "  -> lib/"
-fi
+for dir in backend frontend lib scripts; do
+    if [ -d "${PROJECT_ROOT}/${dir}" ]; then
+        cp -r "${PROJECT_ROOT}/${dir}" "${OVERLAY_DIR}/opt/pinet/desktop/${dir}"
+        echo "  -> ${dir}/"
+    fi
+done
 
 # ---- Copy CLI ---------------------------------------------------------------
 echo "[8/8] Copying CLI and runtime..."

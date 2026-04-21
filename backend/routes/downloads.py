@@ -14,7 +14,6 @@ _CWD = Path(os.getcwd())
 _DOWNLOAD_MAP = {
     "download-full-project": "Minima-PiNet-Os-Full.zip",
     "download-pinetos": "PiNetOS-Enterprise.zip",
-    "download-electron": "PiNetOS-Electron-Desktop.zip",
     "download-os-build": "PiNetOS-Build-System.zip",
     "download-os-docs": "PiNetOS-Documentation.zip",
     "download-os-image": "PiNetOS-RaspberryPi.img",
@@ -29,11 +28,6 @@ async def download_full_project():
 @router.get("/download-pinetos")
 async def download_pinetos():
     return _serve("download-pinetos")
-
-
-@router.get("/download-electron")
-async def download_electron():
-    return _serve("download-electron")
 
 
 @router.get("/download-os-build")

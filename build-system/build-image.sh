@@ -76,12 +76,12 @@ chmod +x "${ROOTFS_DIR}/usr/local/bin/pinet" 2>/dev/null || true
 cp "${PROJECT_ROOT}/system/ota/pinet-ota-update.sh" "${ROOTFS_DIR}/usr/local/bin/pinet-ota-update" 2>/dev/null || true
 chmod +x "${ROOTFS_DIR}/usr/local/bin/pinet-ota-update" 2>/dev/null || true
 
-# Copy web desktop build (if present)
-if [ -d "${PROJECT_ROOT}/dist" ]; then
-    cp -r "${PROJECT_ROOT}/dist" "${ROOTFS_DIR}/opt/pinet/desktop/dist"
-fi
-for f in server.ts package.json pinet-config.json; do
+# Copy web desktop runtime (Python backend + Jinja frontend)
+for f in run.py requirements.txt .env.example package.json pinet-config.json; do
     [ -f "${PROJECT_ROOT}/${f}" ] && cp "${PROJECT_ROOT}/${f}" "${ROOTFS_DIR}/opt/pinet/desktop/"
+done
+for d in backend frontend lib scripts; do
+    [ -d "${PROJECT_ROOT}/${d}" ] && cp -r "${PROJECT_ROOT}/${d}" "${ROOTFS_DIR}/opt/pinet/desktop/${d}"
 done
 
 echo "  -> PiNetOS overlay installed."
