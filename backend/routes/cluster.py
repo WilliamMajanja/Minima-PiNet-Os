@@ -6,6 +6,7 @@ import json
 import os
 import platform
 import re
+import shutil
 import subprocess
 import time
 from typing import Any
@@ -203,9 +204,14 @@ async def cluster_exec_local(body: dict):
     if args:
         raise HTTPException(400, "Command arguments are not allowed for this endpoint")
 
+    command_lookup = {name: shutil.which(name) for name in ALLOWED_COMMANDS}
+    executable = command_lookup.get(cmd)
+    if not executable:
+        raise HTTPException(404, f"Command executable not found: {cmd}")
+
     start = time.time()
     try:
-        command_argv = [cmd]
+        command_argv = [executable]
         result = subprocess.run(
             command_argv,
             capture_output=True, text=True, timeout=cmd_timeout,

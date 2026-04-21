@@ -5,7 +5,7 @@ import json
 import os
 import re
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import urlparse
 
@@ -26,22 +26,23 @@ DAPP_DIR.mkdir(parents=True, exist_ok=True)
 _VALID_DAPP_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{1,127}$")
 
 
-def _ensure_within_dapp_root(path: Path) -> Path:
-    dapp_root = DAPP_DIR.resolve()
-    try:
-        path.relative_to(dapp_root)
-    except ValueError:
-        raise HTTPException(403, "Access denied: path is outside DApp install root")
-    return path
-
-
 def _safe_dapp_dir(dapp_id: str) -> Path:
-    return _ensure_within_dapp_root((DAPP_DIR / dapp_id).resolve())
+    if not _VALID_DAPP_ID.match(dapp_id):
+        raise HTTPException(400, "Invalid DApp ID")
+    return DAPP_DIR / dapp_id
 
 
-def _safe_join_dapp_path(base: Path, requested: str) -> Path:
-    base_resolved = _ensure_within_dapp_root(base.resolve())
-    return _ensure_within_dapp_root((base_resolved / requested).resolve())
+def _safe_relative_parts(requested: str) -> tuple[str, ...]:
+    if not isinstance(requested, str):
+        raise HTTPException(400, "Invalid file path")
+    normalized = requested.replace("\\", "/")
+    rel = PurePosixPath(normalized)
+    if rel.is_absolute():
+        raise HTTPException(403, "Forbidden")
+    parts = tuple(p for p in rel.parts if p not in ("", "."))
+    if any(p == ".." for p in parts):
+        raise HTTPException(403, "Forbidden")
+    return parts
 
 
 def _load_registry() -> list[dict]:
@@ -197,7 +198,7 @@ async def uninstall_dapp(dapp_id: str):
         raise HTTPException(404, "DApp not found")
 
     dapp = registry[idx]
-    install_dir = _ensure_within_dapp_root(Path(dapp["installPath"]).resolve())
+    install_dir = _safe_dapp_dir(dapp_id)
     if install_dir.exists():
         import shutil
         shutil.rmtree(install_dir, ignore_errors=True)
@@ -217,8 +218,9 @@ async def serve_dapp_file(dapp_id: str, file_path: str = "index.html"):
     if not dapp:
         raise HTTPException(404, "DApp not found")
 
-    install_path = _ensure_within_dapp_root(Path(dapp["installPath"]).resolve())
-    target = _safe_join_dapp_path(install_path, file_path)
+    install_path = _safe_dapp_dir(dapp_id)
+    file_parts = _safe_relative_parts(file_path)
+    target = install_path.joinpath(*file_parts) if file_parts else install_path / "index.html"
     if not target.exists() or target.is_dir():
         raise HTTPException(404, "File not found")
 
