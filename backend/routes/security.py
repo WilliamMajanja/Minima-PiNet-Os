@@ -110,16 +110,24 @@ _MONITORED_PATHS = [
     "/boot/firmware/cmdline.txt",
     "/etc/hosts",
     "/etc/passwd",
+    "/etc/ssh/sshd_config",
+]
+
+# Privileged files: only monitored when readable (requires root)
+_PRIVILEGED_MONITORED_PATHS = [
     "/etc/shadow",
     "/etc/sudoers",
-    "/etc/ssh/sshd_config",
 ]
 
 
 def _build_integrity_baseline() -> None:
     global _integrity_baseline, _integrity_checked_at
     _integrity_baseline = {}
-    for p in _MONITORED_PATHS:
+    all_paths = list(_MONITORED_PATHS) + [
+        p for p in _PRIVILEGED_MONITORED_PATHS
+        if os.access(p, os.R_OK)
+    ]
+    for p in all_paths:
         h = _hash_file(p)
         if h is not None:
             _integrity_baseline[p] = h

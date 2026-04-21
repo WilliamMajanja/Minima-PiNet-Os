@@ -46,7 +46,8 @@ async def change_power_state(body: dict):
         subprocess.run(cmd_map[state], capture_output=True, timeout=5, shell=False, check=True)
         return {"success": True, "state": state}
     except subprocess.CalledProcessError as exc:
-        return {"success": False, "state": state, "error": str(exc.stderr or exc)}
+        stderr_output = exc.stderr.decode(errors="replace").strip() if isinstance(exc.stderr, bytes) else str(exc.stderr or "").strip()
+        return {"success": False, "state": state, "error": stderr_output or "Command failed"}
     except FileNotFoundError:
         return {"success": False, "state": state, "error": "systemctl not available on this platform"}
 

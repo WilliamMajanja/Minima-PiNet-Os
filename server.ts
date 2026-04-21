@@ -2340,7 +2340,14 @@ window.addEventListener('message', function(e) {
 
   // ─── System Health (used by cluster discover probes) ─────────────────
 
-  app.get("/api/system/health", async (_req, res) => {
+  const systemHealthRateLimit = rateLimit({
+    windowMs: 10 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  app.get("/api/system/health", systemHealthRateLimit, async (_req, res) => {
     try {
       const cpuPct = await new Promise<number>((resolve) => {
         osUtils.cpuUsage((v: number) => resolve(Math.round(v * 100)));
@@ -2378,20 +2385,31 @@ window.addEventListener('message', function(e) {
     const nodes = pinetState.cluster || [];
     const results: any[] = [];
 
+    // Allowlist: only probe IPs that are registered cluster nodes to prevent SSRF
+    const allowedIps = new Set<string>(nodes.map((n: any) => String(n.ip)));
+    const ipPattern = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+
     const probeNode = async (node: any) => {
       let reachable = false;
       let metrics = { cpu: 0, ram: 0, temp: 0, iops: 0 };
-      try {
-        const ctrl = new AbortController();
-        const tid = setTimeout(() => ctrl.abort(), 3000);
-        const resp = await fetch(`http://${node.ip}:${DESKTOP_PORT}/api/system/health`, { signal: ctrl.signal });
-        clearTimeout(tid);
-        if (resp.ok) {
-          const data = await resp.json() as any;
-          reachable = true;
-          metrics = { cpu: data.cpu || 0, ram: data.ram || 0, temp: data.temp || 0, iops: data.iops || 0 };
-        }
-      } catch { /* unreachable */ }
+      const ip = String(node.ip);
+      // Only probe IPs that are valid IPv4 and in the allowlist
+      const ipMatch = ip.match(ipPattern);
+      const validIp = ipMatch && ipMatch.slice(1).every((o: string) => Number(o) <= 255) && allowedIps.has(ip);
+
+      if (validIp) {
+        try {
+          const ctrl = new AbortController();
+          const tid = setTimeout(() => ctrl.abort(), 3000);
+          const resp = await fetch(`http://${ip}:${DESKTOP_PORT}/api/system/health`, { signal: ctrl.signal });
+          clearTimeout(tid);
+          if (resp.ok) {
+            const data = await resp.json() as any;
+            reachable = true;
+            metrics = { cpu: data.cpu || 0, ram: data.ram || 0, temp: data.temp || 0, iops: data.iops || 0 };
+          }
+        } catch { /* unreachable */ }
+      }
       const status = reachable ? 'online' : 'offline';
       node.status = status;
       if (node.metrics) {
@@ -2399,7 +2417,7 @@ window.addEventListener('message', function(e) {
         node.metrics.ram = metrics.ram;
         node.metrics.temp = metrics.temp;
       }
-      results.push({ id: node.id, name: node.name, ip: node.ip, hat: node.hat, status, metrics });
+      results.push({ id: node.id, name: node.name, ip, hat: node.hat, status, metrics });
     };
 
     await Promise.all(nodes.map(probeNode));

@@ -176,7 +176,8 @@ async def update_interface(name: str, body: dict):
             )
             applied.append(f"link {state}")
         except subprocess.CalledProcessError as exc:
-            errors.append(f"Could not set link {state}: {exc.stderr or exc}")
+            stderr_output = exc.stderr.decode(errors="replace").strip() if isinstance(exc.stderr, bytes) else str(exc.stderr or "").strip()
+            errors.append(f"Could not set link {state}: {stderr_output or 'command failed'}")
         except FileNotFoundError:
             errors.append("'ip' command not available")
 
@@ -190,7 +191,8 @@ async def update_interface(name: str, body: dict):
             )
             applied.append(f"addr {address}/{prefix}")
         except subprocess.CalledProcessError as exc:
-            errors.append(f"Could not set address: {exc.stderr or exc}")
+            stderr_output = exc.stderr.decode(errors="replace").strip() if isinstance(exc.stderr, bytes) else str(exc.stderr or "").strip()
+            errors.append(f"Could not set address: {stderr_output or 'command failed'}")
         except FileNotFoundError:
             errors.append("'ip' command not available")
 
