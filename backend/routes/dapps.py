@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import tempfile
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -27,10 +28,9 @@ DAPP_DIR.mkdir(parents=True, exist_ok=True)
 _VALID_DAPP_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{1,127}$")
 
 
-def _safe_dapp_dir(dapp_id: str) -> Path:
-    if not _VALID_DAPP_ID.match(dapp_id):
-        raise HTTPException(400, "Invalid DApp ID")
-    candidate = os.path.realpath(os.path.join(DAPP_ROOT_REALPATH, dapp_id))
+def _create_install_dir() -> Path:
+    created = Path(tempfile.mkdtemp(prefix="dapp-", dir=str(DAPP_DIR)))
+    candidate = os.path.realpath(str(created))
     if os.path.commonpath([DAPP_ROOT_REALPATH, candidate]) != DAPP_ROOT_REALPATH:
         raise HTTPException(403, "Forbidden")
     return Path(candidate)
@@ -106,8 +106,7 @@ async def install_dapp(body: dict):
         if any(d.get("manifest", {}).get("id") == dapp_id for d in registry):
             raise HTTPException(409, "DApp already installed")
 
-        dapp_dir = _safe_dapp_dir(dapp_id)
-        dapp_dir.mkdir(parents=True, exist_ok=True)
+        dapp_dir = _create_install_dir()
 
         entry_url = url if isinstance(url, str) else ""
         safe_name = _html_escape(str(manifest.get("name", "DApp")))
@@ -164,8 +163,7 @@ async def install_dapp(body: dict):
             raise HTTPException(409, "DApp already installed")
 
         is_minidapp = url.endswith(".mds.zip")
-        dapp_dir = _safe_dapp_dir(dapp_id)
-        dapp_dir.mkdir(parents=True, exist_ok=True)
+        dapp_dir = _create_install_dir()
 
         safe_base = _html_escape(base_name)
         safe_url_str = _html_escape(url)
