@@ -19,6 +19,7 @@ router = APIRouter()
 
 DAPP_DIR = Path(os.getcwd()) / DAPP_INSTALL_DIR
 DAPP_REGISTRY_FILE = DAPP_DIR / "_registry.json"
+DAPP_ROOT_REALPATH = os.path.realpath(str(DAPP_DIR))
 
 # Ensure dapp directory exists
 DAPP_DIR.mkdir(parents=True, exist_ok=True)
@@ -29,7 +30,10 @@ _VALID_DAPP_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{1,127}$")
 def _safe_dapp_dir(dapp_id: str) -> Path:
     if not _VALID_DAPP_ID.match(dapp_id):
         raise HTTPException(400, "Invalid DApp ID")
-    return DAPP_DIR / dapp_id
+    candidate = os.path.realpath(os.path.join(DAPP_ROOT_REALPATH, dapp_id))
+    if os.path.commonpath([DAPP_ROOT_REALPATH, candidate]) != DAPP_ROOT_REALPATH:
+        raise HTTPException(403, "Forbidden")
+    return Path(candidate)
 
 
 def _safe_relative_parts(requested: str) -> tuple[str, ...]:
@@ -220,7 +224,12 @@ async def serve_dapp_file(dapp_id: str, file_path: str = "index.html"):
 
     install_path = _safe_dapp_dir(dapp_id)
     file_parts = _safe_relative_parts(file_path)
-    target = install_path.joinpath(*file_parts) if file_parts else install_path / "index.html"
+    target_candidate = install_path.joinpath(*file_parts) if file_parts else install_path / "index.html"
+    install_realpath = os.path.realpath(str(install_path))
+    target_realpath = os.path.realpath(str(target_candidate))
+    if os.path.commonpath([install_realpath, target_realpath]) != install_realpath:
+        raise HTTPException(403, "Forbidden")
+    target = Path(target_realpath)
     if not target.exists() or target.is_dir():
         raise HTTPException(404, "File not found")
 
