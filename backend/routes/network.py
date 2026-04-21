@@ -1,10 +1,16 @@
 """Network management endpoints."""
 from __future__ import annotations
 
+import re
+import subprocess
+
 import psutil
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 router = APIRouter()
+
+# Valid interface name pattern (alphanumerics, dash, dot, colon, underscore)
+_IFACE_RE = re.compile(r"^[a-zA-Z0-9._:-]{1,16}$")
 
 
 @router.get("/network/interfaces")
@@ -48,7 +54,26 @@ async def list_interfaces():
 
 @router.get("/network/routes")
 async def get_routes():
-    return {"routes": [], "note": "Routing table requires platform-specific commands"}
+    routes = []
+    try:
+        result = subprocess.run(
+            ["ip", "-json", "route"],
+            capture_output=True, text=True, timeout=5, shell=False
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            import json
+            for r in json.loads(result.stdout):
+                routes.append({
+                    "destination": r.get("dst", ""),
+                    "gateway": r.get("gateway", ""),
+                    "interface": r.get("dev", ""),
+                    "metric": r.get("metric", 0),
+                    "protocol": r.get("protocol", ""),
+                    "scope": r.get("scope", ""),
+                })
+    except Exception:
+        pass
+    return {"routes": routes}
 
 
 @router.get("/network/dns")
@@ -68,14 +93,109 @@ async def get_dns():
 
 @router.get("/network/firewall")
 async def get_firewall():
-    return {"rules": [], "defaultPolicy": "deny"}
+    rules = []
+    default_policy = "deny"
+    try:
+        result = subprocess.run(
+            ["iptables", "-L", "-n", "--line-numbers", "-v"],
+            capture_output=True, text=True, timeout=5, shell=False
+        )
+        if result.returncode == 0:
+            current_chain = ""
+            for line in result.stdout.splitlines():
+                if line.startswith("Chain "):
+                    parts = line.split()
+                    current_chain = parts[1] if len(parts) > 1 else ""
+                    if "policy" in line:
+                        policy_match = re.search(r"policy (\w+)", line)
+                        if policy_match and current_chain == "INPUT":
+                            pol = policy_match.group(1)
+                            default_policy = "deny" if pol in ("DROP", "REJECT") else "accept"
+                elif line.strip() and not line.startswith("target") and not line.startswith("pkts"):
+                    parts = line.split()
+                    if len(parts) >= 4:
+                        rules.append({
+                            "chain": current_chain,
+                            "action": parts[0],
+                            "protocol": parts[3],
+                            "source": parts[7] if len(parts) > 7 else "any",
+                            "destination": parts[8] if len(parts) > 8 else "any",
+                        })
+    except Exception:
+        pass
+    return {"rules": rules, "defaultPolicy": default_policy}
 
 
 @router.get("/network/wireguard")
 async def get_wireguard():
-    return {"interfaces": []}
+    interfaces = []
+    try:
+        result = subprocess.run(
+            ["wg", "show", "all", "dump"],
+            capture_output=True, text=True, timeout=5, shell=False
+        )
+        if result.returncode == 0:
+            current_iface = None
+            for line in result.stdout.splitlines():
+                parts = line.split("\t")
+                if len(parts) >= 5 and not parts[0].startswith("\t"):
+                    current_iface = {
+                        "name": parts[0],
+                        "publicKey": parts[1],
+                        "listenPort": int(parts[2]) if parts[2].isdigit() else 0,
+                        "peers": [],
+                    }
+                    interfaces.append(current_iface)
+                elif current_iface and len(parts) >= 4:
+                    current_iface["peers"].append({
+                        "publicKey": parts[0],
+                        "endpoint": parts[2],
+                        "allowedIPs": parts[3],
+                        "lastHandshake": int(parts[4]) if len(parts) > 4 and parts[4].isdigit() else 0,
+                    })
+    except Exception:
+        pass
+    return {"interfaces": interfaces}
 
 
 @router.post("/network/interfaces/{name}")
 async def update_interface(name: str, body: dict):
-    return {"success": True, "note": f"Interface {name} configuration updated (simulated)"}
+    """Apply network interface configuration using the `ip` command."""
+    if not _IFACE_RE.match(name):
+        raise HTTPException(400, "Invalid interface name")
+
+    applied = []
+    errors = []
+
+    state = body.get("state")
+    if state in ("up", "down"):
+        try:
+            subprocess.run(
+                ["ip", "link", "set", name, state],
+                capture_output=True, timeout=5, shell=False, check=True
+            )
+            applied.append(f"link {state}")
+        except subprocess.CalledProcessError as exc:
+            errors.append(f"Could not set link {state}: {exc.stderr or exc}")
+        except FileNotFoundError:
+            errors.append("'ip' command not available")
+
+    address = body.get("address")
+    prefix = body.get("prefix", 24)
+    if address and isinstance(prefix, int):
+        try:
+            subprocess.run(
+                ["ip", "addr", "add", f"{address}/{prefix}", "dev", name],
+                capture_output=True, timeout=5, shell=False, check=True
+            )
+            applied.append(f"addr {address}/{prefix}")
+        except subprocess.CalledProcessError as exc:
+            errors.append(f"Could not set address: {exc.stderr or exc}")
+        except FileNotFoundError:
+            errors.append("'ip' command not available")
+
+    if errors:
+        return {"success": False, "interface": name, "applied": applied, "errors": errors}
+    if not applied:
+        return {"success": True, "interface": name, "message": "No changes requested"}
+    return {"success": True, "interface": name, "applied": applied}

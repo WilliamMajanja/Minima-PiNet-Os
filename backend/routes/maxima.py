@@ -4,12 +4,10 @@ from __future__ import annotations
 import json
 import re
 import time
-import urllib.parse
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..config import MINIMA_RPC_URL
+from ..minima_client import minima_client
 from ..rate_limiter import exec_rate_limiter, rate_limit_dependency
 
 router = APIRouter()
@@ -17,27 +15,20 @@ router = APIRouter()
 
 @router.get("/maxima/contacts")
 async def get_contacts():
-    try:
-        encoded = urllib.parse.quote("maxima action:contacts", safe="")
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            resp = await client.get(f"{MINIMA_RPC_URL}/{encoded}")
-            if resp.status_code == 200:
-                data = resp.json()
-                if data.get("status") and data.get("response"):
-                    contacts = []
-                    for c in data["response"]:
-                        extra = c.get("extradata") or {}
-                        contacts.append({
-                            "name": extra.get("name", f"Node-{c.get('id', '?')}"),
-                            "address": c.get("currentaddress", ""),
-                            "status": "online" if (time.time() * 1000 - c.get("lastseen", 0)) < 60000 else "offline",
-                            "lastSeen": c.get("lastseen", ""),
-                            "publicKey": c.get("publickey", ""),
-                            "sameChain": c.get("samechain", False),
-                        })
-                    return {"contacts": contacts}
-    except Exception:
-        pass
+    data = await minima_client.maxima_contacts()
+    if data and data.get("status") and data.get("response"):
+        contacts = []
+        for c in data["response"]:
+            extra = c.get("extradata") or {}
+            contacts.append({
+                "name": extra.get("name", f"Node-{c.get('id', '?')}"),
+                "address": c.get("currentaddress", ""),
+                "status": "online" if (time.time() * 1000 - c.get("lastseen", 0)) < 60000 else "offline",
+                "lastSeen": c.get("lastseen", ""),
+                "publicKey": c.get("publickey", ""),
+                "sameChain": c.get("samechain", False),
+            })
+        return {"contacts": contacts}
     return {"contacts": []}
 
 
@@ -62,30 +53,16 @@ async def send_message(body: dict):
         raise HTTPException(400, "Data payload too large")
 
     safe_data = json_str.replace(" ", "_")
-    command = f"maxima action:send to:{to} application:{application} data:{safe_data}"
-    try:
-        encoded = urllib.parse.quote(command, safe="")
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(f"{MINIMA_RPC_URL}/{encoded}")
-            if resp.status_code == 200:
-                result = resp.json()
-                return {"status": result.get("status"), "delivered": (result.get("response") or {}).get("delivered")}
-    except Exception:
-        pass
+    result = await minima_client.maxima_send(to, application, safe_data)
+    if result is not None:
+        return {"status": result.get("status"), "delivered": (result.get("response") or {}).get("delivered")}
 
     raise HTTPException(503, "Maxima RPC is not reachable")
 
 
 @router.get("/maxima/messages")
 async def get_messages():
-    try:
-        encoded = urllib.parse.quote("maxima action:poll", safe="")
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            resp = await client.get(f"{MINIMA_RPC_URL}/{encoded}")
-            if resp.status_code == 200:
-                data = resp.json()
-                if data.get("status") and data.get("response"):
-                    return {"messages": data["response"]}
-    except Exception:
-        pass
+    data = await minima_client.maxima_poll()
+    if data and data.get("status") and data.get("response"):
+        return {"messages": data["response"]}
     return {"messages": []}

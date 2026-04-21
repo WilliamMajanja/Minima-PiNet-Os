@@ -120,30 +120,61 @@ class SecurityService {
   }
 
   private initIntegrityBaseline(): void {
-    const now = Date.now();
-    const hash = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
+    // Import Node.js fs module — safe because this service runs server-side only
+    let fsModule: typeof import('fs') | null = null;
+    try {
+      // Dynamic require to avoid bundler errors if imported in a browser context
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      fsModule = require('fs') as typeof import('fs');
+    } catch { /* not in Node.js env */ }
 
-    const checks: IntegrityCheckResult[] = [
-      { path: '/boot/config.txt', expectedHash: hash('boot-config'), actualHash: hash('boot-config'), algorithm: 'sha256', valid: true, checkedAt: now },
-      { path: '/boot/cmdline.txt', expectedHash: hash('cmdline'), actualHash: hash('cmdline'), algorithm: 'sha256', valid: true, checkedAt: now },
-      { path: '/boot/kernel8.img', expectedHash: hash('kernel'), actualHash: hash('kernel'), algorithm: 'sha256', valid: true, checkedAt: now },
-      { path: '/etc/pinet/config.json', expectedHash: hash('pinet-config'), actualHash: hash('pinet-config'), algorithm: 'sha256', valid: true, checkedAt: now },
-      { path: '/opt/pinet/server.js', expectedHash: hash('server'), actualHash: hash('server'), algorithm: 'sha256', valid: true, checkedAt: now },
-      { path: '/opt/minima/minima.jar', expectedHash: hash('minima'), actualHash: hash('minima'), algorithm: 'sha256', valid: true, checkedAt: now },
+    const hashFile = (filePath: string): string | null => {
+      if (!fsModule) return null;
+      try {
+        const content = fsModule.readFileSync(filePath);
+        return crypto.createHash('sha256').update(content).digest('hex');
+      } catch { return null; }
+    };
+
+    const monitoredPaths = [
+      '/boot/config.txt',
+      '/boot/firmware/config.txt',
+      '/boot/cmdline.txt',
+      '/boot/firmware/cmdline.txt',
+      '/etc/hosts',
+      '/etc/passwd',
+      '/etc/ssh/sshd_config',
     ];
+
+    const now = Date.now();
+    const checks: IntegrityCheckResult[] = [];
+
+    for (const filePath of monitoredPaths) {
+      const hash = hashFile(filePath);
+      if (hash !== null) {
+        checks.push({
+          path: filePath,
+          expectedHash: hash,
+          actualHash: hash,
+          algorithm: 'sha256',
+          valid: true,
+          checkedAt: now,
+        });
+      }
+    }
 
     for (const c of checks) {
       this.integrityResults.set(c.path, c);
     }
 
     this.trustChain = {
-      bootloader: { path: '/boot/start4.elf', expectedHash: hash('bootloader'), actualHash: hash('bootloader'), algorithm: 'sha256', valid: true, checkedAt: now },
-      kernel: { path: '/boot/kernel8.img', expectedHash: hash('kernel'), actualHash: hash('kernel'), algorithm: 'sha256', valid: true, checkedAt: now },
-      initramfs: { path: '/boot/initramfs.img', expectedHash: hash('initramfs'), actualHash: hash('initramfs'), algorithm: 'sha256', valid: true, checkedAt: now },
+      bootloader: checks.find(c => c.path.includes('start4.elf')) ?? null,
+      kernel: checks.find(c => c.path.includes('kernel8.img')) ?? null,
+      initramfs: checks.find(c => c.path.includes('initramfs')) ?? null,
       systemServices: checks,
-      overallValid: true,
+      overallValid: checks.every(c => c.valid),
       lastVerified: now,
-    };
+    } as TrustChain;
   }
 
   // ─── Policy Management ────────────────────────────────────────────────
@@ -282,15 +313,49 @@ class SecurityService {
 
   /** Run integrity verification on all monitored paths. */
   verifyIntegrity(): { valid: boolean; results: IntegrityCheckResult[] } {
-    const results = this.getIntegrityResults();
-    // In production, this would read files and compute hashes
-    // For now, verify all checks still pass
-    const allValid = results.every(r => r.valid);
+    let fsModule: typeof import('fs') | null = null;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      fsModule = require('fs') as typeof import('fs');
+    } catch { /* not in Node.js env */ }
+
+    const now = Date.now();
+    let allValid = true;
+
+    for (const [filePath, baseline] of this.integrityResults.entries()) {
+      let actualHash: string | null = null;
+      if (fsModule) {
+        try {
+          const content = fsModule.readFileSync(filePath);
+          actualHash = crypto.createHash('sha256').update(content).digest('hex');
+        } catch { /* file may not exist on non-Pi environment */ }
+      }
+
+      const valid = actualHash !== null && actualHash === baseline.expectedHash;
+      this.integrityResults.set(filePath, {
+        ...baseline,
+        actualHash: actualHash ?? '',
+        valid,
+        checkedAt: now,
+      });
+      if (!valid) allValid = false;
+    }
+
     if (this.trustChain) {
       this.trustChain.overallValid = allValid;
-      this.trustChain.lastVerified = Date.now();
+      this.trustChain.lastVerified = now;
     }
-    return { valid: allValid, results };
+
+    this.recordAudit(
+      'system',
+      'filesystem-integrity-check',
+      { uid: 0, pid: 0, process: 'securityService' },
+      { path: '/' },
+      allValid ? 'success' : 'failure',
+      `Integrity check: ${this.integrityResults.size} files checked, ${allValid ? 'all valid' : 'violations detected'}`,
+    );
+
+    return { valid: allValid, results: this.getIntegrityResults() };
   }
 
   // ─── Dashboard ────────────────────────────────────────────────────────

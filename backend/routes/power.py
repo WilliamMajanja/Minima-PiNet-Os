@@ -1,6 +1,7 @@
 """Power management endpoints."""
 from __future__ import annotations
 
+import subprocess
 import time
 
 import psutil
@@ -32,7 +33,22 @@ async def change_power_state(body: dict):
     state = body.get("state", "")
     if not state:
         raise HTTPException(400, "Missing state")
-    return {"success": True, "state": state, "note": "Power state change simulated"}
+    valid_states = {"shutdown", "reboot", "suspend", "hibernate"}
+    if state not in valid_states:
+        raise HTTPException(400, f"Invalid state: {state}. Must be one of {sorted(valid_states)}")
+    cmd_map = {
+        "shutdown": ["systemctl", "poweroff"],
+        "reboot": ["systemctl", "reboot"],
+        "suspend": ["systemctl", "suspend"],
+        "hibernate": ["systemctl", "hibernate"],
+    }
+    try:
+        subprocess.run(cmd_map[state], capture_output=True, timeout=5, shell=False, check=True)
+        return {"success": True, "state": state}
+    except subprocess.CalledProcessError as exc:
+        return {"success": False, "state": state, "error": str(exc.stderr or exc)}
+    except FileNotFoundError:
+        return {"success": False, "state": state, "error": "systemctl not available on this platform"}
 
 
 @router.post("/power/governor")

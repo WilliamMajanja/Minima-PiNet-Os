@@ -289,3 +289,36 @@ async def scan_subnet(subnet: str = Query(...)):
                 })
 
     return {"nodes": active_nodes}
+
+
+@router.get("/system/health")
+async def system_health():
+    """Lightweight health response used by cluster discovery probes."""
+    cpu = 0.0
+    ram = 0.0
+    temp = 0.0
+    iops = 0.0
+    try:
+        cpu = psutil.cpu_percent(interval=0.1)
+    except Exception:
+        pass
+    try:
+        mem = psutil.virtual_memory()
+        ram = mem.percent
+    except Exception:
+        pass
+    try:
+        temps = psutil.sensors_temperatures()
+        if temps:
+            first_sensor = next(iter(temps.values()))
+            if first_sensor:
+                temp = first_sensor[0].current
+    except Exception:
+        pass
+    try:
+        io = psutil.disk_io_counters()
+        if io:
+            iops = float(io.read_count + io.write_count)
+    except Exception:
+        pass
+    return {"status": "ok", "cpu": cpu, "ram": ram, "temp": temp, "iops": iops}

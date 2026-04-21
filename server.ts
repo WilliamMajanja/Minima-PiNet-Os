@@ -860,6 +860,24 @@ async function startServer() {
         pinetState.minima.blockHeight = data.response?.chain?.block || pinetState.minima.blockHeight;
         pinetState.minima.peers = data.response?.network?.connected || pinetState.minima.peers;
         pinetState.minima.status = 'Synced';
+
+        // Also fetch and cache current balance
+        try {
+          const balResp = await fetch(`${MINIMA_RPC_URL}/${encodeURIComponent('balance')}`, { signal: AbortSignal.timeout(3000) });
+          if (balResp.ok) {
+            const balData = await balResp.json() as any;
+            if (balData.status && Array.isArray(balData.response)) {
+              let total = 0;
+              for (const token of balData.response) {
+                if (token.tokenid === '0x00' || token.tokenid === '0' || token.tokenid === '') {
+                  total += parseFloat(token.confirmed || '0') || 0;
+                }
+              }
+              pinetState.minima.balance = total;
+            }
+          }
+        } catch { /* balance fetch failed — keep cached value */ }
+
         saveState();
       }
     } catch {
@@ -2320,7 +2338,76 @@ window.addEventListener('message', function(e) {
     }
   });
 
-  // Global API Error Handler
+  // ─── System Health (used by cluster discover probes) ─────────────────
+
+  app.get("/api/system/health", async (_req, res) => {
+    try {
+      const cpuPct = await new Promise<number>((resolve) => {
+        osUtils.cpuUsage((v: number) => resolve(Math.round(v * 100)));
+      });
+      const mem = os.totalmem();
+      const free = os.freemem();
+      const ramPct = Math.round(((mem - free) / mem) * 100);
+
+      let temp = 0;
+      try {
+        const raw = fs.readFileSync('/sys/class/thermal/thermal_zone0/temp', 'utf8').trim();
+        temp = parseInt(raw, 10) / 1000;
+      } catch { /* not on Pi */ }
+
+      res.json({ status: 'ok', cpu: cpuPct, ram: ramPct, temp, iops: 0 });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ─── Minima Balance ───────────────────────────────────────────────────
+
+  app.get("/api/minima/balance", async (_req, res) => {
+    try {
+      const rpcResp = await fetch(`${MINIMA_RPC_URL}/${encodeURIComponent('balance')}`, { signal: AbortSignal.timeout(5000) });
+      if (rpcResp.ok) {
+        const data = await rpcResp.json();
+        return res.json(data);
+      }
+    } catch { /* Minima not reachable */ }
+    res.status(503).json({ status: false, error: "Minima node is not reachable" });
+  });
+
+  // ─── Cluster Discover ─────────────────────────────────────────────────
+
+  app.post("/api/cluster/discover", async (_req, res) => {
+    const nodes = pinetState.cluster || [];
+    const results: any[] = [];
+
+    const probeNode = async (node: any) => {
+      let reachable = false;
+      let metrics = { cpu: 0, ram: 0, temp: 0, iops: 0 };
+      try {
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 3000);
+        const resp = await fetch(`http://${node.ip}:${DESKTOP_PORT}/api/system/health`, { signal: ctrl.signal });
+        clearTimeout(tid);
+        if (resp.ok) {
+          const data = await resp.json() as any;
+          reachable = true;
+          metrics = { cpu: data.cpu || 0, ram: data.ram || 0, temp: data.temp || 0, iops: data.iops || 0 };
+        }
+      } catch { /* unreachable */ }
+      const status = reachable ? 'online' : 'offline';
+      node.status = status;
+      if (node.metrics) {
+        node.metrics.cpu = metrics.cpu;
+        node.metrics.ram = metrics.ram;
+        node.metrics.temp = metrics.temp;
+      }
+      results.push({ id: node.id, name: node.name, ip: node.ip, hat: node.hat, status, metrics });
+    };
+
+    await Promise.all(nodes.map(probeNode));
+    saveState();
+    res.json({ nodes: results });
+  });
+
+
   app.use('/api', (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
     console.error(`[API Error] ${req.method} ${req.url}:`, err);
     res.status(500).json({ 
