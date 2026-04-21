@@ -10,7 +10,6 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -20,7 +19,6 @@ from fastapi.templating import Jinja2Templates
 from .config import (
     CORS_ORIGIN,
     DESKTOP_PORT,
-    MINIMA_RPC_URL,
     PINET_VERSION,
 )
 from .state import get_state, save_state
@@ -48,27 +46,45 @@ from .routes import (
     provenance,
 )
 from .websocket.terminal import router as ws_router
+from .websocket.cluster import router as ws_cluster_router
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
 
 
-# --- Background task: poll Minima node status ---
+# --- Background task: poll Minima node status and balance ---
 async def _poll_minima_status():
     """Periodically poll the local Minima node to keep cached state fresh."""
+    from .minima_client import minima_client
     while True:
         try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
-                resp = await client.get(f"{MINIMA_RPC_URL}/status")
-                if resp.status_code == 200:
-                    data = resp.json()
-                    state = get_state()
-                    chain = (data.get("response") or {}).get("chain") or {}
-                    net = (data.get("response") or {}).get("network") or {}
-                    state.minima.block_height = chain.get("block", state.minima.block_height)
-                    state.minima.peers = net.get("connected", state.minima.peers)
-                    state.minima.status = "Synced"
-                    save_state()
+            status_data = await minima_client.status()
+            if status_data and status_data.get("status"):
+                state = get_state()
+                chain = (status_data.get("response") or {}).get("chain") or {}
+                net = (status_data.get("response") or {}).get("network") or {}
+                state.minima.block_height = chain.get("block", state.minima.block_height)
+                state.minima.peers = net.get("connected", state.minima.peers)
+                state.minima.status = "Synced"
+
+                # Also update balance
+                balance_data = await minima_client.balance()
+                if balance_data and balance_data.get("status"):
+                    resp_list = balance_data.get("response") or []
+                    if resp_list:
+                        # Sum the confirmed balance for the native Minima token (tokenid 0x00)
+                        total = 0.0
+                        for token in resp_list:
+                            if token.get("tokenid", "") in ("0x00", "0", ""):
+                                try:
+                                    total += float(token.get("confirmed", 0))
+                                except (ValueError, TypeError):
+                                    pass
+                        state.minima.balance = total
+                save_state()
+            else:
+                state = get_state()
+                state.minima.status = "Offline"
         except Exception:
             state = get_state()
             state.minima.status = "Offline"
@@ -136,6 +152,7 @@ def create_app() -> FastAPI:
 
     # --- WebSocket ---
     app.include_router(ws_router)
+    app.include_router(ws_cluster_router)
 
     # --- Frontend (Jinja2 templates + static files) ---
     templates = Jinja2Templates(directory=str(FRONTEND_DIR / "templates"))

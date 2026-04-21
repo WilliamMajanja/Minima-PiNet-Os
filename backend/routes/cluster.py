@@ -1,19 +1,20 @@
 """Cluster management endpoints."""
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import platform
 import re
 import subprocess
 import time
-import urllib.parse
 from typing import Any
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..config import CLUSTER_API_PORT, MINIMA_RPC_URL, PINET_VERSION
+from ..config import CLUSTER_API_PORT, DESKTOP_PORT, PINET_VERSION
+from ..minima_client import minima_client
 from ..rate_limiter import exec_rate_limiter, rate_limit_dependency
 from ..state import get_state, save_state
 
@@ -73,6 +74,69 @@ async def get_cluster_nodes():
     return [n.model_dump(by_alias=True) for n in state.cluster]
 
 
+@router.post("/cluster/discover", dependencies=[Depends(rate_limit_dependency(exec_rate_limiter))])
+async def discover_cluster():
+    """Probe known cluster nodes and return their current status."""
+    state = get_state()
+    results = []
+
+    async def probe_node(node):
+        ip = str(node.ip)
+        metrics = {"cpu": 0, "ram": 0, "temp": 0, "iops": 0}
+        reachable = False
+
+        # Validate IP before using it in shell command or HTTP request
+        ip_pattern = re.compile(r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$")
+        ip_match = ip_pattern.match(ip)
+        if not ip_match or any(int(o) > 255 for o in ip_match.groups()):
+            results.append({"id": node.id, "name": node.name, "ip": ip, "hat": node.hat, "status": "offline", "metrics": metrics})
+            return
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "ping", "-c", "1", "-W", "2", ip,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await asyncio.wait_for(proc.wait(), timeout=3.0)
+            reachable = proc.returncode == 0
+        except Exception:
+            reachable = False
+
+        if reachable:
+            try:
+                async with httpx.AsyncClient(timeout=2.0) as client:
+                    resp = await client.get(f"http://{ip}:{DESKTOP_PORT}/api/system/health")
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        metrics = {
+                            "cpu": data.get("cpu", 0),
+                            "ram": data.get("ram", 0),
+                            "temp": data.get("temp", 0),
+                            "iops": data.get("iops", 0),
+                        }
+            except Exception:
+                pass
+
+        node.status = "online" if reachable else "offline"
+        if hasattr(node.metrics, 'cpu'):
+            node.metrics.cpu = metrics["cpu"]
+            node.metrics.ram = metrics["ram"]
+            node.metrics.temp = metrics["temp"]
+        results.append({
+            "id": node.id,
+            "name": node.name,
+            "ip": ip,
+            "hat": node.hat,
+            "status": node.status,
+            "metrics": metrics,
+        })
+
+    await asyncio.gather(*(probe_node(n) for n in state.cluster))
+    save_state()
+    return {"nodes": results}
+
+
 @router.post("/cluster/join", dependencies=[Depends(rate_limit_dependency(exec_rate_limiter))])
 async def join_cluster(body: dict):
     master_address = body.get("masterAddress", "")
@@ -83,34 +147,29 @@ async def join_cluster(body: dict):
     if not isinstance(master_address, str) or not safe_pattern.match(master_address) or len(master_address) > 256:
         raise HTTPException(400, "Invalid masterAddress format")
 
-    try:
-        join_msg = json.dumps({
-            "type": "CLUSTER_JOIN_REQUEST",
-            "sender": "local-node",
-            "senderAddress": "",
-            "timestamp": int(time.time() * 1000),
-            "nonce": f"{int(time.time() * 1000)}-{os.urandom(4).hex()}",
-            "clusterId": "",
-            "payload": {
-                "nodeId": "local-node",
-                "hostname": platform.node(),
-                "platform": f"{platform.system()} {platform.machine()}",
-                "version": PINET_VERSION,
-                "capabilities": [],
-            },
-        })
+    join_msg = json.dumps({
+        "type": "CLUSTER_JOIN_REQUEST",
+        "sender": "local-node",
+        "senderAddress": "",
+        "timestamp": int(time.time() * 1000),
+        "nonce": f"{int(time.time() * 1000)}-{os.urandom(4).hex()}",
+        "clusterId": "",
+        "payload": {
+            "nodeId": "local-node",
+            "hostname": platform.node(),
+            "platform": f"{platform.system()} {platform.machine()}",
+            "version": PINET_VERSION,
+            "capabilities": [],
+        },
+    })
 
-        command = f"maxima action:send to:{master_address} application:pinet-cluster data:{join_msg.replace(' ', '_')}"
-        encoded = urllib.parse.quote(command, safe="")
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(f"{MINIMA_RPC_URL}/{encoded}")
-            if resp.status_code == 200:
-                cluster_event_log.append({"type": "JOIN_REQUEST", "target": master_address, "time": int(time.time() * 1000)})
-                return {"success": True, "message": "Join request sent via Maxima"}
-    except Exception:
-        return {"success": False, "message": "Join failed due to an internal error"}
+    safe_data = join_msg.replace(" ", "_")
+    result = await minima_client.maxima_send(master_address, "pinet-cluster", safe_data)
+    if result is not None:
+        cluster_event_log.append({"type": "JOIN_REQUEST", "target": master_address, "time": int(time.time() * 1000)})
+        return {"success": True, "message": "Join request sent via Maxima"}
 
-    return {"success": False, "message": "Failed to send join request"}
+    return {"success": False, "message": "Failed to send join request — Maxima not reachable"}
 
 
 @router.post("/cluster/exec", dependencies=[Depends(rate_limit_dependency(exec_rate_limiter))])
@@ -139,14 +198,12 @@ async def cluster_exec_local(body: dict):
     if not isinstance(cmd, str) or cmd not in ALLOWED_COMMANDS:
         raise HTTPException(403, f"Command not allowed: {cmd}")
 
-    # Validate args
     bad_chars = re.compile(r"[;&|`$(){}<>\\*?\[\]!#\n\r]")
     if not isinstance(args, list) or any(not isinstance(a, str) or bad_chars.search(a) for a in args):
         raise HTTPException(400, "Invalid command arguments")
 
     start = time.time()
     try:
-        # cmd is validated against ALLOWED_COMMANDS allowlist; args are sanitized
         result = subprocess.run(
             [cmd] + args,
             capture_output=True, text=True, timeout=cmd_timeout,
@@ -203,7 +260,6 @@ async def provision_node(body: dict):
     node.status = "provisioning"
     save_state()
 
-    # Non-blocking provisioning via rpi-connect
     install_script = "curl -sSL https://raw.githubusercontent.com/WilliamMajanja/Minima-PiNet-Os/main/install.sh | bash"
     try:
         subprocess.Popen(
