@@ -38,7 +38,14 @@ def _safe_resolve(requested: str) -> Path:
         current = current / part
         if current.exists() and current.is_symlink():
             raise HTTPException(403, "Access denied: symlink traversal is not allowed")
-    return _files_root.joinpath(*parts)
+    target = _files_root.joinpath(*parts)
+    if target.exists() and target.is_symlink():
+        resolved_target = target.resolve()
+        try:
+            resolved_target.relative_to(_files_root)
+        except ValueError:
+            raise HTTPException(403, "Access denied: symlink traversal is not allowed")
+    return target
 
 
 def _safe_resolve_delete(requested: str) -> Path:
