@@ -198,14 +198,16 @@ async def cluster_exec_local(body: dict):
     if not isinstance(cmd, str) or cmd not in ALLOWED_COMMANDS:
         raise HTTPException(403, f"Command not allowed: {cmd}")
 
-    bad_chars = re.compile(r"[;&|`$(){}<>\\*?\[\]!#\n\r]")
-    if not isinstance(args, list) or any(not isinstance(a, str) or bad_chars.search(a) for a in args):
+    if not isinstance(args, list):
         raise HTTPException(400, "Invalid command arguments")
+    if args:
+        raise HTTPException(400, "Command arguments are not allowed for this endpoint")
 
     start = time.time()
     try:
+        command_argv = [cmd]
         result = subprocess.run(
-            [cmd] + args,
+            command_argv,
             capture_output=True, text=True, timeout=cmd_timeout,
             shell=False,
         )

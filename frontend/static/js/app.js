@@ -310,9 +310,25 @@ const AppActions = {
         if (!input || !chat) return;
         const msg = input.value.trim();
         if (!msg) return;
-        chat.innerHTML += `<div class="mb-2"><strong>You:</strong> ${msg}</div>`;
+
+        const userRow = document.createElement('div');
+        userRow.className = 'mb-2';
+        const userLabel = document.createElement('strong');
+        userLabel.textContent = 'You:';
+        userRow.appendChild(userLabel);
+        userRow.appendChild(document.createTextNode(` ${msg}`));
+        chat.appendChild(userRow);
+
         input.value = '';
-        chat.innerHTML += `<div class="mb-2 text-muted"><strong>AI:</strong> AI integration requires Gemini API key configuration.</div>`;
+
+        const aiRow = document.createElement('div');
+        aiRow.className = 'mb-2 text-muted';
+        const aiLabel = document.createElement('strong');
+        aiLabel.textContent = 'AI:';
+        aiRow.appendChild(aiLabel);
+        aiRow.appendChild(document.createTextNode(' AI integration requires Gemini API key configuration.'));
+        chat.appendChild(aiRow);
+
         chat.scrollTop = chat.scrollHeight;
     },
 };

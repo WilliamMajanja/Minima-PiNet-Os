@@ -18,14 +18,20 @@ router = APIRouter()
 _files_root = Path(FILES_ROOT).resolve()
 
 
+def _ensure_within_root(path: Path) -> Path:
+    """Ensure a resolved path is within FILES_ROOT."""
+    try:
+        path.relative_to(_files_root)
+    except ValueError:
+        raise HTTPException(403, "Access denied: path is outside the allowed directory")
+    return path
+
+
 def _safe_resolve(requested: str) -> Path:
     """Resolve a path, ensuring it is within FILES_ROOT."""
-    resolved = (_files_root / requested).resolve()
-    if resolved == _files_root:
-        return resolved
-    if not str(resolved).startswith(str(_files_root) + os.sep):
-        raise HTTPException(403, "Access denied: path is outside the allowed directory")
-    return resolved
+    requested_path = Path(requested)
+    resolved = (requested_path if requested_path.is_absolute() else (_files_root / requested_path)).resolve()
+    return _ensure_within_root(resolved)
 
 
 def _safe_resolve_delete(requested: str) -> Path:

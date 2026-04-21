@@ -26,6 +26,24 @@ DAPP_DIR.mkdir(parents=True, exist_ok=True)
 _VALID_DAPP_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{1,127}$")
 
 
+def _ensure_within_dapp_root(path: Path) -> Path:
+    dapp_root = DAPP_DIR.resolve()
+    try:
+        path.relative_to(dapp_root)
+    except ValueError:
+        raise HTTPException(403, "Access denied: path is outside DApp install root")
+    return path
+
+
+def _safe_dapp_dir(dapp_id: str) -> Path:
+    return _ensure_within_dapp_root((DAPP_DIR / dapp_id).resolve())
+
+
+def _safe_join_dapp_path(base: Path, requested: str) -> Path:
+    base_resolved = _ensure_within_dapp_root(base.resolve())
+    return _ensure_within_dapp_root((base_resolved / requested).resolve())
+
+
 def _load_registry() -> list[dict]:
     if DAPP_REGISTRY_FILE.exists():
         try:
@@ -73,7 +91,7 @@ async def install_dapp(body: dict):
         if any(d.get("manifest", {}).get("id") == dapp_id for d in registry):
             raise HTTPException(409, "DApp already installed")
 
-        dapp_dir = DAPP_DIR / dapp_id
+        dapp_dir = _safe_dapp_dir(dapp_id)
         dapp_dir.mkdir(parents=True, exist_ok=True)
 
         entry_url = url if isinstance(url, str) else ""
@@ -131,7 +149,7 @@ async def install_dapp(body: dict):
             raise HTTPException(409, "DApp already installed")
 
         is_minidapp = url.endswith(".mds.zip")
-        dapp_dir = DAPP_DIR / dapp_id
+        dapp_dir = _safe_dapp_dir(dapp_id)
         dapp_dir.mkdir(parents=True, exist_ok=True)
 
         safe_base = _html_escape(base_name)
@@ -179,10 +197,8 @@ async def uninstall_dapp(dapp_id: str):
         raise HTTPException(404, "DApp not found")
 
     dapp = registry[idx]
-    install_dir = Path(dapp["installPath"]).resolve()
-    dapp_root = DAPP_DIR.resolve()
-
-    if (install_dir == dapp_root or str(install_dir).startswith(str(dapp_root) + os.sep)) and install_dir.exists():
+    install_dir = _ensure_within_dapp_root(Path(dapp["installPath"]).resolve())
+    if install_dir.exists():
         import shutil
         shutil.rmtree(install_dir, ignore_errors=True)
 
@@ -201,11 +217,8 @@ async def serve_dapp_file(dapp_id: str, file_path: str = "index.html"):
     if not dapp:
         raise HTTPException(404, "DApp not found")
 
-    install_path = Path(dapp["installPath"]).resolve()
-    target = (install_path / file_path).resolve()
-
-    if not str(target).startswith(str(install_path) + os.sep) and target != install_path:
-        raise HTTPException(403, "Forbidden")
+    install_path = _ensure_within_dapp_root(Path(dapp["installPath"]).resolve())
+    target = _safe_join_dapp_path(install_path, file_path)
     if not target.exists() or target.is_dir():
         raise HTTPException(404, "File not found")
 
