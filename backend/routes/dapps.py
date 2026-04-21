@@ -49,6 +49,16 @@ def _safe_relative_parts(requested: str) -> tuple[str, ...]:
     return parts
 
 
+def _safe_registry_install_dir(record: dict[str, Any]) -> Path:
+    raw_path = str(record.get("installPath", ""))
+    if not raw_path:
+        raise HTTPException(500, "Corrupt DApp registry entry")
+    candidate = os.path.realpath(raw_path)
+    if os.path.commonpath([DAPP_ROOT_REALPATH, candidate]) != DAPP_ROOT_REALPATH:
+        raise HTTPException(403, "Forbidden")
+    return Path(candidate)
+
+
 def _load_registry() -> list[dict]:
     if DAPP_REGISTRY_FILE.exists():
         try:
@@ -202,7 +212,7 @@ async def uninstall_dapp(dapp_id: str):
         raise HTTPException(404, "DApp not found")
 
     dapp = registry[idx]
-    install_dir = _safe_dapp_dir(dapp_id)
+    install_dir = _safe_registry_install_dir(dapp)
     if install_dir.exists():
         import shutil
         shutil.rmtree(install_dir, ignore_errors=True)
@@ -222,7 +232,7 @@ async def serve_dapp_file(dapp_id: str, file_path: str = "index.html"):
     if not dapp:
         raise HTTPException(404, "DApp not found")
 
-    install_path = _safe_dapp_dir(dapp_id)
+    install_path = _safe_registry_install_dir(dapp)
     file_parts = _safe_relative_parts(file_path)
     target_candidate = install_path.joinpath(*file_parts) if file_parts else install_path / "index.html"
     install_realpath = os.path.realpath(str(install_path))
