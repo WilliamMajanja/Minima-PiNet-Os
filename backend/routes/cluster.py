@@ -6,6 +6,7 @@ import json
 import os
 import platform
 import re
+import shutil
 import subprocess
 import time
 from typing import Any
@@ -198,14 +199,21 @@ async def cluster_exec_local(body: dict):
     if not isinstance(cmd, str) or cmd not in ALLOWED_COMMANDS:
         raise HTTPException(403, f"Command not allowed: {cmd}")
 
-    bad_chars = re.compile(r"[;&|`$(){}<>\\*?\[\]!#\n\r]")
-    if not isinstance(args, list) or any(not isinstance(a, str) or bad_chars.search(a) for a in args):
+    if not isinstance(args, list):
         raise HTTPException(400, "Invalid command arguments")
+    if args:
+        raise HTTPException(400, "Command arguments are not allowed for this endpoint")
+
+    command_lookup = {name: shutil.which(name) for name in ALLOWED_COMMANDS}
+    executable = command_lookup.get(cmd)
+    if not executable:
+        raise HTTPException(404, f"Command executable not found: {cmd}")
 
     start = time.time()
     try:
+        command_argv = [executable]
         result = subprocess.run(
-            [cmd] + args,
+            command_argv,
             capture_output=True, text=True, timeout=cmd_timeout,
             shell=False,
         )

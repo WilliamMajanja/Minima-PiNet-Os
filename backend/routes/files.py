@@ -1,8 +1,7 @@
 """File system endpoints with path traversal protection."""
 from __future__ import annotations
 
-import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -18,14 +17,35 @@ router = APIRouter()
 _files_root = Path(FILES_ROOT).resolve()
 
 
+def _safe_relative_parts(requested: str) -> tuple[str, ...]:
+    if not isinstance(requested, str):
+        raise HTTPException(400, "Path must be a string")
+    normalized = requested.replace("\\", "/")
+    rel = PurePosixPath(normalized)
+    if rel.is_absolute():
+        raise HTTPException(403, "Access denied: absolute paths are not allowed")
+    parts = tuple(p for p in rel.parts if p not in ("", "."))
+    if any(p == ".." for p in parts):
+        raise HTTPException(403, "Access denied: path traversal detected")
+    return parts
+
+
 def _safe_resolve(requested: str) -> Path:
-    """Resolve a path, ensuring it is within FILES_ROOT."""
-    resolved = (_files_root / requested).resolve()
-    if resolved == _files_root:
-        return resolved
-    if not str(resolved).startswith(str(_files_root) + os.sep):
-        raise HTTPException(403, "Access denied: path is outside the allowed directory")
-    return resolved
+    """Build a safe path under FILES_ROOT without allowing traversal."""
+    parts = _safe_relative_parts(requested)
+    current = _files_root
+    for part in parts[:-1]:
+        current = current / part
+        if current.exists() and current.is_symlink():
+            raise HTTPException(403, "Access denied: symlink traversal is not allowed")
+    target = _files_root.joinpath(*parts)
+    if target.exists() and target.is_symlink():
+        resolved_target = target.resolve()
+        try:
+            resolved_target.relative_to(_files_root)
+        except ValueError:
+            raise HTTPException(403, "Access denied: symlink traversal is not allowed")
+    return target
 
 
 def _safe_resolve_delete(requested: str) -> Path:
@@ -38,7 +58,7 @@ def _safe_resolve_delete(requested: str) -> Path:
 
 @router.get("/files/list")
 async def list_files(path: str = Query(default="")):
-    dir_path = path or str(_files_root)
+    dir_path = path or ""
     try:
         abs_path = _safe_resolve(dir_path)
         items = []

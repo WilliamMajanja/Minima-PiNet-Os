@@ -5,7 +5,7 @@ import json
 import os
 import re
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import urlparse
 
@@ -19,11 +19,44 @@ router = APIRouter()
 
 DAPP_DIR = Path(os.getcwd()) / DAPP_INSTALL_DIR
 DAPP_REGISTRY_FILE = DAPP_DIR / "_registry.json"
+DAPP_ROOT_REALPATH = os.path.realpath(str(DAPP_DIR))
 
 # Ensure dapp directory exists
 DAPP_DIR.mkdir(parents=True, exist_ok=True)
 
 _VALID_DAPP_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{1,127}$")
+
+
+def _safe_dapp_dir(dapp_id: str) -> Path:
+    if not _VALID_DAPP_ID.match(dapp_id):
+        raise HTTPException(400, "Invalid DApp ID")
+    candidate = os.path.realpath(os.path.join(DAPP_ROOT_REALPATH, dapp_id))
+    if os.path.commonpath([DAPP_ROOT_REALPATH, candidate]) != DAPP_ROOT_REALPATH:
+        raise HTTPException(403, "Forbidden")
+    return Path(candidate)
+
+
+def _safe_relative_parts(requested: str) -> tuple[str, ...]:
+    if not isinstance(requested, str):
+        raise HTTPException(400, "Invalid file path")
+    normalized = requested.replace("\\", "/")
+    rel = PurePosixPath(normalized)
+    if rel.is_absolute():
+        raise HTTPException(403, "Forbidden")
+    parts = tuple(p for p in rel.parts if p not in ("", "."))
+    if any(p == ".." for p in parts):
+        raise HTTPException(403, "Forbidden")
+    return parts
+
+
+def _safe_registry_install_dir(record: dict[str, Any]) -> Path:
+    raw_path = str(record.get("installPath", ""))
+    if not raw_path:
+        raise HTTPException(500, "Corrupt DApp registry entry")
+    candidate = os.path.realpath(raw_path)
+    if os.path.commonpath([DAPP_ROOT_REALPATH, candidate]) != DAPP_ROOT_REALPATH:
+        raise HTTPException(403, "Forbidden")
+    return Path(candidate)
 
 
 def _load_registry() -> list[dict]:
@@ -73,7 +106,7 @@ async def install_dapp(body: dict):
         if any(d.get("manifest", {}).get("id") == dapp_id for d in registry):
             raise HTTPException(409, "DApp already installed")
 
-        dapp_dir = DAPP_DIR / dapp_id
+        dapp_dir = _safe_dapp_dir(dapp_id)
         dapp_dir.mkdir(parents=True, exist_ok=True)
 
         entry_url = url if isinstance(url, str) else ""
@@ -131,7 +164,7 @@ async def install_dapp(body: dict):
             raise HTTPException(409, "DApp already installed")
 
         is_minidapp = url.endswith(".mds.zip")
-        dapp_dir = DAPP_DIR / dapp_id
+        dapp_dir = _safe_dapp_dir(dapp_id)
         dapp_dir.mkdir(parents=True, exist_ok=True)
 
         safe_base = _html_escape(base_name)
@@ -179,10 +212,8 @@ async def uninstall_dapp(dapp_id: str):
         raise HTTPException(404, "DApp not found")
 
     dapp = registry[idx]
-    install_dir = Path(dapp["installPath"]).resolve()
-    dapp_root = DAPP_DIR.resolve()
-
-    if (install_dir == dapp_root or str(install_dir).startswith(str(dapp_root) + os.sep)) and install_dir.exists():
+    install_dir = _safe_registry_install_dir(dapp)
+    if install_dir.exists():
         import shutil
         shutil.rmtree(install_dir, ignore_errors=True)
 
@@ -201,11 +232,14 @@ async def serve_dapp_file(dapp_id: str, file_path: str = "index.html"):
     if not dapp:
         raise HTTPException(404, "DApp not found")
 
-    install_path = Path(dapp["installPath"]).resolve()
-    target = (install_path / file_path).resolve()
-
-    if not str(target).startswith(str(install_path) + os.sep) and target != install_path:
+    install_path = _safe_registry_install_dir(dapp)
+    file_parts = _safe_relative_parts(file_path)
+    target_candidate = install_path.joinpath(*file_parts) if file_parts else install_path / "index.html"
+    install_realpath = os.path.realpath(str(install_path))
+    target_realpath = os.path.realpath(str(target_candidate))
+    if os.path.commonpath([install_realpath, target_realpath]) != install_realpath:
         raise HTTPException(403, "Forbidden")
+    target = Path(target_realpath)
     if not target.exists() or target.is_dir():
         raise HTTPException(404, "File not found")
 
