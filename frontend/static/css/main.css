@@ -1,0 +1,301 @@
+/* PiNet-OS — Python Frontend Styles */
+:root {
+    --bg-primary: #020617;
+    --bg-secondary: rgba(15, 23, 42, 0.7);
+    --bg-dark: rgba(2, 6, 23, 0.85);
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --accent: #ec4899;
+    --accent-purple: #8b5cf6;
+    --accent-blue: #3b82f6;
+    --accent-green: #22c55e;
+    --accent-cyan: #06b6d4;
+    --border: rgba(255, 255, 255, 0.1);
+    --border-light: rgba(255, 255, 255, 0.05);
+    --shadow: rgba(0, 0, 0, 0.3);
+    --topbar-h: 40px;
+    --taskbar-h: 64px;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'Fira Code', 'Consolas', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: var(--font-sans);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    background-image: radial-gradient(rgba(236, 72, 153, 0.05) 1px, transparent 0);
+    background-size: 24px 24px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+
+/* ─── Top Bar ─────────────────────────────── */
+#topbar {
+    position: fixed; top: 0; left: 0; right: 0;
+    height: var(--topbar-h);
+    background: var(--bg-dark);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border-light);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px;
+    z-index: 1000;
+    font-size: 0.75rem;
+}
+.topbar-left { display: flex; align-items: center; gap: 8px; }
+.topbar-logo { font-weight: 700; font-size: 0.875rem; }
+.topbar-logo .accent { color: var(--accent); }
+.topbar-version { color: var(--text-muted); font-size: 0.625rem; }
+.topbar-sep { color: var(--text-muted); }
+.topbar-badge {
+    background: rgba(236, 72, 153, 0.15);
+    color: var(--accent);
+    padding: 2px 8px; border-radius: 4px;
+    font-size: 0.625rem; font-weight: 600; text-transform: uppercase;
+}
+.topbar-center { display: flex; gap: 16px; }
+.stat-group { display: flex; align-items: center; gap: 4px; }
+.stat-label { color: var(--text-muted); font-size: 0.625rem; text-transform: uppercase; }
+.stat-value { color: var(--text-primary); font-weight: 500; font-family: var(--font-mono); font-size: 0.75rem; }
+.topbar-right { color: var(--text-secondary); font-family: var(--font-mono); }
+
+/* ─── Desktop ─────────────────────────────── */
+#desktop {
+    position: fixed;
+    top: var(--topbar-h);
+    left: 0; right: 0;
+    bottom: var(--taskbar-h);
+    overflow: auto;
+    padding: 32px;
+}
+#app-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 88px);
+    gap: 16px;
+    justify-content: start;
+}
+.app-icon {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    cursor: pointer; padding: 8px; border-radius: 12px;
+    transition: background 0.2s, transform 0.15s;
+    user-select: none;
+    width: 88px;
+}
+.app-icon:hover { background: rgba(255,255,255,0.05); transform: translateY(-2px); }
+.app-icon:active { transform: scale(0.95); }
+.app-icon-circle {
+    width: 52px; height: 52px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; color: white;
+    filter: drop-shadow(0 4px 6px var(--shadow));
+}
+.app-icon-label {
+    font-size: 0.6875rem; color: var(--text-secondary);
+    text-align: center; line-height: 1.2;
+    max-width: 80px; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ─── Windows ─────────────────────────────── */
+#windows-layer {
+    position: fixed;
+    top: var(--topbar-h); left: 0; right: 0;
+    bottom: var(--taskbar-h);
+    pointer-events: none;
+    z-index: 500;
+}
+.window {
+    position: absolute;
+    background: var(--bg-dark);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    pointer-events: auto;
+    display: flex; flex-direction: column;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    transition: box-shadow 0.2s;
+    min-width: 420px; min-height: 260px;
+}
+.window.active { border-color: rgba(236, 72, 153, 0.3); box-shadow: 0 12px 48px rgba(0,0,0,0.5); }
+.window.minimized { display: none; }
+.window.maximized {
+    left: 0 !important; top: 0 !important;
+    width: 100% !important; height: 100% !important;
+    border-radius: 0;
+}
+
+/* Window Title Bar */
+.window-titlebar {
+    display: flex; align-items: center; justify-content: space-between;
+    height: 36px; padding: 0 12px;
+    background: rgba(15, 23, 42, 0.8);
+    border-bottom: 1px solid var(--border-light);
+    cursor: grab; user-select: none;
+    flex-shrink: 0;
+}
+.window-titlebar:active { cursor: grabbing; }
+.window-title {
+    font-size: 0.75rem; font-weight: 500;
+    color: var(--text-secondary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.window-controls { display: flex; gap: 6px; }
+.window-btn {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: none; cursor: pointer; transition: opacity 0.2s;
+    opacity: 0.8;
+}
+.window-btn:hover { opacity: 1; }
+.window-btn.close { background: #ef4444; }
+.window-btn.minimize { background: #f59e0b; }
+.window-btn.maximize { background: #22c55e; }
+
+/* Window Content */
+.window-content {
+    flex: 1; overflow: auto;
+    padding: 16px;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+/* Resize Handle */
+.window-resize {
+    position: absolute; bottom: 0; right: 0;
+    width: 16px; height: 16px;
+    cursor: nwse-resize;
+}
+
+/* ─── Taskbar ─────────────────────────────── */
+#taskbar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: var(--taskbar-h);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+    padding: 0 16px;
+}
+#taskbar-items {
+    display: flex; gap: 4px;
+    background: var(--bg-dark);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--border-light);
+    border-radius: 16px;
+    padding: 6px 12px;
+}
+.taskbar-item {
+    display: flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; border-radius: 12px;
+    cursor: pointer; transition: background 0.2s;
+    position: relative;
+}
+.taskbar-item:hover { background: rgba(255,255,255,0.08); }
+.taskbar-item.active { background: rgba(236, 72, 153, 0.15); }
+.taskbar-item .icon-circle {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.875rem; color: white;
+}
+.taskbar-item .dot {
+    position: absolute; bottom: 2px;
+    width: 4px; height: 4px; border-radius: 50%;
+    background: var(--accent);
+}
+
+/* ─── App Content Styles ─────────────────── */
+.app-panel {
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 16px; margin-bottom: 12px;
+}
+.app-panel h3 {
+    font-size: 0.8125rem; font-weight: 600;
+    color: var(--text-primary); margin-bottom: 8px;
+}
+.app-stat {
+    display: flex; justify-content: space-between;
+    font-size: 0.8125rem; padding: 4px 0;
+}
+.app-stat .label { color: var(--text-muted); }
+.app-stat .value { color: var(--text-primary); font-family: var(--font-mono); }
+
+.btn {
+    padding: 8px 16px; border: none; border-radius: 6px;
+    font-size: 0.8125rem; font-weight: 500;
+    cursor: pointer; transition: all 0.2s;
+    color: white;
+}
+.btn-primary { background: var(--accent); }
+.btn-primary:hover { background: #db2777; }
+.btn-secondary { background: rgba(255,255,255,0.1); }
+.btn-secondary:hover { background: rgba(255,255,255,0.15); }
+
+input[type="text"], input[type="password"], textarea, select {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 12px;
+    color: var(--text-primary); font-size: 0.8125rem;
+    font-family: var(--font-sans);
+    width: 100%; outline: none;
+    transition: border-color 0.2s;
+}
+input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+
+/* ─── Terminal ─────────────────────────────── */
+.terminal-container {
+    width: 100%; height: 100%;
+    background: #0d1117;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    padding: 8px;
+    overflow: auto;
+    white-space: pre-wrap;
+    color: #c9d1d9;
+    line-height: 1.4;
+}
+.terminal-cursor {
+    display: inline-block;
+    width: 0.6em; height: 1.2em;
+    background: #c9d1d9;
+    animation: blink 1s step-end infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+/* ─── Charts / Stats ─────────────────────── */
+.stat-bar {
+    width: 100%; height: 8px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px; overflow: hidden;
+    margin-top: 4px;
+}
+.stat-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+.stat-bar-fill.cpu { background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan)); }
+.stat-bar-fill.ram { background: linear-gradient(90deg, var(--accent-purple), var(--accent)); }
+.stat-bar-fill.temp { background: linear-gradient(90deg, var(--accent-green), #f59e0b); }
+.stat-bar-fill.disk { background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue)); }
+
+/* ─── Responsive / Utility ────────────────── */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.gap-2 { gap: 8px; }
+.gap-4 { gap: 16px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.text-center { text-align: center; }
+.text-sm { font-size: 0.8125rem; }
+.text-xs { font-size: 0.75rem; }
+.text-muted { color: var(--text-muted); }
+.mt-2 { margin-top: 8px; }
+.mt-4 { margin-top: 16px; }
+.mb-2 { margin-bottom: 8px; }
+.mb-4 { margin-bottom: 16px; }
+.p-4 { padding: 16px; }
+.hidden { display: none; }
+.mono { font-family: var(--font-mono); }

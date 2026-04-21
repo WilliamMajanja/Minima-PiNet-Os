@@ -1,0 +1,115 @@
+"""PiNet-OS Default Configuration — Central configuration constants."""
+import os
+
+# Network Ports
+MINIMA_RPC_PORT = int(os.getenv("PINET_MINIMA_RPC_PORT", "9001"))
+DESKTOP_PORT = int(os.getenv("PINET_DESKTOP_PORT", "3000"))
+CLUSTER_API_PORT = int(os.getenv("PINET_CLUSTER_API_PORT", "9090"))
+
+# Minima RPC
+MINIMA_RPC_URL = os.getenv("MINIMA_RPC_URL", f"http://127.0.0.1:{MINIMA_RPC_PORT}")
+MINIMA_RPC_TIMEOUT = 5000  # ms
+
+# Cluster Timing
+HEARTBEAT_INTERVAL = 10000
+HEARTBEAT_TIMEOUT = 30000
+NODE_OFFLINE_TIMEOUT = 60000
+CLUSTER_POLL_INTERVAL = 5000
+
+# Provenance
+PROVENANCE_BATCH_INTERVAL = 60000
+PROVENANCE_BURN_AMOUNT = "0.001"
+
+# Maxima Protocol
+MAXIMA_APPLICATION = "pinet-cluster"
+MAXIMA_POLL_INTERVAL = 3000
+
+# Enterprise Edge
+EDGE_AI_RUNTIMES = ("tflite", "onnx", "gguf")
+CONTAINER_RUNTIME = "k3s"
+STORAGE_BACKEND = "ipfs"
+MESH_VPN = "wireguard"
+
+# Connectivity Layers
+CONNECTIVITY_LAYERS = {
+    "PRIMARY": "5g",
+    "SECONDARY": "4g-lte",
+    "FALLBACK": "2g-gsm",
+    "MESH": "wireguard-mesh",
+}
+
+# Thermal
+THERMAL_WARNING = 80
+THERMAL_CRITICAL = 85
+
+# DApp Platform
+DAPP_INSTALL_DIR = os.getenv("PINET_DAPP_DIR", "dapps-installed")
+DAPP_MAX_INSTALLED = 50
+DAPP_MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+DAPP_ALLOWED_EXTENSIONS = (".zip", ".tar.gz", ".mds.zip")
+
+# Version
+PINET_VERSION = "1.1.0"
+MINIMA_VERSION = "1.0.35"
+
+# Kernel / Init System
+DEFAULT_RUN_LEVEL = 5
+INIT_SERVICE_TIMEOUT = 30000
+MAX_SERVICE_RESTARTS = 5
+SERVICE_RESTART_DELAY = 5000
+
+# Process Manager
+MAX_PROCESSES = 4096
+PROCESS_TICK_INTERVAL = 1000
+ZOMBIE_REAP_INTERVAL = 5000
+
+# Memory Manager
+OOM_THRESHOLD_PERCENT = 95
+DEFAULT_PROCESS_MEM_LIMIT = 512 * 1024 * 1024
+PAGE_SIZE = 4096
+
+# Scheduler
+SCHEDULER_TICK_MS = 1000
+DEFAULT_TIME_SLICE_MS = 10
+CRON_CHECK_INTERVAL = 60000
+
+# Logging
+SYSLOG_MAX_ENTRIES = 10000
+SYSLOG_DEFAULT_SEVERITY = "debug"
+SYSLOG_ROTATION_PERCENT = 0.8
+
+# User Management
+DEFAULT_USER = "pi"
+DEFAULT_UID = 1000
+DEFAULT_SHELL = "/bin/bash"
+SESSION_TIMEOUT = 3600000
+PASSWORD_MIN_LENGTH = 8
+
+# Network
+DEFAULT_DNS = ["8.8.8.8", "8.8.4.4", "1.1.1.1"]
+WIREGUARD_PORT = 51820
+FIREWALL_DEFAULT_POLICY = "deny"
+
+# Power Management
+WATCHDOG_TIMEOUT = 30000
+DEFAULT_CPU_GOVERNOR = "ondemand"
+POWER_POLL_INTERVAL = 5000
+
+# Security
+AUDIT_MAX_ENTRIES = 10000
+INTEGRITY_CHECK_INTERVAL = 3600000
+MAX_FAILED_LOGINS = 5
+LOCKOUT_DURATION = 300000
+
+# CORS
+CORS_ORIGIN = os.getenv("PINET_CORS_ORIGIN", "")
+
+# Files Root
+FILES_ROOT = os.path.realpath(os.getenv("PINET_FILES_ROOT", os.getcwd()))
+
+# GitHub
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+GITHUB_REPO = os.getenv("GITHUB_REPO", "WilliamMajanja/Minima-PiNet-Os")
+
+# AI
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
