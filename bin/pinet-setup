@@ -39,20 +39,19 @@ if ! command -v java >/dev/null 2>&1; then
 fi
 check_java || exit 1
 
-# ─── Check & Install Node.js ──────────────────────────────────────────────────
+# ─── Check & Install Python ───────────────────────────────────────────────────
 
-log_info "Checking Node.js installation..."
-if ! command -v node >/dev/null 2>&1; then
-  log_warn "Node.js not found. Attempting to install Node.js 18..."
+log_info "Checking Python installation..."
+if ! command -v python3 >/dev/null 2>&1; then
+  log_warn "Python3 not found. Attempting to install Python 3..."
   if command -v apt >/dev/null 2>&1; then
-    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-    sudo apt install -y nodejs
+    sudo apt update -qq && sudo apt install -y python3 python3-pip python3-venv
   else
-    log_error "Could not auto-install Node.js. Please install Node.js 18+ manually."
+    log_error "Could not auto-install Python3. Please install Python 3.10+ manually."
     exit 1
   fi
 fi
-check_node || exit 1
+check_python || exit 1
 
 # ─── Download Minima JAR ──────────────────────────────────────────────────────
 
@@ -85,24 +84,14 @@ fi
 
 log_info "Installing web desktop dependencies..."
 cd "$PROJECT_DIR"
-if [ -f "package.json" ]; then
-  npm install 2>/dev/null || {
-    log_warn "npm install failed — web desktop may not work correctly."
+if [ -f "requirements.txt" ]; then
+  python3 -m pip install --upgrade pip >/dev/null 2>&1 || true
+  python3 -m pip install -r requirements.txt 2>/dev/null || {
+    log_warn "pip install failed — web desktop may not work correctly."
   }
-  log_ok "Web desktop dependencies installed."
+  log_ok "Python desktop dependencies installed."
 else
-  log_warn "package.json not found in $PROJECT_DIR"
-fi
-
-# ─── Build Web Desktop ────────────────────────────────────────────────────────
-
-log_info "Building web desktop frontend..."
-cd "$PROJECT_DIR"
-if [ -f "package.json" ]; then
-  npm run build 2>/dev/null || {
-    log_warn "Frontend build failed — run 'npm run build' manually to debug."
-  }
-  log_ok "Web desktop frontend built."
+  log_warn "requirements.txt not found in $PROJECT_DIR"
 fi
 
 # ─── Generate Initial Configuration ───────────────────────────────────────────

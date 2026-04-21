@@ -115,14 +115,14 @@ check_java() {
   fi
 }
 
-check_node() {
-  if command -v node >/dev/null 2>&1; then
-    _node_ver=$(node --version 2>/dev/null)
-    log_ok "Node.js found: $_node_ver"
+check_python() {
+  if command -v python3 >/dev/null 2>&1; then
+    _python_ver=$(python3 --version 2>/dev/null)
+    log_ok "Python found: $_python_ver"
     return 0
   else
-    log_error "Node.js not found. Web desktop requires Node.js 18+."
-    log_info "Install with: curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - && sudo apt install -y nodejs"
+    log_error "Python3 not found. Web desktop requires Python 3.10+."
+    log_info "Install with: sudo apt install -y python3 python3-pip"
     return 1
   fi
 }
@@ -130,7 +130,7 @@ check_node() {
 check_prerequisites() {
   _ok=0
   check_java  || _ok=1
-  check_node  || _ok=1
+  check_python || _ok=1
 
   if [ ! -f "$PINET_MINIMA_JAR" ]; then
     log_warn "Minima JAR not found at $PINET_MINIMA_JAR"
@@ -202,8 +202,8 @@ start_desktop() {
 
   PINET_MINIMA_RPC_PORT="$PINET_MINIMA_RPC_PORT" \
   PINET_HOME="$PINET_HOME" \
-  PORT="$PINET_DESKTOP_PORT" \
-  node server.ts > "$PINET_LOG_DIR/desktop.log" 2>&1 &
+  PINET_DESKTOP_PORT="$PINET_DESKTOP_PORT" \
+  python3 run.py > "$PINET_LOG_DIR/desktop.log" 2>&1 &
   _desktop_pid=$!
   echo "$_desktop_pid" > "$PINET_HOME/desktop.pid"
 

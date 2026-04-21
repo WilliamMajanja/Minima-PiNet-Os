@@ -3,8 +3,6 @@ node_modules/
 
 # Build output
 dist/
-dist-electron/
-dist-electron-build/
 
 # Environment variables (never commit secrets)
 .env
@@ -19,7 +17,6 @@ Thumbs.db
 PiNetOS-RaspberryPi-Package-*.zip
 PiNetOS-RaspberryPi.img
 PiNetOS-Enterprise.zip
-PiNetOS-Electron-Desktop.zip
 PiNetOS-Build-System.zip
 PiNetOS-Documentation.zip
 PiNetOS-K3s-Manifests.zip

@@ -47,40 +47,8 @@ const zipFolder = ({ source, output, targetFolder }) => {
   console.log(`Created ${output} (${sizeMb} MB)`);
 };
 
-const packageElectronDesktop = () => {
-  const output = 'PiNetOS-Electron-Desktop.zip';
-  const outputPath = path.join(rootDir, output);
-
-  const excludedRootEntries = new Set([
-    '.git',
-    'node_modules',
-    'dist',
-    'dist-electron',
-    'dist-electron-build'
-  ]);
-
-  const zip = new AdmZip();
-  for (const entry of fs.readdirSync(rootDir, { withFileTypes: true })) {
-    if (excludedRootEntries.has(entry.name) || entry.name.endsWith('.zip')) {
-      continue;
-    }
-
-    const entryPath = path.join(rootDir, entry.name);
-    if (entry.isDirectory()) {
-      zip.addLocalFolder(entryPath, entry.name);
-    } else {
-      zip.addLocalFile(entryPath);
-    }
-  }
-
-  zip.writeZip(outputPath);
-  const sizeMb = (fs.statSync(outputPath).size / (1024 * 1024)).toFixed(2);
-  console.log(`Created ${output} (${sizeMb} MB)`);
-};
-
 console.log('Generating release package artifacts...');
 for (const config of packages) {
   zipFolder(config);
 }
-packageElectronDesktop();
 console.log('Release package artifacts generated successfully.');

@@ -16,74 +16,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test-server": "node server.ts",
-    "start": "node server.ts",
-    "dev": "tsx server.ts",
-    "build": "vite build",
-    "preview": "vite preview --host",
-    "lint": "tsc --noEmit",
+    "start": "python run.py",
+    "dev": "python run.py",
     "release:validate-boot": "node scripts/validate-boot-config.js",
     "release:img": "bash scripts/create-release-img.sh",
-    "release:packages": "node scripts/generate-release-packages.js",
-    "deploy": "npm install && npm run build && npm run preview",
-    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && tsc -p electron && electron .\"",
-    "electron:build": "tsc -p electron && electron-builder"
+    "release:packages": "node scripts/generate-release-packages.js"
   },
   "dependencies": {
-    "@google/genai": "^1.40.0",
-    "@types/express": "^5.0.6",
-    "@types/ws": "^8.18.1",
-    "@xterm/addon-fit": "^0.11.0",
-    "@xterm/xterm": "^6.0.0",
-    "adm-zip": "^0.5.16",
-    "electron-store": "^8.2.0",
-    "express": "^5.2.1",
-    "express-rate-limit": "^8.3.2",
-    "motion": "^12.35.2",
-    "node-pty": "^1.1.0",
-    "os-utils": "^0.0.14",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "recharts": "^2.12.7",
-    "systeminformation": "^5.23.4",
-    "ws": "^8.19.0"
-  },
-  "devDependencies": {
-    "@types/react": "^18.3.3",
-    "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^6.0.1",
-    "concurrently": "^8.2.2",
-    "electron": "^39.8.6",
-    "electron-builder": "^26.8.1",
-    "tsx": "^4.21.0",
-    "typescript": "^5.5.3",
-    "vite": "^8.0.5",
-    "wait-on": "^7.2.0"
-  },
-  "main": "dist-electron/main.js",
-  "build": {
-    "appId": "com.pinetos.desktop",
-    "productName": "PiNetOS-Desktop",
-    "directories": {
-      "output": "dist-electron-build"
-    },
-    "files": [
-      "dist/**/*",
-      "dist-electron/**/*"
-    ],
-    "linux": {
-      "target": [
-        "AppImage",
-        "tar.gz"
-      ],
-      "category": "System"
-    },
-    "win": {
-      "target": "nsis"
-    },
-    "mac": {
-      "target": "dmg"
-    }
+    "adm-zip": "^0.5.16"
   },
   "overrides": {
     "lodash": ">=4.18.1",

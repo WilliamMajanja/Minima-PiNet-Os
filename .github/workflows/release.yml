@@ -54,9 +54,6 @@ jobs:
 
           ls -lh "${ARCHIVE_BASE}.zip" "${ARCHIVE_BASE}.tar.gz"
 
-      - name: Build web desktop
-        run: npm run build
-
       - name: Install system dependencies
         run: sudo apt-get update -qq && sudo apt-get install -y -qq mtools e2fsprogs
 
@@ -77,7 +74,6 @@ jobs:
             PiNetOS-RaspberryPi.img \
             PiNetOS-RaspberryPi-Package-*.zip \
             PiNetOS-Enterprise.zip \
-            PiNetOS-Electron-Desktop.zip \
             PiNetOS-Build-System.zip \
             PiNetOS-Documentation.zip \
             PiNetOS-K3s-Manifests.zip \
@@ -104,7 +100,6 @@ jobs:
             PiNetOS-RaspberryPi.img
             PiNetOS-RaspberryPi-Package-*.zip
             PiNetOS-Enterprise.zip
-            PiNetOS-Electron-Desktop.zip
             PiNetOS-Build-System.zip
             PiNetOS-Documentation.zip
             PiNetOS-K3s-Manifests.zip
