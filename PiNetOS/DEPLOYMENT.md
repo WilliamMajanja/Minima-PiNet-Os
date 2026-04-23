@@ -18,7 +18,7 @@ No dedicated image flashing required.
 git clone https://github.com/WilliamMajanja/Minima-PiNet-Os.git
 cd Minima-PiNet-Os
 
-# 2. Run the setup script (installs Java, Node.js, downloads Minima)
+# 2. Run the setup script (installs Java, Python, downloads Minima)
 bin/pinet setup
 
 # 3. Start PiNet-OS
@@ -30,9 +30,9 @@ bin/pinet start --role worker --master <address>  # For worker nodes
 ### What Setup Does
 
 1. Checks and installs **Java 17+** (for the Minima node)
-2. Checks and installs **Node.js 18+** (for the web desktop)
+2. Checks and installs **Python 3.11+** (for the FastAPI/Jinja web desktop)
 3. Downloads the **Minima JAR** to `~/.pinet/bin/minima.jar`
-4. Installs web desktop npm dependencies
+4. Installs the Python desktop's `requirements.txt`
 5. Generates node identity and initial configuration
 
 ### Runtime Directory

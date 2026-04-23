@@ -20,21 +20,22 @@
 
 {% block body %}
 <!-- Boot Splash -->
-<div id="boot-splash">
+<div id="boot-splash" role="status" aria-live="polite" aria-label="Booting PiNetOS">
     <div class="logo">PiNet<span>OS</span></div>
-    <div class="progress-bar"><div class="progress-fill" id="boot-progress"></div></div>
+    <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="boot-progressbar"><div class="progress-fill" id="boot-progress"></div></div>
     <div class="status" id="boot-status">Initializing kernel...</div>
 </div>
 
 <!-- Top Bar -->
-<header id="topbar">
+<header id="topbar" role="banner">
     <div class="topbar-left">
         <span class="topbar-logo">PiNet<span class="accent">OS</span></span>
         <span class="topbar-version">v{{ version }}</span>
         <span class="topbar-sep">|</span>
-        <span id="os-mode" class="topbar-badge">pinet</span>
+        <span id="os-mode" class="topbar-badge" title="Active OS profile">pinet</span>
+        <span class="topbar-badge" title="Backend stack" style="background:rgba(139,92,246,0.15);color:#a78bfa">python · fastapi</span>
     </div>
-    <div class="topbar-center">
+    <div class="topbar-center" role="status" aria-label="System statistics">
         <div class="stat-group">
             <span class="stat-label">CPU</span>
             <span class="stat-value" id="stat-cpu">0%</span>
@@ -61,22 +62,22 @@
         </div>
     </div>
     <div class="topbar-right">
-        <span id="clock"></span>
+        <span id="clock" aria-label="Current time"></span>
     </div>
 </header>
 
 <!-- Desktop -->
-<main id="desktop">
+<main id="desktop" role="main" aria-label="Desktop application launcher">
     <div id="app-grid">
         <!-- App icons rendered by JS -->
     </div>
 </main>
 
 <!-- Window container -->
-<div id="windows-layer"></div>
+<div id="windows-layer" aria-live="polite"></div>
 
 <!-- Taskbar -->
-<footer id="taskbar">
+<footer id="taskbar" role="navigation" aria-label="Open windows">
     <div id="taskbar-items"></div>
 </footer>
 {% endblock %}

@@ -141,7 +141,7 @@ class PiNetState(BaseModel):
 # --- DApp Models ---
 class DAppKind(str, Enum):
     TYPESCRIPT = "typescript"
-    REACT_DASHBOARD = "react-dashboard"
+    PYTHON_DASHBOARD = "python-dashboard"
     MINIDAPP = "minidapp"
 
 class DAppManifest(BaseModel):

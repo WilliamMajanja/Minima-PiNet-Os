@@ -20,7 +20,7 @@ Minima PiNet OS is a **zero-bloat Linux distribution** designed for edge computi
 ### Using PiNet OS
 - [CLI Reference](CLI-Reference) — `pinet` command-line tool
 - [API Reference](API-Reference) — All 86 REST API endpoints
-- [Desktop Applications](Desktop-Applications) — 22 built-in apps and window management
+- [Desktop Applications](Desktop-Applications) — 20 built-in apps and window management
 - [DApp Development](DApp-Development) — Build and publish decentralized apps
 
 ### Hardware & Networking

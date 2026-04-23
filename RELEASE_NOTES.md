@@ -22,13 +22,13 @@ We are proud to announce **Minima-PiNet-OS v1.1.0**, delivering significant secu
 - **Core OS Services** — Singleton-pattern services with `subscribe()` observer: syslog, user management, IPC, device manager, security, network, and power services.
 - **7 Desktop Management Apps** — System monitor, file manager, terminal, user admin, network config, device manager, and security center.
 - **Window Management** — Full drag, resize, maximize, and cascading window position support with per-window state tracking.
-- **Real PTY Terminal** — Real PTY support via `node-pty` with WebSocket resize signaling.
+- **Real PTY Terminal** — Real PTY support via Python's `pty` + `asyncio` with WebSocket resize signaling.
 - **Real System Data** — Live system stats, uptime, Minima node status, contacts, and subnet scan.
 - **Refined Taskbar** — Taskbar now shows only open windows; TopBar OS switcher updated for all modes.
 
 ### 📱 Next-Generation DApp Platform
-- **TypeScript DApp Interface** — Full DApp interface system supporting three kinds: `typescript`, `react-dashboard`, and `minidapp`.
-- **DApp Store** — Built-in DApp discovery and installation via `DAppStoreApp.tsx`.
+- **Static / TypeScript DApp Interface** — DApp interface system supporting three kinds: `typescript` (sandboxed static web app), `python-dashboard` (server-rendered Jinja2 dashboard), and `minidapp` (classic Minima MiniDapp).
+- **DApp Store** — Built-in DApp discovery and installation served by the FastAPI `/api/dapps` endpoints.
 - **DApp Host Frame** — Sandboxed DApp runtime with secure bridge API for OS integration.
 - **DApp API Endpoints** — Server-side DApp management endpoints under `/api/dapps` with rate limiting.
 - **Dynamic AppId System** — Template literal type `dapp:${string}` with `isDAppId()` and `extractDAppId()` helpers for type-safe DApp identification.
@@ -78,7 +78,6 @@ We are proud to announce **Minima-PiNet-OS v1.1.0**, delivering significant secu
 | `PiNetOS-RaspberryPi.img` | Flashable Raspberry Pi OS image |
 | `PiNetOS-RaspberryPi-Package-v1.1.0.zip` | Image package with flashing instructions and checksums |
 | `PiNetOS-Enterprise.zip` | Enterprise cluster management stack |
-| `PiNetOS-Electron-Desktop.zip` | Cross-platform desktop client source |
 | `PiNetOS-Build-System.zip` | Build pipeline and imager utilities |
 | `PiNetOS-Documentation.zip` | Full documentation archive |
 | `PiNetOS-K3s-Manifests.zip` | K3s/Kubernetes manifests for full cluster deployment |

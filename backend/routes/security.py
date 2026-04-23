@@ -310,4 +310,95 @@ async def verify_integrity():
 
 @router.get("/security/threats")
 async def get_threats():
-    return {"threats": _threats, "open": len([t for t in _threats if not t.get("mitigated")])}
+    """Real threat data derived from fail2ban + recent auth failures.
+
+    Combines:
+      * runtime threats recorded in ``_threats`` (e.g. integrity violations)
+      * banned IPs reported by ``fail2ban-client status <jail>``
+      * recent failed-auth events from the system journal
+
+    Returns an empty list when none of the sources are available — never
+    fabricates threat data.
+    """
+    import shutil
+    import subprocess
+
+    threats: list[dict[str, Any]] = list(_threats)
+
+    # fail2ban-derived bans
+    if shutil.which("fail2ban-client"):
+        try:
+            jails_proc = subprocess.run(
+                ["fail2ban-client", "status"],
+                capture_output=True, text=True, timeout=3, shell=False, check=False,
+            )
+            jails: list[str] = []
+            if jails_proc.returncode == 0:
+                for line in jails_proc.stdout.splitlines():
+                    if "Jail list" in line:
+                        _, _, names = line.partition(":")
+                        jails = [j.strip() for j in names.split(",") if j.strip()]
+                        break
+            for jail in jails:
+                jproc = subprocess.run(
+                    ["fail2ban-client", "status", jail],
+                    capture_output=True, text=True, timeout=3, shell=False, check=False,
+                )
+                if jproc.returncode != 0:
+                    continue
+                banned: list[str] = []
+                for line in jproc.stdout.splitlines():
+                    if "Banned IP list" in line:
+                        _, _, ips = line.partition(":")
+                        banned = [ip for ip in ips.split() if ip]
+                        break
+                for ip in banned:
+                    threats.append({
+                        "id": f"fail2ban-{jail}-{ip}",
+                        "type": "brute-force",
+                        "source": ip,
+                        "jail": jail,
+                        "severity": "high",
+                        "mitigated": True,
+                        "discoveredAt": int(time.time() * 1000),
+                        "description": f"IP {ip} banned by fail2ban jail '{jail}'",
+                    })
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            pass
+
+    # Recent failed SSH auth from the journal
+    if shutil.which("journalctl"):
+        try:
+            jproc = subprocess.run(
+                [
+                    "journalctl", "-u", "ssh.service", "-u", "sshd.service",
+                    "--since", "-1h", "-g", "Failed password",
+                    "-o", "short-iso", "--no-pager",
+                ],
+                capture_output=True, text=True, timeout=3, shell=False, check=False,
+            )
+            if jproc.returncode == 0:
+                for idx, line in enumerate(jproc.stdout.splitlines()[-50:]):
+                    line = line.strip()
+                    if not line or line.startswith("--"):
+                        continue
+                    threats.append({
+                        "id": f"sshd-fail-{idx}",
+                        "type": "auth-failure",
+                        "source": "sshd",
+                        "severity": "medium",
+                        "mitigated": False,
+                        "discoveredAt": int(time.time() * 1000),
+                        "description": line,
+                    })
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            pass
+
+    return {
+        "threats": threats,
+        "open": len([t for t in threats if not t.get("mitigated")]),
+        "sources": {
+            "fail2ban": bool(shutil.which("fail2ban-client")),
+            "journal": bool(shutil.which("journalctl")),
+        },
+    }

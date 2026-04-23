@@ -20,9 +20,9 @@ pinet <command> [options]
 One-time initialization of the PiNet OS runtime.
 
 - Checks and installs Java 17+ (for Minima blockchain node)
-- Checks and installs Node.js 18+
+- Checks and installs Python 3.11+
 - Downloads the Minima JAR file
-- Installs npm dependencies
+- Installs Python `requirements.txt`
 - Generates node identity
 
 ```bash

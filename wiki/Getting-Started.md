@@ -35,8 +35,8 @@ Run the full PiNet OS desktop and API server on your development machine.
 
 | Tool | Version |
 |---|---|
-| Node.js | 18+ |
-| npm | 9+ |
+| Python | 3.11+ |
+| pip | 23+ |
 | Java | 17+ (for Minima node) |
 | Git | 2.x |
 
@@ -48,10 +48,10 @@ git clone https://github.com/WilliamMajanja/Minima-PiNet-Os.git
 cd Minima-PiNet-Os
 
 # Install dependencies
-npm install
+pip install -r requirements.txt
 
-# Start the development server
-npm run dev
+# Start the desktop server
+python run.py
 ```
 
 Open `http://localhost:3000` to see the PiNet OS desktop.
@@ -60,11 +60,11 @@ Open `http://localhost:3000` to see the PiNet OS desktop.
 
 | Command | Description |
 |---|---|
-| `npm run dev` | Start dev server with hot reload |
-| `npm run build` | Build for production |
-| `npm run preview` | Preview production build |
-| `npm run lint` | TypeScript type checking |
-| `npm start` | Start production server |
+| `python run.py` | Start the FastAPI desktop server (defaults to port 3000) |
+| `python -m compileall run.py backend` | Validate Python sources |
+| `npm run release:validate-boot` | Validate Raspberry Pi boot configuration |
+| `npm run release:packages` | Generate release ZIP packages |
+| `npm run release:img` | Build the flashable Raspberry Pi `.img` |
 
 ---
 
@@ -94,7 +94,7 @@ chmod +x pinet
 ## What's Next?
 
 - [Architecture](Architecture) — Understand the system design
-- [Desktop Applications](Desktop-Applications) — Explore the 22 built-in apps
+- [Desktop Applications](Desktop-Applications) — Explore the 20 built-in apps
 - [Cluster Management](Cluster-Management) — Set up multi-node clusters
 - [DApp Development](DApp-Development) — Build decentralized applications
 - [Hardware Guide](Hardware-Guide) — Connect sensors and peripherals

@@ -153,7 +153,7 @@ Open a browser and navigate to:
 http://<pi-ip>:3000
 ```
 
-You'll see the PiNet OS desktop with the taskbar and 21 built-in applications.
+You'll see the PiNet OS desktop with the taskbar and 20 built-in applications.
 
 ---
 
@@ -185,7 +185,6 @@ You'll see the PiNet OS desktop with the taskbar and 21 built-in applications.
 | `PiNetOS-RaspberryPi.img` | Flashable disk image for Raspberry Pi |
 | `PiNetOS-RaspberryPi-Package-v*.zip` | Image + flashing guide + checksums |
 | `PiNetOS-Enterprise.zip` | Enterprise cluster stack |
-| `PiNetOS-Electron-Desktop.zip` | Cross-platform Electron desktop client |
 | `PiNetOS-Build-System.zip` | Build scripts and configuration |
 | `PiNetOS-Documentation.zip` | Full documentation bundle |
 | `SHA256SUMS.txt` | Cryptographic verification checksums |

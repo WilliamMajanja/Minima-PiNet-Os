@@ -25,7 +25,6 @@ const PiNetApps = {
         { id: 'ai-assistant', name: 'PiNet AI', icon: '🤖', color: '#a855f7', category: 'apps' },
         { id: 'depai-executor', name: 'DePAi', icon: '🧠', color: '#ec4899', category: 'apps' },
         { id: 'imager-utility', name: 'Pi Imager', icon: '💿', color: '#10b981', category: 'apps' },
-        { id: 'visual-studio', name: 'Studio', icon: '🎨', color: '#db2777', category: 'apps' },
     ],
 
     getApp(id) {
@@ -214,7 +213,13 @@ const AppContent = {
     'depai-executor': () => `
         <div class="app-panel">
             <h3>🧠 Distributed AI Executor</h3>
-            <p class="text-muted text-sm">Submit AI workloads to the cluster for distributed execution.</p>
+            <p class="text-muted text-sm">Submit a shell workload to a peer node over the Maxima cluster bus.</p>
+            <div class="flex gap-2 mt-2">
+                <select id="depai-node" aria-label="Target node" style="flex:1"><option value="">Loading nodes…</option></select>
+                <input type="text" id="depai-cmd" aria-label="Command to execute" placeholder="command (e.g. uname -a)" style="flex:2">
+                <button class="btn btn-primary" onclick="AppActions.depaiSubmit()">Submit</button>
+            </div>
+            <pre id="depai-output" class="mono text-sm mt-2" style="max-height:240px;overflow:auto"></pre>
         </div>
     `,
 
@@ -223,13 +228,6 @@ const AppContent = {
             <h3>💿 Pi Imager</h3>
             <p class="text-muted text-sm">Build and flash OS images for Raspberry Pi.</p>
             <button class="btn btn-primary mt-2" onclick="AppActions.buildImage()">Build Image</button>
-        </div>
-    `,
-
-    'visual-studio': () => `
-        <div class="app-panel">
-            <h3>🎨 Visual Asset Studio</h3>
-            <p class="text-muted text-sm">Create icons, images, and visual assets.</p>
         </div>
     `,
 };
@@ -320,16 +318,54 @@ const AppActions = {
         chat.appendChild(userRow);
 
         input.value = '';
+        input.disabled = true;
 
         const aiRow = document.createElement('div');
-        aiRow.className = 'mb-2 text-muted';
+        aiRow.className = 'mb-2';
         const aiLabel = document.createElement('strong');
         aiLabel.textContent = 'AI:';
         aiRow.appendChild(aiLabel);
-        aiRow.appendChild(document.createTextNode(' AI integration requires Gemini API key configuration.'));
+        const aiText = document.createTextNode(' …');
+        aiRow.appendChild(aiText);
         chat.appendChild(aiRow);
-
         chat.scrollTop = chat.scrollHeight;
+
+        try {
+            const resp = await fetch('/api/ai/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: msg }),
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (resp.ok && data && typeof data.text === 'string') {
+                aiText.nodeValue = ` ${data.text}`;
+            } else {
+                aiRow.classList.add('text-muted');
+                aiText.nodeValue = ` Error: ${(data && data.detail) || `HTTP ${resp.status}`}`;
+            }
+        } catch (err) {
+            aiRow.classList.add('text-muted');
+            aiText.nodeValue = ` Error: ${err.message || err}`;
+        } finally {
+            input.disabled = false;
+            chat.scrollTop = chat.scrollHeight;
+        }
+    },
+
+    async depaiSubmit() {
+        const sel = document.getElementById('depai-node');
+        const cmdEl = document.getElementById('depai-cmd');
+        const out = document.getElementById('depai-output');
+        if (!sel || !cmdEl || !out) return;
+        const targetNodeId = sel.value;
+        const command = (cmdEl.value || '').trim();
+        if (!targetNodeId || !command) {
+            out.textContent = 'Select a node and enter a command.';
+            return;
+        }
+        out.textContent = 'Submitting…';
+        const data = await PiNetAPI.post('/api/cluster/exec', { targetNodeId, command });
+        out.textContent = data ? JSON.stringify(data, null, 2) : 'Failed to submit workload.';
     },
 };
 
@@ -510,29 +546,95 @@ const AppInitializers = {
     },
 
     'dapp-store': () => { AppActions.loadDapps(); },
+
+    'depai-executor': async () => {
+        const sel = document.getElementById('depai-node');
+        if (!sel) return;
+        const data = await PiNetAPI.clusterNodes();
+        const list = (data && Array.isArray(data.nodes)) ? data.nodes : [];
+        sel.innerHTML = '';
+        if (!list.length) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'No peer nodes discovered';
+            sel.appendChild(opt);
+            return;
+        }
+        for (const n of list) {
+            const opt = document.createElement('option');
+            opt.value = n.id || '';
+            opt.textContent = `${n.name || n.id || 'node'} (${n.ip || 'IP unavailable'})`;
+            sel.appendChild(opt);
+        }
+    },
 };
 
 /* ─── Desktop Icon Rendering ───────────────── */
+const CATEGORY_ORDER = [
+    { id: 'blockchain', label: 'Web3 & Minima' },
+    { id: 'system',     label: 'System' },
+    { id: 'apps',       label: 'Apps' },
+    { id: 'config',     label: 'Settings' },
+];
+
 function renderDesktop() {
     const grid = document.getElementById('app-grid');
     if (!grid) return;
     grid.innerHTML = '';
-    PiNetApps.apps.forEach(app => {
-        const icon = document.createElement('div');
-        icon.className = 'app-icon';
-        icon.innerHTML = `
-            <div class="app-icon-circle" style="background:${app.color}">${app.icon}</div>
-            <span class="app-icon-label">${app.name}</span>
-        `;
-        icon.addEventListener('dblclick', () => openApp(app.id));
-        // Touch support
-        let tapTimeout;
-        icon.addEventListener('touchend', (e) => {
-            if (tapTimeout) { clearTimeout(tapTimeout); tapTimeout = null; openApp(app.id); }
-            else { tapTimeout = setTimeout(() => { tapTimeout = null; }, 300); }
-        });
-        grid.appendChild(icon);
-    });
+
+    const byCategory = {};
+    for (const cat of CATEGORY_ORDER) byCategory[cat.id] = [];
+    for (const app of PiNetApps.apps) {
+        const bucket = byCategory[app.category] || (byCategory[app.category] = []);
+        bucket.push(app);
+    }
+
+    for (const cat of CATEGORY_ORDER) {
+        const apps = byCategory[cat.id];
+        if (!apps || !apps.length) continue;
+
+        const section = document.createElement('section');
+        section.className = 'app-category';
+        section.setAttribute('aria-label', cat.label);
+
+        const heading = document.createElement('h2');
+        heading.className = 'app-category-title';
+        heading.textContent = cat.label;
+        section.appendChild(heading);
+
+        const row = document.createElement('div');
+        // reuse the grid layout class for inner rows
+        row.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,88px);gap:16px;justify-content:start';
+
+        for (const app of apps) {
+            const icon = document.createElement('button');
+            icon.type = 'button';
+            icon.className = 'app-icon';
+            icon.setAttribute('aria-label', `Open ${app.name}`);
+            icon.innerHTML = `
+                <span class="app-icon-circle" style="background:${app.color}" aria-hidden="true">${app.icon}</span>
+                <span class="app-icon-label">${app.name}</span>
+            `;
+            // Single-click and keyboard activation open the app.
+            // Double-click also works for users who expect it.
+            icon.addEventListener('click', () => openApp(app.id));
+            icon.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openApp(app.id);
+                }
+            });
+            // Touch support
+            let tapTimeout;
+            icon.addEventListener('touchend', () => {
+                if (tapTimeout) { clearTimeout(tapTimeout); tapTimeout = null; openApp(app.id); }
+                else { tapTimeout = setTimeout(() => { tapTimeout = null; }, 300); }
+            });
+            row.appendChild(icon);
+        }
+        section.appendChild(row);
+        grid.appendChild(section);
+    }
 }
 
 /* ─── Open App ─────────────────────────────── */
@@ -578,25 +680,44 @@ function updateClock() {
         now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
+/* ─── Global Keyboard Shortcuts ────────────── */
+function setupGlobalKeys() {
+    document.addEventListener('keydown', (e) => {
+        // Escape closes the front-most window (when focus is not in an editable field)
+        if (e.key === 'Escape') {
+            const tag = (e.target && e.target.tagName) || '';
+            const editable = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable);
+            if (editable) return;
+            const top = WindowManager.topActiveAppId();
+            if (top) {
+                e.preventDefault();
+                WindowManager.close(top);
+            }
+        }
+    });
+}
+
 /* ─── Boot Sequence ────────────────────────── */
 async function boot() {
     const progress = document.getElementById('boot-progress');
+    const progressbar = document.getElementById('boot-progressbar');
     const status = document.getElementById('boot-status');
     const splash = document.getElementById('boot-splash');
 
     const steps = [
         [10, 'Loading kernel modules...'],
-        [25, 'Initializing system services...'],
-        [40, 'Starting network stack...'],
+        [25, 'Starting Python runtime...'],
+        [40, 'Initializing FastAPI services...'],
         [55, 'Connecting to Minima node...'],
-        [70, 'Loading desktop environment...'],
-        [85, 'Mounting filesystems...'],
+        [70, 'Mounting filesystems...'],
+        [85, 'Loading Jinja desktop...'],
         [95, 'Starting PiNet Desktop...'],
         [100, 'Ready.'],
     ];
 
     for (const [pct, msg] of steps) {
         progress.style.width = pct + '%';
+        if (progressbar) progressbar.setAttribute('aria-valuenow', String(pct));
         status.textContent = msg;
         await new Promise(r => setTimeout(r, 250));
     }
@@ -607,6 +728,7 @@ async function boot() {
 
     // Initialize desktop
     renderDesktop();
+    setupGlobalKeys();
     updateClock();
     setInterval(updateClock, 1000);
     pollStats();

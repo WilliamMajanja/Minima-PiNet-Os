@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide explains how to develop for PiNetOS — adding custom drivers, building services, extending the HAL, and creating MiniDAPPs.
+This guide explains how to develop for PiNetOS — adding custom drivers, building services, extending the Python backend, and creating MiniDAPPs.
 
 ---
 
@@ -18,11 +18,11 @@ ssh pinet@<pi-ip>
 git clone https://github.com/WilliamMajanja/Minima-PiNet-Os.git
 cd Minima-PiNet-Os
 
-# 3. Install dependencies
-npm install
+# 3. Install Python dependencies
+pip install -r requirements.txt
 
-# 4. Start development server
-npm run dev
+# 4. Start the desktop server
+python run.py
 # → http://<pi-ip>:3000
 ```
 
@@ -33,14 +33,14 @@ npm run dev
 git clone https://github.com/WilliamMajanja/Minima-PiNet-Os.git
 cd Minima-PiNet-Os
 
-# 2. Install Node.js dependencies
-npm install
+# 2. Install Python dependencies
+pip install -r requirements.txt
 
-# 3. Start development server (simulated hardware)
-npm run dev
+# 3. Start the desktop server
+python run.py
 # → http://localhost:3000
 
-# 4. HAL automatically detects missing hardware and runs in simulation mode
+# Hardware-backed routes auto-detect missing peripherals and degrade gracefully.
 ```
 
 ### Option C: Docker Development Container
@@ -50,8 +50,8 @@ docker run --rm -it \
   -v "$(pwd)":/workspace \
   -p 3000:3000 \
   -w /workspace \
-  node:20-bookworm \
-  bash -c "npm install && npm run dev"
+  python:3.11-bookworm \
+  bash -c "pip install -r requirements.txt && python run.py"
 ```
 
 ---
@@ -60,25 +60,21 @@ docker run --rm -it \
 
 ```
 Minima-PiNet-Os/
-├── App.tsx                    # Main React application entry point
-├── components/                # React UI components
-│   ├── apps/                  # App windows (Terminal, SystemMonitor, etc.)
-│   ├── Desktop.tsx
-│   ├── Taskbar.tsx
-│   └── TopBar.tsx
-├── services/                  # TypeScript backend services
-│   ├── minimaService.ts       # Minima blockchain node interface
-│   ├── systemService.ts       # System information service
-│   ├── shellService.ts        # Terminal shell service
-│   └── settingsService.ts     # Settings persistence
-├── hal/                       # Hardware Abstraction Layer
-│   ├── index.ts               # HAL entry point (exports `hal` singleton)
-│   ├── gpio.ts                # GPIO controller
-│   ├── i2c.ts                 # I2C controller
-│   ├── spi.ts                 # SPI controller
-│   ├── thermal.ts             # Thermal/power monitor
-│   └── storage.ts             # Storage manager
-├── kernel/                    # Linux kernel configuration
+├── run.py                     # FastAPI/Jinja desktop entrypoint
+├── backend/                   # FastAPI application
+│   ├── main.py                # ASGI app; mounts routes and static
+│   ├── config.py              # Defaults, version, environment binding
+│   ├── models.py              # Pydantic models (DApp, Cluster, …)
+│   ├── state.py               # In-memory app state
+│   ├── minima_client.py       # Async Minima RPC client (httpx)
+│   ├── rate_limiter.py        # Per-IP rate limiting
+│   ├── routes/                # REST endpoints (cluster, kernel, network, dapps, …)
+│   ├── services/              # Backend service helpers
+│   └── websocket/             # WebSocket handlers (terminal, cluster)
+├── frontend/                  # Server-rendered desktop
+│   ├── templates/             # base.html, desktop.html (Jinja2)
+│   └── static/                # css/, js/ (window manager, terminal, app shell)
+├── kernel/                    # Linux kernel build inputs
 │   ├── rpi5-bcm2712.config    # ARM64 kernel config fragment
 │   ├── bcm2712-rpi5.dts       # Device tree source
 │   └── build-kernel.sh        # Kernel build script
@@ -159,82 +155,57 @@ Add a DTS overlay in `kernel/overlays/my-sensor-overlay.dts`:
 };
 ```
 
-### 2. HAL TypeScript Layer
+### 2. Python Driver Module
 
-Extend the HAL with a new sensor class in `hal/`:
+Add a small async module under `backend/services/`:
 
-```typescript
-// hal/my-sensor.ts
-import { I2cController } from './i2c';
+```python
+# backend/services/my_sensor.py
+from pathlib import Path
 
-const SENSOR_ADDR = 0x48;
-const REG_DATA    = 0x00;
+SENSOR_PATH = Path("/sys/bus/i2c/devices/1-0048/in0_input")
 
-export class MySensor {
-    private i2c: I2cController;
-    private device = { bus: 1, address: SENSOR_ADDR };
-
-    constructor(i2c: I2cController) {
-        this.i2c = i2c;
-    }
-
-    async init(): Promise<void> {
-        // Configure sensor here
-    }
-
-    async readValue(): Promise<number> {
-        const raw = await this.i2c.readWord(this.device, REG_DATA);
-        return raw * 0.0625;  // Convert to engineering units
-    }
-
-    async shutdown(): Promise<void> {}
-}
+async def read_value() -> float | None:
+    """Return the latest sensor reading in engineering units, or None if unavailable."""
+    try:
+        raw = SENSOR_PATH.read_text().strip()
+    except FileNotFoundError:
+        return None
+    return int(raw) * 0.0625
 ```
 
-Register it in `hal/index.ts`:
+### 3. Expose it via a FastAPI Route
 
-```typescript
-import { MySensor } from './my-sensor';
-// Add to HAL class:
-public mySensor: MySensor;
-constructor() {
-    this.mySensor = new MySensor(this.i2c);
-}
-async init() {
-    await this.mySensor.init();
-    // ...
-}
+Wire the driver into a route under `backend/routes/`:
+
+```python
+# backend/routes/my_sensor.py
+from fastapi import APIRouter, HTTPException
+from backend.services.my_sensor import read_value
+
+router = APIRouter(prefix="/api/sensors", tags=["sensors"])
+
+@router.get("/my-sensor")
+async def get_my_sensor():
+    value = await read_value()
+    if value is None:
+        raise HTTPException(503, "sensor unavailable")
+    return {"value": value, "unit": "°C"}
 ```
 
-### 3. React UI Component
+Register the router in `backend/main.py` next to the other routers.
 
-Display sensor data in the dashboard:
+### 4. Render it in the Desktop UI
 
-```tsx
-// components/apps/MySensorApp.tsx
-import React, { useEffect, useState } from 'react';
-import { hal } from '../../hal';
+Add a card or app to the Jinja desktop and poll the new endpoint via `frontend/static/js/api.js`:
 
-const MySensorApp: React.FC = () => {
-    const [value, setValue] = useState<number | null>(null);
-
-    useEffect(() => {
-        const poll = setInterval(async () => {
-            const v = await hal.mySensor.readValue();
-            setValue(v);
-        }, 1000);
-        return () => clearInterval(poll);
-    }, []);
-
-    return (
-        <div className="p-4">
-            <h2 className="text-xl font-bold">My Sensor</h2>
-            <p className="text-3xl mt-4">{value?.toFixed(2) ?? '—'}</p>
-        </div>
-    );
-};
-
-export default MySensorApp;
+```js
+// frontend/static/js/app.js (excerpt)
+setInterval(async () => {
+  const data = await PiNetAPI.get('/api/sensors/my-sensor');
+  document.getElementById('my-sensor-value').textContent =
+    data?.value?.toFixed(2) ?? '—';
+}, 1000);
 ```
 
 ---
@@ -245,15 +216,15 @@ export default MySensorApp;
 # system/services/my-service.service
 [Unit]
 Description=My PiNetOS Service
-After=pinet-hal.service
-Wants=pinet-hal.service
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/node /opt/pinetos/services/my-service.js
+ExecStart=/usr/bin/python3 /opt/pinetos/services/my_service.py
 Restart=on-failure
 RestartSec=5
-Environment=NODE_ENV=production
+Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target
@@ -289,11 +260,16 @@ sudo ./tools/build-rpi5.sh --clean
 ## Running Tests
 
 ```bash
+# Validate Python modules
+python -m compileall run.py backend
+
+# Validate boot configuration
+npm run release:validate-boot
+
 # Run all system tests
 bash tests/system/run-tests.sh --suite all
 
 # Run specific suite
-bash tests/system/run-tests.sh --suite hal
 bash tests/system/run-tests.sh --suite networking
 bash tests/system/run-tests.sh --suite security
 
@@ -309,12 +285,12 @@ bash tests/system/run-tests.sh --suite all --verbose
 2. Create a feature branch: `git checkout -b feature/my-sensor-driver`
 3. Write code following the patterns above.
 4. Run the test suite: `bash tests/system/run-tests.sh`
-5. Commit: `git commit -m 'feat: add my-sensor HAL driver'`
+5. Commit: `git commit -m 'feat: add my-sensor driver'`
 6. Open a Pull Request.
 
 ### Code Style
 
-- TypeScript: follow existing patterns in `hal/` and `services/`
+- Python: type hints, async-first I/O, follow the patterns in `backend/`
 - Shell scripts: `set -euo pipefail`, functions with clear names, coloured output
 - Commit messages: [Conventional Commits](https://www.conventionalcommits.org/) format (`feat:`, `fix:`, `docs:`, `chore:`)
 
@@ -323,13 +299,14 @@ bash tests/system/run-tests.sh --suite all --verbose
 ## Performance Profiling
 
 ```bash
-# CPU profiling
-perf record -g node /opt/pinetos/server.js &
-sleep 30; kill %1
-perf report
+# CPU profiling (cProfile)
+python -m cProfile -o /tmp/pinet.prof run.py
+python -m pstats /tmp/pinet.prof
 
 # Memory profiling
-node --heap-prof /opt/pinetos/server.js
+pip install memray
+memray run --output /tmp/pinet.bin run.py
+memray flamegraph /tmp/pinet.bin
 
 # GPU/VideoCore metrics
 vcgencmd get_mem arm

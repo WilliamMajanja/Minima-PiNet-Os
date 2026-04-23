@@ -11,10 +11,10 @@ A lightweight runtime environment that spawns on any Linux distro on Raspberry P
 - **Go Cluster Manager** — Handles heartbeats, node health, workload execution, and metrics
 - **Systemd Services** — For production deployment as managed services
 
-### Layer 2: Browser Desktop (React/TypeScript)
+### Layer 2: Browser Desktop (Python)
 A visual control plane served locally from the Pi and accessed via browser:
-- **Express.js Backend** (`server.ts`) — API server, WebSocket terminal, cluster endpoints
-- **React SPA** — Desktop UI with apps for node management, monitoring, messaging
+- **FastAPI Backend** (`backend/`) — API server, WebSocket terminal, cluster endpoints
+- **Jinja2 Desktop UI** (`frontend/`) — Server-rendered desktop with apps for node management, monitoring, messaging
 - **Real-time Updates** — WebSocket channels for cluster events and terminal
 
 ## Control Plane Architecture
@@ -62,8 +62,8 @@ All cluster coordination uses the **Maxima protocol** (Minima's encrypted P2P me
 | Blockchain | Minima (Java) |
 | P2P Messaging | Maxima protocol |
 | Cluster Manager | Go |
-| Web Server | Express.js (Node.js) |
-| Frontend | React 18 + TypeScript + Vite |
+| Web Server | FastAPI (Python 3.11+) |
+| Frontend | Jinja2 templates + vanilla JS/CSS |
 | Container Runtime | k3s |
 | Storage | IPFS |
 | Mesh VPN | WireGuard |
