@@ -1,6 +1,6 @@
 # Desktop Applications
 
-PiNet OS includes **22 built-in desktop applications** rendered as a React single-page application served from the Pi.
+PiNet OS includes a suite of built-in desktop applications rendered by a Jinja2-templated, server-rendered desktop shell served from the Pi. The desktop is plain HTML/CSS/JS — no client-side framework — and is driven by a small in-browser window manager backed by FastAPI WebSockets and REST endpoints.
 
 ---
 
@@ -10,7 +10,7 @@ PiNet OS includes **22 built-in desktop applications** rendered as a React singl
 |---|---|---|
 | Minima Node | `minima-node` | Blockchain dashboard — block height, peers, sync status |
 | System Monitor | `system-monitor` | Real-time CPU, RAM, temperature, disk metrics |
-| Terminal | `terminal` | Full interactive terminal (node-pty + xterm.js) |
+| Terminal | `terminal` | Full interactive terminal (PTY over WebSocket + xterm.js) |
 | AI Assistant | `ai-assistant` | Gemini-powered AI assistant with local LLM fallback |
 | Wallet | `wallet` | Minima token wallet — balance, send, receive |
 | Maxima Messenger | `maxima-messenger` | Encrypted P2P messaging via Maxima protocol |
@@ -51,18 +51,17 @@ PiNet OS implements a full windowing system in the browser:
 ### Window State
 
 Each window tracks:
-```typescript
-interface WindowState {
-  id: AppId;
-  title: string;
-  isOpen: boolean;
-  isMinimized: boolean;
-  isMaximized: boolean;
-  zIndex: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+```js
+// frontend/static/js/window-manager.js
+{
+  id,            // app id
+  title,         // window title
+  isOpen,
+  isMinimized,
+  isMaximized,
+  zIndex,
+  x, y,
+  width, height,
 }
 ```
 
@@ -88,7 +87,7 @@ Full interactive terminal powered by:
 
 | Layer | Technology |
 |---|---|
-| Backend PTY | `node-pty` — spawns a real shell process |
+| Backend PTY | Python `pty` + `asyncio` — spawns a real shell process |
 | Transport | WebSocket at `ws://<host>:3000/terminal` |
 | Frontend | `xterm.js` — terminal emulator in the browser |
 
@@ -177,10 +176,12 @@ Comprehensive security dashboard:
 
 | Component | File | Purpose |
 |---|---|---|
-| Desktop Shell | `App.tsx` | Main layout, window manager, app registry |
-| Taskbar | `Taskbar.tsx` | App launcher and window switcher |
-| Top Bar | `components/TopBar.tsx` | Clock, status indicators, notifications |
-| Bento Dashboard | `components/BentoDashboard.tsx` | Grid dashboard layout |
+| Desktop Shell | `frontend/templates/desktop.html` | Server-rendered desktop layout |
+| Base Layout | `frontend/templates/base.html` | HTML scaffold, fonts, global styles |
+| Window Manager | `frontend/static/js/window-manager.js` | Drag, resize, z-index, taskbar wiring |
+| App Shell | `frontend/static/js/app.js` | App registry, launchers, polling |
+| Terminal | `frontend/static/js/terminal.js` | xterm.js bridge to the PTY WebSocket |
+| API Client | `frontend/static/js/api.js` | Thin fetch wrapper around the FastAPI routes |
 
 ---
 
@@ -197,7 +198,7 @@ pinet open cluster-manager
 ```
 
 ### From the API
-Apps are client-side React components — there is no server-side API to open them directly.
+Apps are launched client-side by the desktop shell — there is no server-side API to open them directly.
 
 ---
 

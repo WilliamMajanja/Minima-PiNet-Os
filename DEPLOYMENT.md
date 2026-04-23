@@ -9,7 +9,7 @@ This guide covers three deployment paths: **local dev/demo**, **Raspberry Pi har
 Run the full web desktop UI locally in under two minutes — no Raspberry Pi required.
 
 ### Prerequisites
-- Node.js 20+ and npm
+- Python 3.11+ and pip
 
 ### Steps
 
@@ -18,25 +18,17 @@ Run the full web desktop UI locally in under two minutes — no Raspberry Pi req
 git clone https://github.com/WilliamMajanja/Minima-PiNet-Os.git
 cd Minima-PiNet-Os
 
-# 2. Install dependencies
-npm install
+# 2. Install Python dependencies
+pip install -r requirements.txt
 
 # 3. Copy and configure environment (API keys are optional for the demo)
 cp .env.example .env
 
-# 4. Start the development server
-npm run dev
+# 4. Start the desktop server
+python run.py
 ```
 
 Open **http://localhost:3000** in your browser. The PiNetOS web desktop will load with the full UI including the system monitor, terminal, cluster dashboard, and Minima node panel.
-
-### Optional — Electron Desktop App
-
-```bash
-npm run electron:dev
-```
-
-This launches the native cross-platform desktop application alongside the dev server.
 
 ---
 
@@ -124,7 +116,7 @@ All runtime configuration is controlled via environment variables. Copy `.env.ex
 | Symptom | Fix |
 | :--- | :--- |
 | Port 3000 already in use | Set `PINET_DESKTOP_PORT=3001` in `.env` |
-| `npm install` fails | Ensure Node.js 20+ is installed (`node --version`) |
+| `pip install` fails | Ensure Python 3.11+ is installed (`python3 --version`) |
 | Pi not booting | Re-flash the SD card; verify power supply (27 W USB-C) |
 | Web UI not loading on Pi | Check `sudo systemctl status pinet-desktop` on the Pi |
 | Minima node offline | Run `sudo systemctl restart minima` on the Pi |

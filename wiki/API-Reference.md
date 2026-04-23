@@ -250,13 +250,12 @@ Complete reference for all REST API endpoints exposed by the PiNet OS server.
 
 ---
 
-## Downloads (6 endpoints)
+## Downloads (5 endpoints)
 
 | Method | Endpoint | Description |
 |---|---|---|
 | GET | `/api/download-full-project` | Download full project ZIP |
 | GET | `/api/download-pinetos` | Download PiNetOS configuration ZIP |
-| GET | `/api/download-electron` | Download Electron desktop client ZIP |
 | GET | `/api/download-os-build` | Download build system ZIP |
 | GET | `/api/download-os-docs` | Download documentation ZIP |
 | GET | `/api/download-os-image` | Download Raspberry Pi OS image |
@@ -267,7 +266,7 @@ Complete reference for all REST API endpoints exposed by the PiNet OS server.
 
 | Path | Description |
 |---|---|
-| `ws://<host>:3000/terminal` | Interactive terminal (node-pty + xterm.js) |
+| `ws://<host>:3000/terminal` | Interactive terminal (Python PTY bridge + xterm.js) |
 | `ws://<host>:3000/cluster/events` | Real-time cluster events stream |
 
 ---

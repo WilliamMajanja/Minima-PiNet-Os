@@ -27,5 +27,5 @@ Once you have the `PiNetOS-RaspberryPi.img` file, you can flash it to a MicroSD 
 On the first boot, PiNetOS will:
 1. Display the custom Plymouth boot splash.
 2. Start the X server and Openbox.
-3. Automatically launch the PiNetOS Electron desktop in kiosk mode.
+3. Automatically launch the PiNetOS web desktop (FastAPI + Jinja) in a Chromium kiosk window.
 4. Start the Minima blockchain node in the background.

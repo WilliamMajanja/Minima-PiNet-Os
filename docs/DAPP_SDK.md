@@ -6,7 +6,7 @@ PiNet OS supports two categories of decentralized applications (DApps):
 
 | Category | Description | Archive Format |
 |---|---|---|
-| **TypeScript DApp** | Modern web apps built with TypeScript/React/Vue/etc. | `.zip` or `.tar.gz` |
+| **TypeScript DApp** | Modern web apps built with TypeScript/Vue/Svelte/etc. (any static frontend stack) | `.zip` or `.tar.gz` |
 | **Classic MiniDapp** | Traditional Minima MiniDapps | `.mds.zip` |
 
 Both run inside a sandboxed `<iframe>` on the PiNet desktop and communicate with
@@ -21,7 +21,7 @@ the host OS via a **PostMessage bridge**.
 ```bash
 mkdir my-dapp && cd my-dapp
 npm init -y
-npm install typescript vite react react-dom --save-dev
+npm install typescript vite --save-dev
 ```
 
 Create `index.html` and your app entry point. Your DApp is a standard web app — use any framework you like.

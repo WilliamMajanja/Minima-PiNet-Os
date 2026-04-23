@@ -121,7 +121,6 @@ Each release also includes these optional downloads:
 | `Minima-PiNet-Os-v*.zip` | Full source archive (ZIP) |
 | `Minima-PiNet-Os-v*.tar.gz` | Full source archive (TAR.GZ) |
 | `PiNetOS-Enterprise.zip` | Enterprise cluster management stack |
-| `PiNetOS-Electron-Desktop.zip` | Cross-platform Electron desktop client |
 | `PiNetOS-Build-System.zip` | Build pipeline for generating custom images |
 | `PiNetOS-Documentation.zip` | Full documentation archive |
 

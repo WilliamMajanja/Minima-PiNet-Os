@@ -74,7 +74,7 @@ Every DApp requires a `manifest.json`:
 | `id` | ✅ | Unique reverse-domain identifier (e.g., `com.example.myapp`) |
 | `name` | ✅ | Human-readable display name |
 | `version` | ✅ | Semantic version string |
-| `kind` | ✅ | DApp type: `typescript`, `react-dashboard`, or `minidapp` |
+| `kind` | ✅ | DApp type: `typescript`, `python-dashboard`, or `minidapp` |
 | `description` | ✅ | Short description for the DApp Store |
 | `author` | ✅ | Author name or organization |
 | `entry` | ✅ | Entry point file (e.g., `index.html`) |
@@ -91,8 +91,8 @@ Every DApp requires a `manifest.json`:
 ### `typescript`
 Plain TypeScript/JavaScript web application. Served as static files inside a sandboxed iframe. Best for simple tools and utilities.
 
-### `react-dashboard`
-React-based dashboard component. Has access to the PiNet UI component library. Best for data-rich monitoring and management interfaces.
+### `python-dashboard`
+Server-rendered dashboard built on the FastAPI + Jinja2 stack used by the rest of PiNet OS. The DApp ships Jinja templates and optional Python helpers that the host renders into a sandboxed iframe, with full access to the OS bridge API. Best for data-rich monitoring and management interfaces.
 
 ### `minidapp`
 Classic Minima MiniDapp format. Compatible with the existing Minima MiniDapp ecosystem. Runs in a sandboxed iframe with bridge access to Minima RPC.
@@ -240,7 +240,7 @@ PiNet.on("wallet:transaction", (tx) => { /* ... */ });
 
 ```
 ┌─────────────────────────────────────────┐
-│          PiNet OS Desktop (React)        │
+│        PiNet OS Desktop (FastAPI + Jinja) │
 │                                          │
 │  ┌────────────────────────────────────┐  │
 │  │     DAppHostFrame (iframe)         │  │

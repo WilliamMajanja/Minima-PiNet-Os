@@ -17,14 +17,14 @@ A lightweight environment that spawns on any Linux distro running on Raspberry P
 | **Go Cluster Manager** | Handles heartbeats, node health, workload execution, and metrics |
 | **Systemd Services** | Production deployment as managed system services |
 
-### Layer 2: Browser Desktop (React/TypeScript)
+### Layer 2: Browser Desktop (Python)
 
 A visual control plane served locally from the Pi:
 
 | Component | Description |
 |---|---|
-| **Express.js Backend** (`server.ts`) | API server, WebSocket terminal, cluster endpoints |
-| **React SPA** | Desktop UI with 21 built-in applications |
+| **FastAPI Backend** (`backend/`) | API server, WebSocket terminal, cluster endpoints |
+| **Jinja2 Desktop** (`frontend/`) | Server-rendered desktop with built-in applications |
 | **Real-time Updates** | WebSocket channels for cluster events and terminal I/O |
 
 ---
@@ -36,8 +36,8 @@ A visual control plane served locally from the Pi:
 | Blockchain | Minima (Java) |
 | P2P Messaging | Maxima protocol |
 | Cluster Manager | Go |
-| Web Server | Express.js (Node.js) |
-| Frontend | React 18 + TypeScript + Vite |
+| Web Server | FastAPI (Python 3.11+) |
+| Frontend | Jinja2 templates + vanilla JS/CSS |
 | Container Runtime | k3s (lightweight Kubernetes) |
 | Storage | IPFS (blockchain-anchored) |
 | Mesh VPN | WireGuard |
@@ -85,26 +85,26 @@ After setup, PiNet-OS creates its runtime home at `~/.pinet/`:
 
 ```
 Minima-PiNet-Os/
-├── App.tsx                  # React desktop shell
-├── Taskbar.tsx              # Taskbar component
-├── server.ts                # Express.js API server (2,299 lines)
-├── types.ts                 # Central TypeScript type definitions
-├── index.html               # SPA entry point
-├── kernel/                  # OS kernel subsystems (5 modules)
-├── services/                # OS services (18 services)
-├── hal/                     # Hardware Abstraction Layer (6 modules)
-├── components/apps/         # Desktop applications (22 React components)
+├── run.py                   # FastAPI/Jinja desktop entrypoint
+├── backend/                 # FastAPI app: routes, services, websocket, models
+│   ├── main.py              # ASGI application
+│   ├── routes/              # REST endpoints (cluster, kernel, network, dapps, ...)
+│   ├── websocket/           # WebSocket handlers (terminal, cluster)
+│   ├── minima_client.py     # Minima RPC client (httpx)
+│   └── models.py            # Pydantic models
+├── frontend/                # Jinja2 templates + static JS/CSS desktop
+│   ├── templates/           # base.html, desktop.html
+│   └── static/              # css/, js/ (window manager, terminal, app shell)
+├── kernel/                  # Linux kernel build inputs (DTS, config, build-kernel.sh)
 ├── bin/                     # CLI executables (pinet, minima, pinet-setup)
-├── types/                   # TypeScript type definitions
-├── docs/                    # Documentation (7 guides)
-├── boot/                    # Boot configuration files
-├── config/                  # System configuration
+├── boot/                    # Boot configuration files (config.txt, cmdline.txt)
+├── docs/                    # Documentation
 ├── build-system/            # Build toolchain
-├── electron/                # Electron desktop app
-├── scripts/                 # Release and build scripts
+├── scripts/                 # Release and image-packaging scripts
 ├── tools/                   # OS image build tools
 ├── tests/                   # Test suites
-├── PiNetOS/                 # PiNet-specific configurations
+├── PiNetOS/                 # PiNet system scripts and service units
+├── k3s/                     # K3s cluster manifests
 └── system/                  # System-level configurations
 ```
 
