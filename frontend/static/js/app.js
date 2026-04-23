@@ -513,26 +513,72 @@ const AppInitializers = {
 };
 
 /* ─── Desktop Icon Rendering ───────────────── */
+const CATEGORY_ORDER = [
+    { id: 'blockchain', label: 'Web3 & Minima' },
+    { id: 'system',     label: 'System' },
+    { id: 'apps',       label: 'Apps' },
+    { id: 'config',     label: 'Settings' },
+];
+
 function renderDesktop() {
     const grid = document.getElementById('app-grid');
     if (!grid) return;
     grid.innerHTML = '';
-    PiNetApps.apps.forEach(app => {
-        const icon = document.createElement('div');
-        icon.className = 'app-icon';
-        icon.innerHTML = `
-            <div class="app-icon-circle" style="background:${app.color}">${app.icon}</div>
-            <span class="app-icon-label">${app.name}</span>
-        `;
-        icon.addEventListener('dblclick', () => openApp(app.id));
-        // Touch support
-        let tapTimeout;
-        icon.addEventListener('touchend', (e) => {
-            if (tapTimeout) { clearTimeout(tapTimeout); tapTimeout = null; openApp(app.id); }
-            else { tapTimeout = setTimeout(() => { tapTimeout = null; }, 300); }
-        });
-        grid.appendChild(icon);
-    });
+
+    const byCategory = {};
+    for (const cat of CATEGORY_ORDER) byCategory[cat.id] = [];
+    for (const app of PiNetApps.apps) {
+        const bucket = byCategory[app.category] || (byCategory[app.category] = []);
+        bucket.push(app);
+    }
+
+    for (const cat of CATEGORY_ORDER) {
+        const apps = byCategory[cat.id];
+        if (!apps || !apps.length) continue;
+
+        const section = document.createElement('section');
+        section.className = 'app-category';
+        section.setAttribute('aria-label', cat.label);
+
+        const heading = document.createElement('h2');
+        heading.className = 'app-category-title';
+        heading.textContent = cat.label;
+        section.appendChild(heading);
+
+        const row = document.createElement('div');
+        row.id = cat.id === CATEGORY_ORDER[0].id ? 'app-grid-inner' : '';
+        // reuse the grid layout class for inner rows
+        row.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,88px);gap:16px;justify-content:start';
+
+        for (const app of apps) {
+            const icon = document.createElement('button');
+            icon.type = 'button';
+            icon.className = 'app-icon';
+            icon.setAttribute('aria-label', `Open ${app.name}`);
+            icon.innerHTML = `
+                <span class="app-icon-circle" style="background:${app.color}" aria-hidden="true">${app.icon}</span>
+                <span class="app-icon-label">${app.name}</span>
+            `;
+            // Single-click and keyboard activation open the app.
+            // Double-click also works for users who expect it.
+            icon.addEventListener('click', () => openApp(app.id));
+            icon.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openApp(app.id);
+                }
+            });
+            // Touch support
+            let tapTimeout;
+            icon.addEventListener('touchend', () => {
+                if (tapTimeout) { clearTimeout(tapTimeout); tapTimeout = null; openApp(app.id); }
+                else { tapTimeout = setTimeout(() => { tapTimeout = null; }, 300); }
+            });
+            row.appendChild(icon);
+        }
+        section.appendChild(row);
+        grid.appendChild(section);
+    }
 }
 
 /* ─── Open App ─────────────────────────────── */
@@ -578,25 +624,44 @@ function updateClock() {
         now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
+/* ─── Global Keyboard Shortcuts ────────────── */
+function setupGlobalKeys() {
+    document.addEventListener('keydown', (e) => {
+        // Escape closes the front-most window (when focus is not in an editable field)
+        if (e.key === 'Escape') {
+            const tag = (e.target && e.target.tagName) || '';
+            const editable = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable);
+            if (editable) return;
+            const top = WindowManager.topActiveAppId();
+            if (top) {
+                e.preventDefault();
+                WindowManager.close(top);
+            }
+        }
+    });
+}
+
 /* ─── Boot Sequence ────────────────────────── */
 async function boot() {
     const progress = document.getElementById('boot-progress');
+    const progressbar = document.getElementById('boot-progressbar');
     const status = document.getElementById('boot-status');
     const splash = document.getElementById('boot-splash');
 
     const steps = [
         [10, 'Loading kernel modules...'],
-        [25, 'Initializing system services...'],
-        [40, 'Starting network stack...'],
+        [25, 'Starting Python runtime...'],
+        [40, 'Initializing FastAPI services...'],
         [55, 'Connecting to Minima node...'],
-        [70, 'Loading desktop environment...'],
-        [85, 'Mounting filesystems...'],
+        [70, 'Mounting filesystems...'],
+        [85, 'Loading Jinja desktop...'],
         [95, 'Starting PiNet Desktop...'],
         [100, 'Ready.'],
     ];
 
     for (const [pct, msg] of steps) {
         progress.style.width = pct + '%';
+        if (progressbar) progressbar.setAttribute('aria-valuenow', String(pct));
         status.textContent = msg;
         await new Promise(r => setTimeout(r, 250));
     }
@@ -607,6 +672,7 @@ async function boot() {
 
     // Initialize desktop
     renderDesktop();
+    setupGlobalKeys();
     updateClock();
     setInterval(updateClock, 1000);
     pollStats();

@@ -29,19 +29,21 @@ const WindowManager = {
         const win = document.createElement('div');
         win.className = 'window active';
         win.id = `win-${appId}`;
+        win.setAttribute('role', 'dialog');
+        win.setAttribute('aria-label', title);
         win.style.cssText = `left:${pos.x}px;top:${pos.y}px;width:${w}px;height:${h}px;z-index:${this.nextZ++}`;
 
         win.innerHTML = `
             <div class="window-titlebar" data-app="${appId}">
                 <span class="window-title">${this._escapeHtml(title)}</span>
                 <div class="window-controls">
-                    <button class="window-btn minimize" data-action="minimize" data-app="${appId}"></button>
-                    <button class="window-btn maximize" data-action="maximize" data-app="${appId}"></button>
-                    <button class="window-btn close" data-action="close" data-app="${appId}"></button>
+                    <button class="window-btn minimize" data-action="minimize" data-app="${appId}" aria-label="Minimize ${this._escapeHtml(title)}" title="Minimize"></button>
+                    <button class="window-btn maximize" data-action="maximize" data-app="${appId}" aria-label="Maximize ${this._escapeHtml(title)}" title="Maximize"></button>
+                    <button class="window-btn close" data-action="close" data-app="${appId}" aria-label="Close ${this._escapeHtml(title)}" title="Close"></button>
                 </div>
             </div>
             <div class="window-content" id="content-${appId}">${contentHtml}</div>
-            <div class="window-resize" data-app="${appId}"></div>
+            <div class="window-resize" data-app="${appId}" aria-hidden="true"></div>
         `;
 
         document.getElementById('windows-layer').appendChild(win);
@@ -183,13 +185,17 @@ const WindowManager = {
         const container = document.getElementById('taskbar-items');
         container.innerHTML = '';
         for (const [appId, state] of Object.entries(this.windows)) {
-            const item = document.createElement('div');
-            item.className = `taskbar-item${state.el.classList.contains('active') ? ' active' : ''}`;
+            const item = document.createElement('button');
+            item.type = 'button';
+            const isActive = state.el.classList.contains('active');
+            item.className = `taskbar-item${isActive ? ' active' : ''}`;
             item.title = state.title;
-            const appDef = PiNetApps.getApp(appId);
+            item.setAttribute('aria-label', `${state.title}${state.minimized ? ' (minimized)' : ''}`);
+            item.setAttribute('aria-pressed', String(isActive && !state.minimized));
+            const appDef = (typeof PiNetApps !== 'undefined') ? PiNetApps.getApp(appId) : null;
             item.innerHTML = `
-                <div class="icon-circle" style="background:${appDef ? appDef.color : '#475569'}">${appDef ? appDef.icon : '📦'}</div>
-                ${!state.minimized ? '<div class="dot"></div>' : ''}
+                <div class="icon-circle" style="background:${appDef ? appDef.color : '#475569'}" aria-hidden="true">${appDef ? appDef.icon : '📦'}</div>
+                ${!state.minimized ? '<div class="dot" aria-hidden="true"></div>' : ''}
             `;
             item.addEventListener('click', () => {
                 if (state.minimized) this.toggleMinimize(appId);
@@ -197,6 +203,18 @@ const WindowManager = {
             });
             container.appendChild(item);
         }
+    },
+
+    /** Return the appId of the front-most non-minimized window, or null. */
+    topActiveAppId() {
+        let best = null;
+        let bestZ = -Infinity;
+        for (const [appId, state] of Object.entries(this.windows)) {
+            if (state.minimized) continue;
+            const z = parseInt(state.el.style.zIndex, 10) || 0;
+            if (z > bestZ) { bestZ = z; best = appId; }
+        }
+        return best;
     },
 
     _escapeHtml(str) {
