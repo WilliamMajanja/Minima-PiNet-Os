@@ -1,3 +1,31 @@
+# Minima-PiNet-OS v1.2.0
+
+<!-- Release: v1.2.0 | Tagged: 2026-04-23 -->
+
+> **Version 1.2.0 Release** — Maintenance release that re-cuts the Raspberry Pi flashable image with the latest fixes on top of the v1.1.0 baseline.
+
+This release republishes the full Raspberry Pi 5 image (`PiNetOS-RaspberryPi.img`) and source archives so users can flash a fresh build that inherits all v1.1.0 security hardening, the FastAPI desktop, the DApp platform, and the K3s cluster manifests.
+
+## Highlights
+
+- **Refreshed Raspberry Pi disk image** — Re-built 256 MB flashable image (64 MB FAT32 boot + 192 MB ext4 rootfs) via `scripts/create-release-img.sh`, packaged with `scripts/package-img-release.js`.
+- **Version metadata bump** — `package.json`, `backend/config.py` (`PINET_VERSION`), `pinet-config.json` (`default_image: pinetos-v1.2.0-aarch64`), `pinet-state.json`, and the documentation set updated to 1.2.0.
+- **Security baseline preserved** — Inherits zero-open-CodeQL-alerts state from v1.1.0; CodeQL continues to run on every push.
+- **Same release artifact set** — `PiNetOS-RaspberryPi.img`, `PiNetOS-RaspberryPi-Package-v1.2.0.zip`, `PiNetOS-Enterprise.zip`, `PiNetOS-Build-System.zip`, `PiNetOS-Documentation.zip`, `PiNetOS-K3s-Manifests.zip`, source archives, and `SHA256SUMS.txt`.
+
+## How to publish
+
+The `Create Release` workflow (`.github/workflows/release.yml`) builds and uploads all artifacts when a `v*` tag is pushed (or via `workflow_dispatch`):
+
+```bash
+git tag v1.2.0
+git push origin v1.2.0
+```
+
+See the v1.1.0 notes below for the full feature set carried forward.
+
+---
+
 # Minima-PiNet-OS v1.1.0
 
 <!-- Release: v1.1.0 | Tagged: 2026-04-17 -->

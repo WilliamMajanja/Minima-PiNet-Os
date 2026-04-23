@@ -6,7 +6,7 @@
 [![Platform: Raspberry Pi 5](https://img.shields.io/badge/Platform-Raspberry%20Pi%205-c11d33.svg)](#hardware)
 [![Stack: Python · FastAPI](https://img.shields.io/badge/Stack-Python%20·%20FastAPI-3776ab.svg)](#technology-stack)
 [![Blockchain: Minima L1](https://img.shields.io/badge/Blockchain-Minima%20L1-8b5cf6.svg)](https://www.minima.global/)
-[![Version](https://img.shields.io/badge/Version-1.1.0-ec4899.svg)](RELEASE_NOTES.md)
+[![Version](https://img.shields.io/badge/Version-1.2.0-ec4899.svg)](RELEASE_NOTES.md)
 [![Build](https://github.com/WilliamMajanja/Minima-PiNet-Os/actions/workflows/arm64-build.yml/badge.svg)](https://github.com/WilliamMajanja/Minima-PiNet-Os/actions/workflows/arm64-build.yml)
 
 ---
@@ -155,7 +155,7 @@ Full instructions: **[DEPLOYMENT.md](DEPLOYMENT.md)** · **[wiki/Installation.md
 | Input validation | Allowlist regex everywhere; `execFile` (never `exec`) for any system call |
 | Rate limiting | Per‑IP limits on every state‑changing API endpoint |
 
-Every code change runs through CodeQL on push; the v1.1.0 release closed **all** previously open security alerts. Disclosure policy: **[SECURITY.md](SECURITY.md)**.
+Every code change runs through CodeQL on push; the v1.2.0 release continues the v1.1.0 security baseline of zero open alerts. Disclosure policy: **[SECURITY.md](SECURITY.md)**.
 
 ---
 
@@ -187,7 +187,7 @@ Minima-PiNet-Os/
 | Milestone | Target | Status |
 |---|---|---|
 | **v1.1.0** — Stable Pi 5 cluster, FastAPI desktop, security hardening | Q2 2026 | ✅ Released |
-| **v1.2.0** — Signed OTA updates, GA Hailo‑8L pipelines, federated DApp store | Q3 2026 | 🔄 In progress |
+| **v1.2.0** — Signed OTA updates, GA Hailo‑8L pipelines, federated DApp store | Q2 2026 | ✅ Released |
 | **v1.3.0** — On‑device LLM gateway, multi‑tenant LXC quotas, hardware key‑wrap | Q4 2026 | 📋 Planned |
 | **v2.0.0** — RISC‑V reference board, deterministic image rebuilds, formal attestation spec | 2027 | 📋 Planned |
 

@@ -1,4 +1,4 @@
-# Deployment Guide — Minima-PiNet-OS v1.1.0
+# Deployment Guide — Minima-PiNet-OS v1.2.0
 
 This guide covers three deployment paths: **local dev/demo**, **Raspberry Pi hardware**, and **investor test drive**.
 
