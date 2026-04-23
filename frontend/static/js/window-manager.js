@@ -6,6 +6,7 @@ const WindowManager = {
     windows: {},
     nextZ: 100,
     cascadeIndex: 0,
+    topWindowId: null,
 
     TOPBAR_H: 40,
     TASKBAR_H: 64,
@@ -72,6 +73,7 @@ const WindowManager = {
         if (state.options && state.options.onClose) state.options.onClose(appId);
         state.el.remove();
         delete this.windows[appId];
+        if (this.topWindowId === appId) this.topWindowId = null;
         this._updateTaskbar();
     },
 
@@ -81,6 +83,7 @@ const WindowManager = {
         Object.values(this.windows).forEach(w => w.el.classList.remove('active'));
         state.el.style.zIndex = this.nextZ++;
         state.el.classList.add('active');
+        if (!state.minimized) this.topWindowId = appId;
         this._updateTaskbar();
     },
 
@@ -89,6 +92,7 @@ const WindowManager = {
         if (!state) return;
         state.minimized = !state.minimized;
         state.el.classList.toggle('minimized', state.minimized);
+        if (state.minimized && this.topWindowId === appId) this.topWindowId = null;
         if (!state.minimized) this.focus(appId);
         this._updateTaskbar();
     },
@@ -207,6 +211,11 @@ const WindowManager = {
 
     /** Return the appId of the front-most non-minimized window, or null. */
     topActiveAppId() {
+        // Validate cached pointer; fall back to a scan if it's stale.
+        const cached = this.topWindowId;
+        if (cached && this.windows[cached] && !this.windows[cached].minimized) {
+            return cached;
+        }
         let best = null;
         let bestZ = -Infinity;
         for (const [appId, state] of Object.entries(this.windows)) {
@@ -214,6 +223,7 @@ const WindowManager = {
             const z = parseInt(state.el.style.zIndex, 10) || 0;
             if (z > bestZ) { bestZ = z; best = appId; }
         }
+        this.topWindowId = best;
         return best;
     },
 

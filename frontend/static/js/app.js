@@ -546,7 +546,6 @@ function renderDesktop() {
         section.appendChild(heading);
 
         const row = document.createElement('div');
-        row.id = cat.id === CATEGORY_ORDER[0].id ? 'app-grid-inner' : '';
         // reuse the grid layout class for inner rows
         row.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,88px);gap:16px;justify-content:start';
 
