@@ -44,6 +44,7 @@ from .routes import (
     downloads,
     ipc,
     provenance,
+    ai,
 )
 from .websocket.terminal import router as ws_router
 from .websocket.cluster import router as ws_cluster_router
@@ -149,6 +150,7 @@ def create_app() -> FastAPI:
     app.include_router(downloads.router, prefix="/api", tags=["downloads"])
     app.include_router(ipc.router, prefix="/api", tags=["ipc"])
     app.include_router(provenance.router, prefix="/api", tags=["provenance"])
+    app.include_router(ai.router, prefix="/api", tags=["ai"])
 
     # --- WebSocket ---
     app.include_router(ws_router)

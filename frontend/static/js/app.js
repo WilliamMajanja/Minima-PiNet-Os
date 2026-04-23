@@ -25,7 +25,6 @@ const PiNetApps = {
         { id: 'ai-assistant', name: 'PiNet AI', icon: '🤖', color: '#a855f7', category: 'apps' },
         { id: 'depai-executor', name: 'DePAi', icon: '🧠', color: '#ec4899', category: 'apps' },
         { id: 'imager-utility', name: 'Pi Imager', icon: '💿', color: '#10b981', category: 'apps' },
-        { id: 'visual-studio', name: 'Studio', icon: '🎨', color: '#db2777', category: 'apps' },
     ],
 
     getApp(id) {
@@ -214,7 +213,13 @@ const AppContent = {
     'depai-executor': () => `
         <div class="app-panel">
             <h3>🧠 Distributed AI Executor</h3>
-            <p class="text-muted text-sm">Submit AI workloads to the cluster for distributed execution.</p>
+            <p class="text-muted text-sm">Submit a shell workload to a peer node over the Maxima cluster bus.</p>
+            <div class="flex gap-2 mt-2">
+                <select id="depai-node" aria-label="Target node" style="flex:1"><option value="">Loading nodes…</option></select>
+                <input type="text" id="depai-cmd" aria-label="Command to execute" placeholder="command (e.g. uname -a)" style="flex:2">
+                <button class="btn btn-primary" onclick="AppActions.depaiSubmit()">Submit</button>
+            </div>
+            <pre id="depai-output" class="mono text-sm mt-2" style="max-height:240px;overflow:auto"></pre>
         </div>
     `,
 
@@ -223,13 +228,6 @@ const AppContent = {
             <h3>💿 Pi Imager</h3>
             <p class="text-muted text-sm">Build and flash OS images for Raspberry Pi.</p>
             <button class="btn btn-primary mt-2" onclick="AppActions.buildImage()">Build Image</button>
-        </div>
-    `,
-
-    'visual-studio': () => `
-        <div class="app-panel">
-            <h3>🎨 Visual Asset Studio</h3>
-            <p class="text-muted text-sm">Create icons, images, and visual assets.</p>
         </div>
     `,
 };
@@ -320,16 +318,54 @@ const AppActions = {
         chat.appendChild(userRow);
 
         input.value = '';
+        input.disabled = true;
 
         const aiRow = document.createElement('div');
-        aiRow.className = 'mb-2 text-muted';
+        aiRow.className = 'mb-2';
         const aiLabel = document.createElement('strong');
         aiLabel.textContent = 'AI:';
         aiRow.appendChild(aiLabel);
-        aiRow.appendChild(document.createTextNode(' AI integration requires Gemini API key configuration.'));
+        const aiText = document.createTextNode(' …');
+        aiRow.appendChild(aiText);
         chat.appendChild(aiRow);
-
         chat.scrollTop = chat.scrollHeight;
+
+        try {
+            const resp = await fetch('/api/ai/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: msg }),
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (resp.ok && data && typeof data.text === 'string') {
+                aiText.nodeValue = ` ${data.text}`;
+            } else {
+                aiRow.classList.add('text-muted');
+                aiText.nodeValue = ` Error: ${(data && data.detail) || `HTTP ${resp.status}`}`;
+            }
+        } catch (err) {
+            aiRow.classList.add('text-muted');
+            aiText.nodeValue = ` Error: ${err.message || err}`;
+        } finally {
+            input.disabled = false;
+            chat.scrollTop = chat.scrollHeight;
+        }
+    },
+
+    async depaiSubmit() {
+        const sel = document.getElementById('depai-node');
+        const cmdEl = document.getElementById('depai-cmd');
+        const out = document.getElementById('depai-output');
+        if (!sel || !cmdEl || !out) return;
+        const targetNodeId = sel.value;
+        const command = (cmdEl.value || '').trim();
+        if (!targetNodeId || !command) {
+            out.textContent = 'Select a node and enter a command.';
+            return;
+        }
+        out.textContent = 'Submitting…';
+        const data = await PiNetAPI.post('/api/cluster/exec', { targetNodeId, command });
+        out.textContent = data ? JSON.stringify(data, null, 2) : 'Failed to submit workload.';
     },
 };
 
@@ -510,6 +546,27 @@ const AppInitializers = {
     },
 
     'dapp-store': () => { AppActions.loadDapps(); },
+
+    'depai-executor': async () => {
+        const sel = document.getElementById('depai-node');
+        if (!sel) return;
+        const data = await PiNetAPI.clusterNodes();
+        const list = (data && Array.isArray(data.nodes)) ? data.nodes : [];
+        sel.innerHTML = '';
+        if (!list.length) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'No peer nodes discovered';
+            sel.appendChild(opt);
+            return;
+        }
+        for (const n of list) {
+            const opt = document.createElement('option');
+            opt.value = n.id || '';
+            opt.textContent = `${n.name || n.id || 'node'} (${n.ip || 'IP unavailable'})`;
+            sel.appendChild(opt);
+        }
+    },
 };
 
 /* ─── Desktop Icon Rendering ───────────────── */
