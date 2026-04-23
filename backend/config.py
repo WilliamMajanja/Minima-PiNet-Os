@@ -49,7 +49,7 @@ DAPP_MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 DAPP_ALLOWED_EXTENSIONS = (".zip", ".tar.gz", ".mds.zip")
 
 # Version
-PINET_VERSION = "1.1.0"
+PINET_VERSION = "1.2.0"
 MINIMA_VERSION = "1.0.35"
 
 # Kernel / Init System
