@@ -6,7 +6,6 @@
 detect_pinet_version() {
   for _candidate in \
     "${PINET_VERSION_FILE:-}" \
-    "${PINET_DESKTOP_ROOT:-}/../version" \
     "${PINET_PROJECT_DIR:-}/package.json"
   do
     [ -n "$_candidate" ] || continue
@@ -40,6 +39,7 @@ PINET_PID_FILE="$PINET_HOME/pinet.pid"
 PINET_LOG_DIR="$PINET_HOME/logs"
 PINET_STATE_DIR="$PINET_HOME/state"
 PINET_CONFIG_FILE="$PINET_HOME/config.json"
+PINET_RUNTIME_SERVICES="${PINET_RUNTIME_SERVICES:-desktop minima cluster-manager}"
 
 # ─── Colors ───────────────────────────────────────────────────────────────────
 
@@ -171,7 +171,7 @@ check_prerequisites() {
 # ─── Process Management ───────────────────────────────────────────────────────
 
 is_running() {
-  for _service in desktop minima cluster-manager; do
+  for _service in $PINET_RUNTIME_SERVICES; do
     _service_pid_file="$PINET_HOME/${_service}.pid"
     if [ -f "$_service_pid_file" ]; then
       _service_pid=$(cat "$_service_pid_file" 2>/dev/null)

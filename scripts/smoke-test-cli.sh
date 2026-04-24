@@ -94,7 +94,10 @@ fi
 status_json="$("${PINET_BIN}" status --json)"
 assert_contains "${status_json}" '"running": true'
 assert_contains "${status_json}" '"desktop": true'
-curl -fsS "http://127.0.0.1:${PINET_DESKTOP_PORT}/" >/dev/null
+curl -fsS "http://127.0.0.1:${PINET_DESKTOP_PORT}/" >/dev/null || {
+    echo "Failed to connect to desktop on port ${PINET_DESKTOP_PORT}" >&2
+    exit 1
+}
 
 "${PINET_BIN}" start --role master >/dev/null
 "${PINET_BIN}" stop >/dev/null
