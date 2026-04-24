@@ -13,7 +13,21 @@ detect_pinet_version() {
 
     case "$_candidate" in
       *.json)
-        _version="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$_candidate" | head -1)"
+        if command -v python3 >/dev/null 2>&1; then
+          _version="$(python3 - "$_candidate" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+try:
+    print(json.loads(Path(sys.argv[1]).read_text()).get("version", ""))
+except Exception:
+    print("")
+PY
+)"
+        else
+          _version="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$_candidate" | head -1)"
+        fi
         ;;
       *)
         _version="$(head -1 "$_candidate" | tr -d '\r')"
@@ -231,7 +245,15 @@ start_minima() {
 }
 
 start_desktop() {
-  _desktop_dir="${1:-${PINET_DESKTOP_ROOT:-${PINET_PROJECT_DIR:-$(pwd)}}}"
+  if [ $# -gt 0 ] && [ -n "${1:-}" ]; then
+    _desktop_dir="$1"
+  elif [ -n "${PINET_DESKTOP_ROOT:-}" ]; then
+    _desktop_dir="$PINET_DESKTOP_ROOT"
+  elif [ -n "${PINET_PROJECT_DIR:-}" ]; then
+    _desktop_dir="$PINET_PROJECT_DIR"
+  else
+    _desktop_dir="$(pwd)"
+  fi
   log_info "Starting web desktop on port $PINET_DESKTOP_PORT..."
 
   cd "$_desktop_dir" 2>/dev/null || {
