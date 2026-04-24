@@ -3,10 +3,12 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-VERSION="${1:-$(python3 - <<'PY'
+VERSION="${1:-$(PROJECT_ROOT="${PROJECT_ROOT}" python3 - <<'PY'
 import json
+import os
 from pathlib import Path
-print(json.loads(Path("package.json").read_text())["version"])
+root = Path(os.environ["PROJECT_ROOT"])
+print(json.loads((root / "package.json").read_text())["version"])
 PY
 )}"
 OVERLAY_DIR="$(mktemp -d /tmp/pinet-cli-overlay-XXXXXX)"
