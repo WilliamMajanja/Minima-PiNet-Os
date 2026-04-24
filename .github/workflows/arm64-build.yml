@@ -36,6 +36,9 @@ jobs:
       - name: Validate boot configuration
         run: npm run release:validate-boot
 
+      - name: Smoke test PiNet CLI
+        run: npm run release:smoke-cli
+
   # ── Build the Zedd Weather arm64 container image ─────────────────────────
   build-zedd-weather:
     name: Build Zedd Weather (arm64)

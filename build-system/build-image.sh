@@ -71,8 +71,12 @@ cp "${PROJECT_ROOT}/system/networking/NetworkManager.conf" "${ROOTFS_DIR}/etc/Ne
 
 # Copy CLI and OTA update script
 mkdir -p "${ROOTFS_DIR}/usr/local/bin"
+mkdir -p "${ROOTFS_DIR}/usr/local/lib"
 cp "${PROJECT_ROOT}/bin/pinet" "${ROOTFS_DIR}/usr/local/bin/pinet" 2>/dev/null || true
 chmod +x "${ROOTFS_DIR}/usr/local/bin/pinet" 2>/dev/null || true
+cp "${PROJECT_ROOT}/bin/pinet-setup" "${ROOTFS_DIR}/usr/local/bin/pinet-setup" 2>/dev/null || true
+chmod +x "${ROOTFS_DIR}/usr/local/bin/pinet-setup" 2>/dev/null || true
+cp "${PROJECT_ROOT}/lib/"*.sh "${ROOTFS_DIR}/usr/local/lib/" 2>/dev/null || true
 cp "${PROJECT_ROOT}/system/ota/pinet-ota-update.sh" "${ROOTFS_DIR}/usr/local/bin/pinet-ota-update" 2>/dev/null || true
 chmod +x "${ROOTFS_DIR}/usr/local/bin/pinet-ota-update" 2>/dev/null || true
 

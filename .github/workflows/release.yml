@@ -33,6 +33,9 @@ jobs:
       - name: Validate Raspberry Pi boot configuration
         run: npm run release:validate-boot
 
+      - name: Smoke test PiNet CLI
+        run: npm run release:smoke-cli
+
       - name: Determine version
         id: version
         run: |

@@ -151,6 +151,11 @@ if [ -f "${PROJECT_ROOT}/bin/pinet" ]; then
     chmod +x "${OVERLAY_DIR}/usr/local/bin/pinet"
     echo "  -> pinet CLI"
 fi
+if [ -f "${PROJECT_ROOT}/bin/pinet-setup" ]; then
+    cp "${PROJECT_ROOT}/bin/pinet-setup" "${OVERLAY_DIR}/usr/local/bin/pinet-setup"
+    chmod +x "${OVERLAY_DIR}/usr/local/bin/pinet-setup"
+    echo "  -> pinet-setup"
+fi
 # Include lib/pinet-runtime.sh for CLI
 if [ -d "${PROJECT_ROOT}/lib" ]; then
     mkdir -p "${OVERLAY_DIR}/usr/local/lib"

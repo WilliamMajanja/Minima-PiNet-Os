@@ -19,6 +19,7 @@
     "start": "python run.py",
     "dev": "python run.py",
     "release:validate-boot": "node scripts/validate-boot-config.js",
+    "release:smoke-cli": "bash scripts/smoke-test-cli.sh",
     "release:img": "bash scripts/create-release-img.sh",
     "release:packages": "node scripts/generate-release-packages.js"
   },

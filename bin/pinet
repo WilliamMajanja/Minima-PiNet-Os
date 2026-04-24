@@ -9,6 +9,43 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+PINET_SYSTEM_ROOT="${PINET_SYSTEM_ROOT:-}"
+
+if [ -n "$PINET_SYSTEM_ROOT" ]; then
+  PINET_SYSTEM_ROOT="$(cd "$PINET_SYSTEM_ROOT" && pwd)"
+fi
+
+resolve_system_path() {
+  _path="$1"
+  if [ -n "$PINET_SYSTEM_ROOT" ]; then
+    printf "%s%s" "$PINET_SYSTEM_ROOT" "$_path"
+  else
+    printf "%s" "$_path"
+  fi
+}
+
+if [ -f "$PROJECT_DIR/run.py" ]; then
+  PINET_DESKTOP_ROOT_DEFAULT="$PROJECT_DIR"
+else
+  PINET_DESKTOP_ROOT_DEFAULT="$(resolve_system_path /opt/pinet/desktop)"
+fi
+
+if [ -f "$SCRIPT_DIR/pinet-setup" ]; then
+  PINET_SETUP_SCRIPT_DEFAULT="$SCRIPT_DIR/pinet-setup"
+else
+  PINET_SETUP_SCRIPT_DEFAULT="$(resolve_system_path /usr/local/bin/pinet-setup)"
+fi
+
+if [ -f "$PROJECT_DIR/package.json" ]; then
+  PINET_VERSION_FILE_DEFAULT="$PROJECT_DIR/package.json"
+else
+  PINET_VERSION_FILE_DEFAULT="$(resolve_system_path /etc/pinetos/version)"
+fi
+
+export PINET_PROJECT_DIR="$PROJECT_DIR"
+export PINET_DESKTOP_ROOT="${PINET_DESKTOP_ROOT:-$PINET_DESKTOP_ROOT_DEFAULT}"
+export PINET_SETUP_SCRIPT="${PINET_SETUP_SCRIPT:-$PINET_SETUP_SCRIPT_DEFAULT}"
+export PINET_VERSION_FILE="${PINET_VERSION_FILE:-$PINET_VERSION_FILE_DEFAULT}"
 
 # Source runtime library
 if [ -f "$SCRIPT_DIR/../lib/pinet-runtime.sh" ]; then
@@ -27,16 +64,33 @@ cmd_start() {
   # Parse arguments
   while [ $# -gt 0 ]; do
     case "$1" in
-      --role)  _role="$2"; shift 2 ;;
-      --master) _master_addr="$2"; shift 2 ;;
-      *) shift ;;
+      --role)
+        if [ $# -lt 2 ] || [ -z "${2:-}" ]; then
+          log_error "Missing value for --role"
+          exit 2
+        fi
+        _role="$2"
+        shift 2
+        ;;
+      --master)
+        if [ $# -lt 2 ] || [ -z "${2:-}" ]; then
+          log_error "Missing value for --master"
+          exit 2
+        fi
+        _master_addr="$2"
+        shift 2
+        ;;
+      *)
+        log_error "Unknown start option: $1"
+        exit 2
+        ;;
     esac
   done
 
   # Validate role
   case "$_role" in
     master|worker) ;;
-    *) log_error "Invalid role: $_role. Must be 'master' or 'worker'."; exit 1 ;;
+    *) log_error "Invalid role: $_role. Must be 'master' or 'worker'."; exit 2 ;;
   esac
 
   if [ "$_role" = "worker" ] && [ -n "$_master_addr" ]; then
@@ -49,8 +103,9 @@ cmd_start() {
 
   # Check if already running
   if is_running; then
-    log_warn "PiNet-OS is already running. Use 'pinet stop' first."
-    exit 1
+    log_info "PiNet-OS is already running."
+    show_status
+    return 0
   fi
 
   # Initialize directories
@@ -58,9 +113,6 @@ cmd_start() {
 
   # Generate/update config
   generate_config "$_role" "$_master_addr"
-
-  # Record master PID (this shell)
-  echo $$ > "$PINET_PID_FILE"
 
   # Start Minima node
   if [ -f "$PINET_MINIMA_JAR" ]; then
@@ -71,7 +123,15 @@ cmd_start() {
   fi
 
   # Start web desktop
-  start_desktop "$PROJECT_DIR"
+  start_desktop "$PINET_DESKTOP_ROOT"
+
+  if [ -f "$PINET_HOME/desktop.pid" ]; then
+    cp "$PINET_HOME/desktop.pid" "$PINET_PID_FILE"
+  elif [ -f "$PINET_HOME/minima.pid" ]; then
+    cp "$PINET_HOME/minima.pid" "$PINET_PID_FILE"
+  else
+    rm -f "$PINET_PID_FILE"
+  fi
 
   # Show status
   show_status
@@ -166,7 +226,7 @@ cmd_join() {
   _master_addr="$1"
   if [ -z "$_master_addr" ]; then
     log_error "Usage: pinet join <master_address>"
-    exit 1
+    exit 2
   fi
   log_info "Joining cluster at $_master_addr..."
   cmd_start --role worker --master "$_master_addr"
@@ -205,10 +265,10 @@ cmd_shell() {
 }
 
 cmd_setup() {
-  if [ -f "$SCRIPT_DIR/pinet-setup" ]; then
-    sh "$SCRIPT_DIR/pinet-setup"
+  if [ -f "$PINET_SETUP_SCRIPT" ]; then
+    sh "$PINET_SETUP_SCRIPT"
   else
-    log_error "Setup script not found at $SCRIPT_DIR/pinet-setup"
+    log_error "Setup script not found at $PINET_SETUP_SCRIPT"
     exit 1
   fi
 }
@@ -321,6 +381,6 @@ case "${1:-help}" in
   *)
     log_error "Unknown command: $1"
     cmd_help
-    exit 1
+    exit 2
     ;;
 esac

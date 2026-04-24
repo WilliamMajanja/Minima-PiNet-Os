@@ -3,8 +3,48 @@
 # Shared functions for PiNet-OS lifecycle management
 # POSIX-compatible — works on any Linux distro on Raspberry Pi 5
 
+detect_pinet_version() {
+  for _candidate in \
+    "${PINET_VERSION_FILE:-}" \
+    "${PINET_PROJECT_DIR:-}/package.json"
+  do
+    [ -n "$_candidate" ] || continue
+    [ -f "$_candidate" ] || continue
+
+    case "$_candidate" in
+      *.json)
+        if command -v python3 >/dev/null 2>&1; then
+          _version="$(python3 - "$_candidate" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+try:
+    print(json.loads(Path(sys.argv[1]).read_text()).get("version", ""))
+except Exception:
+    print("")
+PY
+)"
+        else
+          _version="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$_candidate" | head -1)"
+        fi
+        ;;
+      *)
+        _version="$(head -1 "$_candidate" | tr -d '\r')"
+        ;;
+    esac
+
+    if [ -n "$_version" ]; then
+      printf "%s" "$_version"
+      return 0
+    fi
+  done
+
+  printf "unknown"
+}
+
 PINET_HOME="${PINET_HOME:-$HOME/.pinet}"
-PINET_VERSION="3.0.0"
+PINET_VERSION="${PINET_VERSION:-$(detect_pinet_version)}"
 PINET_MINIMA_RPC_PORT="${PINET_MINIMA_RPC_PORT:-9001}"
 PINET_DESKTOP_PORT="${PINET_DESKTOP_PORT:-3000}"
 PINET_CLUSTER_API_PORT="${PINET_CLUSTER_API_PORT:-9090}"
@@ -13,6 +53,7 @@ PINET_PID_FILE="$PINET_HOME/pinet.pid"
 PINET_LOG_DIR="$PINET_HOME/logs"
 PINET_STATE_DIR="$PINET_HOME/state"
 PINET_CONFIG_FILE="$PINET_HOME/config.json"
+PINET_RUNTIME_SERVICES="${PINET_RUNTIME_SERVICES:-desktop minima cluster-manager}"
 
 # ─── Colors ───────────────────────────────────────────────────────────────────
 
@@ -144,11 +185,23 @@ check_prerequisites() {
 # ─── Process Management ───────────────────────────────────────────────────────
 
 is_running() {
+  for _service in $PINET_RUNTIME_SERVICES; do
+    _service_pid_file="$PINET_HOME/${_service}.pid"
+    if [ -f "$_service_pid_file" ]; then
+      _service_pid=$(cat "$_service_pid_file" 2>/dev/null)
+      if [ -n "$_service_pid" ] && kill -0 "$_service_pid" 2>/dev/null; then
+        return 0
+      fi
+      rm -f "$_service_pid_file"
+    fi
+  done
+
   if [ -f "$PINET_PID_FILE" ]; then
     _pid=$(cat "$PINET_PID_FILE" 2>/dev/null)
     if [ -n "$_pid" ] && kill -0 "$_pid" 2>/dev/null; then
       return 0
     fi
+    rm -f "$PINET_PID_FILE"
   fi
   return 1
 }
@@ -192,7 +245,15 @@ start_minima() {
 }
 
 start_desktop() {
-  _desktop_dir="${1:-$(dirname "$(readlink -f "$0")")/..}"
+  if [ $# -gt 0 ] && [ -n "${1:-}" ]; then
+    _desktop_dir="$1"
+  elif [ -n "${PINET_DESKTOP_ROOT:-}" ]; then
+    _desktop_dir="$PINET_DESKTOP_ROOT"
+  elif [ -n "${PINET_PROJECT_DIR:-}" ]; then
+    _desktop_dir="$PINET_PROJECT_DIR"
+  else
+    _desktop_dir="$(pwd)"
+  fi
   log_info "Starting web desktop on port $PINET_DESKTOP_PORT..."
 
   cd "$_desktop_dir" 2>/dev/null || {
