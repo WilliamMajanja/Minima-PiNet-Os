@@ -30,6 +30,9 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
       - name: Validate Raspberry Pi boot configuration
         run: npm run release:validate-boot
 
