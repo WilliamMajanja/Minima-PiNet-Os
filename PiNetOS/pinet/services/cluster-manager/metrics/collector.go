@@ -166,6 +166,7 @@ func getCPUTemperature() float64 {
 func getDiskUsage() float64 {
 	var stat syscall.Statfs_t
 	if err := syscall.Statfs("/", &stat); err != nil {
+		log.Printf("[Metrics] Root filesystem stats unavailable: %v", err)
 		return 0
 	}
 

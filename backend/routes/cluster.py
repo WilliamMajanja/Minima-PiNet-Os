@@ -35,7 +35,7 @@ async def fetch_cluster_state() -> dict:
             resp = await client.get(f"{CLUSTER_API_URL}/cluster/state")
             if resp.status_code == 200:
                 return resp.json()
-    except httpx.HTTPError:
+    except (httpx.HTTPError, httpx.TimeoutException):
         pass
 
     return {
