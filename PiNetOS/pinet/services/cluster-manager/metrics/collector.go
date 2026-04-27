@@ -176,5 +176,11 @@ func getDiskUsage() float64 {
 	}
 
 	usedBlocks := stat.Blocks - stat.Bfree
-	return (float64(usedBlocks) / float64(stat.Blocks)) * 100
+	userVisibleBlocks := usedBlocks + stat.Bavail
+	if userVisibleBlocks == 0 {
+		log.Printf("[Metrics] Root filesystem reports zero user-visible blocks; disk usage unavailable")
+		return 0
+	}
+
+	return (float64(usedBlocks) / float64(userVisibleBlocks)) * 100
 }
