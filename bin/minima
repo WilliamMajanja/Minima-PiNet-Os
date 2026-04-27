@@ -24,10 +24,8 @@ case "$1" in
       echo "$_data" | grep -o '"uptime":"[^"]*"' | head -1 | sed 's/.*:"\(.*\)"/  Uptime:      \1/'
     else
       printf "${YELLOW}○ Node is not responding${NC}\n"
-      printf "  Trying fallback API...\n"
-      curl -s http://localhost:3000/api/minima/status 2>/dev/null | grep -o '"status":"[^"]*"' | cut -d'"' -f4 | sed 's/^/  Status: /'
-      curl -s http://localhost:3000/api/minima/status 2>/dev/null | grep -o '"blockHeight":[^,]*' | cut -d':' -f2 | sed 's/^/  Block: /'
-      curl -s http://localhost:3000/api/minima/status 2>/dev/null | grep -o '"peers":[^,]*' | cut -d':' -f2 | sed 's/^/  Peers: /'
+      printf "  Minima RPC unavailable at %s\n" "$MINIMA_RPC_URL"
+      exit 1
     fi
     ;;
   peers)

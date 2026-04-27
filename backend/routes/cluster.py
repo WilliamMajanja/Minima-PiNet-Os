@@ -29,7 +29,7 @@ provenance_events: list[dict[str, Any]] = []
 
 
 async def fetch_cluster_state() -> dict:
-    """Fetch cluster state from Go service or fallback to local."""
+    """Fetch cluster state from the live Go cluster manager."""
     try:
         async with httpx.AsyncClient(timeout=2.0) as client:
             resp = await client.get(f"{CLUSTER_API_URL}/cluster/state")
@@ -38,29 +38,10 @@ async def fetch_cluster_state() -> dict:
     except Exception:
         pass
 
-    state = get_state()
     return {
-        "clusterId": "",
-        "version": 0,
-        "masterNodeId": "",
-        "masterAddress": "",
-        "nodes": [
-            {
-                "nodeId": n.id,
-                "maximaAddress": "",
-                "hostname": n.name,
-                "role": "master" if n.id == "n1" else "worker",
-                "status": "active" if n.status == "online" else "offline",
-                "lastHeartbeat": int(time.time() * 1000),
-                "joinedAt": int(time.time() * 1000),
-                "metrics": n.metrics.model_dump() if hasattr(n.metrics, 'model_dump') else {"cpu": 0, "ram": 0, "temp": 0, "disk": 0, "networkIn": 0, "networkOut": 0},
-                "capabilities": [],
-                "version": PINET_VERSION,
-            }
-            for n in state.cluster
-        ],
-        "createdAt": int(time.time() * 1000),
-        "lastUpdated": int(time.time() * 1000),
+        "available": False,
+        "reason": "cluster manager unavailable",
+        "nodes": [],
     }
 
 
