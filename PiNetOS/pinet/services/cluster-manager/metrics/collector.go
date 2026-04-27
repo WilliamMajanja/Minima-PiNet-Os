@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"log"
 	"os"
 	"runtime"
 	"strconv"
@@ -169,6 +170,7 @@ func getDiskUsage() float64 {
 	}
 
 	if stat.Blocks == 0 {
+		log.Printf("[Metrics] Root filesystem reports zero blocks; disk usage unavailable")
 		return 0
 	}
 
