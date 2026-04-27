@@ -174,6 +174,6 @@ func getDiskUsage() float64 {
 		return 0
 	}
 
-	usedBlocks := stat.Blocks - stat.Bavail
+	usedBlocks := stat.Blocks - stat.Bfree
 	return (float64(usedBlocks) / float64(stat.Blocks)) * 100
 }
