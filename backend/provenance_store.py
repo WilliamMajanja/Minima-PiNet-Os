@@ -81,5 +81,5 @@ def record_provenance_event(body: dict[str, Any], source: str = "api") -> dict[s
     }
     _provenance_events.append(event)
     if len(_provenance_events) > MAX_PROVENANCE_EVENTS:
-        del _provenance_events[: len(_provenance_events) - MAX_PROVENANCE_EVENTS]
+        del _provenance_events[:-MAX_PROVENANCE_EVENTS]
     return dict(event)

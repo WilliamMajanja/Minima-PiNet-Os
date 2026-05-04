@@ -91,8 +91,8 @@ const manifest = {
   artifacts,
 };
 
-const unsigned = canonicalJson(manifest);
-const envelopeDigest = createHash('sha256').update(unsigned).digest('hex');
+const canonicalManifestJson = canonicalJson(manifest);
+const envelopeDigest = createHash('sha256').update(canonicalManifestJson).digest('hex');
 const envelope = {
   ...manifest,
   provenanceId: `rmpe2:${envelopeDigest.slice(0, 16)}`,
