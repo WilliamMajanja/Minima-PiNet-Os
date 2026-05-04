@@ -149,7 +149,8 @@ def verify_rmp_proof(proof: dict[str, Any]) -> dict[str, Any]:
 def create_rnpe2_request(local_height: int, peer_height: int, local_proof: dict[str, Any]) -> dict[str, Any]:
     start = max(local_height + 1, 0)
     end = max(peer_height, local_height)
-    if peer_height > local_height:
+    peer_is_ahead = peer_height > local_height
+    if peer_is_ahead:
         limited_end = min(end, start + MAX_RNPE_BLOCK_REQUEST - 1)
     else:
         limited_end = local_height
@@ -160,8 +161,8 @@ def create_rnpe2_request(local_height: int, peer_height: int, local_proof: dict[
         "localHeight": local_height,
         "peerHeight": peer_height,
         "missingBlocks": {
-            "startBlock": start if peer_height > local_height else None,
-            "endBlock": limited_end if peer_height > local_height else None,
+            "startBlock": start if peer_is_ahead else None,
+            "endBlock": limited_end if peer_is_ahead else None,
             "truncated": peer_height > limited_end,
             "maxBlocks": MAX_RNPE_BLOCK_REQUEST,
         },

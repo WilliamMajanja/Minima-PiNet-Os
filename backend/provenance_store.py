@@ -33,7 +33,7 @@ def record_provenance_event(body: dict[str, Any], source: str = "api") -> dict[s
         raise ValueError("Provenance event body must be an object")
 
     # `event` is accepted as a legacy alias; new clients should send `eventType`.
-    event_type = body.get("eventType") or body.get("event")
+    event_type = body.get("eventType") if "eventType" in body else body.get("event")
     if not isinstance(event_type, str) or not _EVENT_TYPE_RE.fullmatch(event_type):
         raise ValueError("eventType must match [A-Za-z0-9_.:-]{1,80}")
 
