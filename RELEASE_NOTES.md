@@ -6,6 +6,12 @@
 
 This release republishes the full Raspberry Pi 5 image (`PiNetOS-RaspberryPi.img`) and source archives so users can flash a fresh build that inherits all v1.1.0 security hardening, the FastAPI desktop, the DApp platform, and the K3s cluster manifests.
 
+## Stable Release Test Addendum
+
+- **RMPE-2 provenance** — Release jobs now generate `RMPE-2-PROVENANCE.json`, publish its checksum, and attach a build-provenance attestation for production release verification.
+- **Hash-chained runtime audit trail** — Cluster and provenance APIs now emit canonical RMPE-2 records with `provenanceId`, `rmpeHash`, and `previousHash` fields.
+- **Production validation checklist** — `docs/PRODUCTION_RELEASE_TEST.md` defines the artifact, Kubernetes control-plane, cluster orchestration, provenance, and safety gates for a stable production test.
+
 ## Highlights
 
 - **Refreshed Raspberry Pi disk image** — Re-built 256 MB flashable image (64 MB FAT32 boot + 192 MB ext4 rootfs) via `scripts/create-release-img.sh`, packaged with `scripts/package-img-release.js`.
@@ -148,4 +154,3 @@ Vulnerability reports: email `WilliamMajanja@gmail.com`. See [SECURITY.md](SECUR
 ---
 
 *Minima-PiNet-OS is MIT licensed. Architected by William Majanja.*
-

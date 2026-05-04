@@ -13,6 +13,8 @@ on:
 
 permissions:
   contents: write
+  attestations: write
+  id-token: write
 
 jobs:
   release:
@@ -86,6 +88,14 @@ jobs:
             > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
+      - name: Generate RMPE-2 provenance manifest
+        run: npm run release:provenance -- "${{ steps.version.outputs.semver }}"
+
+      - name: Attest RMPE-2 provenance manifest
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: RMPE-2-PROVENANCE.json
+
       - name: Prepare release body
         run: |
           if [ ! -f RELEASE_NOTES.md ]; then
@@ -110,3 +120,5 @@ jobs:
             PiNetOS-Documentation.zip
             PiNetOS-K3s-Manifests.zip
             SHA256SUMS.txt
+            RMPE-2-PROVENANCE.json
+            RMPE-2-PROVENANCE.json.sha256

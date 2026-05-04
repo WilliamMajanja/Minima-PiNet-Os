@@ -266,11 +266,13 @@ PiNet OS records cluster events on the Minima blockchain for auditable provenanc
 curl -X POST http://localhost:3000/api/provenance/record \
   -H "Content-Type: application/json" \
   -d '{
-    "event": "workload_executed",
+    "eventType": "WORKLOAD_EXECUTED",
     "nodeId": "node-002",
-    "taskId": "task-789",
-    "result": "success",
-    "hash": "sha256:abc123..."
+    "payload": {
+      "taskId": "task-789",
+      "result": "success",
+      "hash": "sha256:abc123..."
+    }
   }'
 ```
 
@@ -284,7 +286,7 @@ Provenance records are anchored to the Minima blockchain via burn transactions, 
 curl http://localhost:3000/api/cluster/provenance
 ```
 
-Returns all provenance records with blockchain transaction references.
+Returns RMPE-2 provenance records with `provenanceId`, `rmpeHash`, `previousHash`, and optional blockchain transaction references.
 
 ---
 
