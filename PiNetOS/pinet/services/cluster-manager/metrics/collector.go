@@ -1,11 +1,13 @@
 package metrics
 
 import (
+	"log"
 	"os"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -162,21 +164,23 @@ func getCPUTemperature() float64 {
 }
 
 func getDiskUsage() float64 {
-	// Read from /proc/mounts and use syscall for disk usage
-	data, err := os.ReadFile("/proc/mounts")
-	if err != nil {
+	var stat syscall.Statfs_t
+	if err := syscall.Statfs("/", &stat); err != nil {
+		log.Printf("[Metrics] Root filesystem stats unavailable: %v", err)
 		return 0
 	}
 
-	// Find root filesystem
-	for _, line := range strings.Split(string(data), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) >= 2 && fields[1] == "/" {
-			// Found root mount — return placeholder until syscall.Statfs is added
-			// TODO: Implement with syscall.Statfs for real disk usage
-			return 15.0
-		}
+	if stat.Blocks == 0 {
+		log.Printf("[Metrics] Root filesystem reports zero blocks; disk usage unavailable")
+		return 0
 	}
 
-	return 0
+	usedBlocks := stat.Blocks - stat.Bfree
+	userVisibleBlocks := usedBlocks + stat.Bavail
+	if userVisibleBlocks == 0 {
+		log.Printf("[Metrics] Root filesystem reports zero user-visible blocks; disk usage unavailable")
+		return 0
+	}
+
+	return (float64(usedBlocks) / float64(userVisibleBlocks)) * 100
 }

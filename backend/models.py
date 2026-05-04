@@ -130,11 +130,7 @@ class MinimaState(BaseModel):
 
 class PiNetState(BaseModel):
     minima: MinimaState = MinimaState()
-    cluster: list[ClusterNode] = Field(default_factory=lambda: [
-        ClusterNode(id="n1", name="Pi-Alpha", ip="192.168.1.10", hat="SSD_NVME", status="online"),
-        ClusterNode(id="n2", name="Pi-Beta", ip="192.168.1.11", hat="SSD_NVME", status="online"),
-        ClusterNode(id="n3", name="Pi-Sigma", ip="192.168.1.12", hat="AI_NPU", status="online"),
-    ])
+    cluster: list[ClusterNode] = Field(default_factory=list)
     settings: Settings = Settings()
     pinet2: PiNet2State = PiNet2State()
 
