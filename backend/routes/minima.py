@@ -1,6 +1,7 @@
 """Minima blockchain node endpoints."""
 from __future__ import annotations
 
+import base64
 import json
 import re
 
@@ -155,7 +156,8 @@ async def minima_rnpe2_request(body: dict):
         safe_peer_address = re.compile(r"^[a-zA-Z0-9.:@_-]+$")
         if not isinstance(peer_address, str) or not safe_peer_address.fullmatch(peer_address) or len(peer_address) > 256:
             raise HTTPException(400, "Invalid peerAddress")
-        payload = json.dumps(request, separators=(",", ":")).replace(" ", "_")
+        payload_json = json.dumps(request, separators=(",", ":")).encode("utf-8")
+        payload = f"base64:{base64.urlsafe_b64encode(payload_json).decode('ascii')}"
         result = await minima_client.maxima_send(peer_address, "pinet-rnpe2", payload)
         request["delivered"] = bool(result and result.get("status"))
     return request

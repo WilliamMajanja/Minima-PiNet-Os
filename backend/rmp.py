@@ -149,7 +149,10 @@ def verify_rmp_proof(proof: dict[str, Any]) -> dict[str, Any]:
 def create_rnpe2_request(local_height: int, peer_height: int, local_proof: dict[str, Any]) -> dict[str, Any]:
     start = max(local_height + 1, 0)
     end = max(peer_height, local_height)
-    limited_end = min(end, start + MAX_RNPE_BLOCK_REQUEST - 1) if end >= start else local_height
+    if peer_height > local_height:
+        limited_end = min(end, start + MAX_RNPE_BLOCK_REQUEST - 1)
+    else:
+        limited_end = local_height
     return {
         "schemaVersion": RNPE_SCHEMA_VERSION,
         "type": "recursive-network-peer-exchange",

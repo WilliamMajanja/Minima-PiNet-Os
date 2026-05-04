@@ -89,7 +89,7 @@ const manifest = {
       : 'local',
     ref: process.env.GITHUB_REF_NAME || null,
     commit: process.env.GITHUB_SHA || gitValue(['rev-parse', 'HEAD'], 'git commit'),
-    dirty: gitValue(['status', '--porcelain', '--untracked-files=no'], 'git dirty status') ? true : false,
+    dirty: Boolean(gitValue(['status', '--porcelain', '--untracked-files=no'], 'git dirty status')),
   },
   materials: [
     { uri: 'pkg:npm/pinet-web3-os', version: pkg.version },

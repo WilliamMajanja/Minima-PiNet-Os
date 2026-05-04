@@ -50,7 +50,8 @@ curl -X POST http://localhost:3000/api/minima/rnpe2/request \
 ```
 
 If `peerAddress` is supplied, the request is sent over Maxima using the `pinet-rnpe2`
-application channel.
+application channel. The RNPE-2 JSON envelope is URL-safe base64 encoded so field values are
+preserved exactly in transit.
 
 Verify a peer proof against the local proof:
 
