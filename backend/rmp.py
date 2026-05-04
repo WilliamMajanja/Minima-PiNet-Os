@@ -160,8 +160,8 @@ def create_rnpe2_request(local_height: int, peer_height: int, local_proof: dict[
         "localHeight": local_height,
         "peerHeight": peer_height,
         "missingBlocks": {
-            "from": start if peer_height > local_height else None,
-            "to": limited_end if peer_height > local_height else None,
+            "startBlock": start if peer_height > local_height else None,
+            "endBlock": limited_end if peer_height > local_height else None,
             "truncated": peer_height > limited_end,
             "maxBlocks": MAX_RNPE_BLOCK_REQUEST,
         },

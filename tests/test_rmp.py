@@ -36,7 +36,7 @@ class RmpTest(unittest.TestCase):
         result = verify_rnpe2_consensus(local, peer)
 
         self.assertEqual(request["schemaVersion"], "RNPE-2")
-        self.assertEqual(request["missingBlocks"]["from"], 10)
+        self.assertEqual(request["missingBlocks"]["startBlock"], 10)
         self.assertFalse(result["consensusMatch"])
 
 
