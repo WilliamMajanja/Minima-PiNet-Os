@@ -18,10 +18,11 @@ const hashFile = (absolutePath) => {
   return `sha256:${hash.digest('hex')}`;
 };
 
-const gitValue = (command) => {
+const gitValue = (command, label) => {
   try {
     return execFileSync('git', command, { cwd: projectRoot, encoding: 'utf8' }).trim();
-  } catch {
+  } catch (error) {
+    console.warn(`Warning: unable to read ${label}: ${error.message}`);
     return null;
   }
 };
@@ -81,8 +82,8 @@ const manifest = {
       ? `${process.env.GITHUB_SERVER_URL || 'https://github.com'}/${process.env.GITHUB_REPOSITORY}`
       : 'local',
     ref: process.env.GITHUB_REF_NAME || null,
-    commit: process.env.GITHUB_SHA || gitValue(['rev-parse', 'HEAD']),
-    dirty: gitValue(['status', '--porcelain', '--untracked-files=no']) ? true : false,
+    commit: process.env.GITHUB_SHA || gitValue(['rev-parse', 'HEAD'], 'git commit'),
+    dirty: gitValue(['status', '--porcelain', '--untracked-files=no'], 'git dirty status') ? true : false,
   },
   materials: [
     { uri: 'pkg:npm/pinet-web3-os', version: pkg.version },

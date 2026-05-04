@@ -30,17 +30,17 @@ def get_provenance_events(limit: int | None = None) -> list[dict[str, Any]]:
 
 def record_provenance_event(body: dict[str, Any], source: str = "api") -> dict[str, Any]:
     if not isinstance(body, dict):
-        raise ValueError("Invalid provenance event")
+        raise ValueError("Provenance event body must be an object")
 
     event_type = body.get("eventType") or body.get("event")
     if not isinstance(event_type, str) or not _EVENT_TYPE_RE.fullmatch(event_type):
-        raise ValueError("Invalid provenance event")
+        raise ValueError("eventType must match [A-Za-z0-9_.:-]{1,80}")
 
     payload = body.get("payload", {})
     if payload is None:
         payload = {}
     if not isinstance(payload, dict):
-        raise ValueError("Invalid provenance payload")
+        raise ValueError("payload must be an object")
 
     now = _now_ms()
     timestamp = body.get("timestamp", now)
@@ -81,5 +81,5 @@ def record_provenance_event(body: dict[str, Any], source: str = "api") -> dict[s
     }
     _provenance_events.append(event)
     if len(_provenance_events) > MAX_PROVENANCE_EVENTS:
-        del _provenance_events[:-MAX_PROVENANCE_EVENTS]
+        _provenance_events[:] = _provenance_events[-MAX_PROVENANCE_EVENTS:]
     return dict(event)
