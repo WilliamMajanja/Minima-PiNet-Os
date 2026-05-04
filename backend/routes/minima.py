@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -151,7 +152,8 @@ async def minima_rnpe2_request(body: dict):
 
     peer_address = body.get("peerAddress")
     if peer_address:
-        if not isinstance(peer_address, str) or len(peer_address) > 256:
+        safe_peer_address = re.compile(r"^[a-zA-Z0-9.:@_-]+$")
+        if not isinstance(peer_address, str) or not safe_peer_address.fullmatch(peer_address) or len(peer_address) > 256:
             raise HTTPException(400, "Invalid peerAddress")
         payload = json.dumps(request, separators=(",", ":")).replace(" ", "_")
         result = await minima_client.maxima_send(peer_address, "pinet-rnpe2", payload)
