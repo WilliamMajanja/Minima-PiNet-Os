@@ -15,7 +15,7 @@ router = APIRouter()
 
 
 @router.post("/provenance/record")
-@router.post("/cluster/provenance/record")
+@router.post("/cluster/provenance/record")  # Backward-compatible alias for older cluster clients.
 async def record_provenance(body: dict[str, Any]):
     try:
         event = record_provenance_event(body, source="api")

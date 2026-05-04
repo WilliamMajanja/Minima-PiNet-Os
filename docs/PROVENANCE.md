@@ -130,5 +130,7 @@ minima txpowsearch data:pinet-provenance
 ## Implementation
 
 - **Runtime store**: `backend/provenance_store.py`
-- **API**: `POST /api/provenance/record`, `POST /api/cluster/provenance/record`, `GET /api/cluster/provenance`, and `GET /api/provenance/schema`
+- **API**: `POST /api/provenance/record`, `POST /api/cluster/provenance/record` (legacy alias), `GET /api/cluster/provenance`, and `GET /api/provenance/schema`
 - **Release manifest**: `scripts/generate-rmpe2-provenance.js`
+
+New clients should send `eventType`; `event` remains accepted as a legacy alias for older cluster integrations.

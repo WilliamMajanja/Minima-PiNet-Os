@@ -34,8 +34,9 @@ def _append_cluster_event(event: dict[str, Any], provenance_body: dict[str, Any]
             provenance = record_provenance_event(provenance_body, source="cluster")
             event["provenanceId"] = provenance["provenanceId"]
             event["rmpeHash"] = provenance["rmpeHash"]
-        except ValueError:
-            event["provenanceStatus"] = "unavailable"
+        except ValueError as exc:
+            event["provenanceStatus"] = "validation_failed"
+            event["provenanceReason"] = str(exc)
     cluster_event_log.append(event)
 
 

@@ -10,7 +10,13 @@ const outputName = 'RMPE-2-PROVENANCE.json';
 const outputPath = path.join(projectRoot, outputName);
 
 const explicitArtifacts = process.argv.slice(3);
-const releaseArtifactPattern = /^(Minima-PiNet-Os-v.+\.(zip|tar\.gz)|PiNetOS-RaspberryPi\.img|PiNetOS-RaspberryPi-Package-v.+\.zip|PiNetOS-(Enterprise|Build-System|Documentation|K3s-Manifests)\.zip|SHA256SUMS\.txt)$/;
+const releaseArtifactPatterns = [
+  /^Minima-PiNet-Os-v.+\.(zip|tar\.gz)$/,
+  /^PiNetOS-RaspberryPi\.img$/,
+  /^PiNetOS-RaspberryPi-Package-v.+\.zip$/,
+  /^PiNetOS-(Enterprise|Build-System|Documentation|K3s-Manifests)\.zip$/,
+  /^SHA256SUMS\.txt$/,
+];
 
 const hashFile = (absolutePath) => {
   const hash = createHash('sha256');
@@ -41,7 +47,7 @@ const collectArtifacts = () => {
   if (explicitArtifacts.length > 0) {
     return explicitArtifacts;
   }
-  return readdirSync(projectRoot).filter((entry) => releaseArtifactPattern.test(entry));
+  return readdirSync(projectRoot).filter((entry) => releaseArtifactPatterns.some((pattern) => pattern.test(entry)));
 };
 
 const artifacts = collectArtifacts()
