@@ -1,48 +1,63 @@
-# On-Chain Provenance System
+# RMPE-2 Provenance System
 
 ## Overview
 
-PiNet-OS records significant cluster events as **Minima burn transactions** with structured
-metadata. This creates an immutable, tamper-proof audit trail on the blockchain — every node
-join, workload execution, and configuration change is verifiable on-chain.
+PiNet-OS records significant cluster and release events as **RMPE-2 canonical provenance
+records**. Runtime cluster records are hash-chained locally and can be anchored to Minima burn
+transactions; release artifacts are published with a `RMPE-2-PROVENANCE.json` manifest and a
+GitHub build-provenance attestation.
 
 ## How It Works
 
 1. Events occur (node joins, workloads complete, configs change)
-2. Events are queued locally in the Provenance Service
-3. Every 60 seconds, queued events are batched
-4. A single Minima burn transaction is created with the batch as metadata
-5. The burn transaction is permanently recorded on the Minima blockchain
+2. Events are canonicalized as RMPE-2 JSON
+3. A SHA-256 digest is computed over the unsigned canonical record
+4. The record receives a `provenanceId`, `rmpeHash`, and `previousHash`
+5. Events can be anchored to Minima burn transactions for immutable external auditability
 
-## Burn Transaction Format
+## Runtime Event Format
 
-Each burn transaction contains:
+Each runtime provenance event contains:
 
 ```json
 {
-  "type": "pinet-provenance",
-  "version": "1.1.0",
+  "schemaVersion": "RMPE-2",
+  "type": "pinet-provenance-event",
+  "eventType": "NODE_JOIN",
+  "pinetVersion": "1.2.0",
+  "source": "cluster",
   "clusterId": "cluster-1711461600000-xyz789",
-  "batchSize": 3,
-  "events": [
-    {
-      "pinetVersion": "1.1.0",
-      "eventType": "NODE_JOIN",
-      "clusterId": "cluster-1711461600000-xyz789",
-      "nodeId": "pinet-pi-alpha",
-      "timestamp": 1711461600000,
-      "payload": {
-        "joinedNodeId": "pinet-pi-beta",
-        "hostname": "raspberrypi-02",
-        "role": "worker"
-      }
-    }
-  ],
-  "recordedAt": 1711461660000
+  "nodeId": "pinet-pi-alpha",
+  "payload": {
+    "joinedNodeId": "pinet-pi-beta",
+    "hostname": "raspberrypi-02",
+    "role": "worker"
+  },
+  "timestamp": 1711461600000,
+  "recordedAt": 1711461660000,
+  "previousHash": "sha256:...",
+  "rmpeHash": "sha256:...",
+  "provenanceId": "rmpe2:..."
 }
 ```
 
 **Burn Amount**: 0.001 Minima per batch (configurable)
+
+## Release Manifest Format
+
+Stable release jobs generate:
+
+| File | Purpose |
+|---|---|
+| `RMPE-2-PROVENANCE.json` | Canonical release manifest for images, source archives, package zips, and `SHA256SUMS.txt` |
+| `RMPE-2-PROVENANCE.json.sha256` | SHA-256 checksum for the provenance envelope |
+| GitHub build-provenance attestation | Hosted attestation bound to the RMPE-2 manifest subject |
+
+Generate locally after building release artifacts:
+
+```bash
+npm run release:provenance -- 1.2.0
+```
 
 ## Event Types
 
@@ -66,9 +81,12 @@ Each burn transaction contains:
 curl http://localhost:3000/api/cluster/provenance
 
 # Record a new provenance event
-curl -X POST http://localhost:3000/api/cluster/provenance/record \
+curl -X POST http://localhost:3000/api/provenance/record \
   -H "Content-Type: application/json" \
   -d '{"eventType": "STATE_CHANGE", "payload": {"description": "Manual config update"}}'
+
+# Inspect the RMPE-2 schema
+curl http://localhost:3000/api/provenance/schema
 ```
 
 ### Via Minima CLI
@@ -111,6 +129,8 @@ minima txpowsearch data:pinet-provenance
 
 ## Implementation
 
-- **TypeScript Service**: `services/provenanceService.ts`
-- **Config**: `config/defaults.ts` (`PROVENANCE_*` constants)
-- **API**: `POST /api/provenance/record` and `GET /api/cluster/provenance`
+- **Runtime store**: `backend/provenance_store.py`
+- **API**: `POST /api/provenance/record`, `POST /api/cluster/provenance/record` (legacy alias), `GET /api/cluster/provenance`, and `GET /api/provenance/schema`
+- **Release manifest**: `scripts/generate-rmpe2-provenance.js`
+
+New clients should send `eventType`; `event` remains accepted as a legacy alias for older cluster integrations.

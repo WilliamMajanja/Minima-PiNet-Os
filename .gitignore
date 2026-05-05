@@ -25,6 +25,8 @@ Minima-PiNet-Os-v*.zip
 Minima-PiNet-Os-v*.tar.gz
 pinet-cluster-update.tar.zst
 SHA256SUMS.txt
+RMPE-2-PROVENANCE.json
+RMPE-2-PROVENANCE.json.sha256
 rootfs-overlay/
 
 # Ad-hoc test/debug scripts

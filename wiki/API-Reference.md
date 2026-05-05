@@ -38,12 +38,17 @@ Complete reference for all REST API endpoints exposed by the PiNet OS server.
 
 ---
 
-## Minima Blockchain (2 endpoints)
+## Minima Blockchain (7 endpoints)
 
 | Method | Endpoint | Description |
 |---|---|---|
 | GET | `/api/minima/status` | Node status: blockHeight, peers, status, uptime, version |
 | POST | `/api/minima/cmd` | Execute Minima RPC command (rate-limited) |
+| GET | `/api/minima/rmp/state-proof` | Build a compressed RMP proof for local network state |
+| POST | `/api/minima/rmp/verify` | Verify a Recursive Merkle Proof |
+| GET | `/api/minima/rnpe2/status` | Return local RNPE-2 height and RMP root summary |
+| POST | `/api/minima/rnpe2/request` | Create/send an RNPE-2 missing-block request (rate-limited) |
+| POST | `/api/minima/rnpe2/verify` | Verify local and peer RMP roots for RNPE-2 consensus |
 
 ---
 

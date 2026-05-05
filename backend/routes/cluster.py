@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..config import CLUSTER_API_PORT, DESKTOP_PORT, PINET_VERSION
 from ..minima_client import minima_client
+from ..provenance_store import get_provenance_events, record_provenance_event
 from ..rate_limiter import exec_rate_limiter, rate_limit_dependency
 from ..state import get_state, save_state
 
@@ -25,7 +26,18 @@ CLUSTER_API_URL = f"http://127.0.0.1:{CLUSTER_API_PORT}"
 
 # In-memory event stores
 cluster_event_log: list[dict[str, Any]] = []
-provenance_events: list[dict[str, Any]] = []
+
+
+def _append_cluster_event(event: dict[str, Any], provenance_body: dict[str, Any] | None = None) -> None:
+    if provenance_body is not None:
+        try:
+            provenance = record_provenance_event(provenance_body, source="cluster")
+            event["provenanceId"] = provenance["provenanceId"]
+            event["rmpeHash"] = provenance["rmpeHash"]
+        except ValueError as exc:
+            event["provenanceStatus"] = "validation_failed"
+            event["provenanceReason"] = str(exc)
+    cluster_event_log.append(event)
 
 
 async def fetch_cluster_state() -> dict:
@@ -148,7 +160,13 @@ async def join_cluster(body: dict):
     safe_data = join_msg.replace(" ", "_")
     result = await minima_client.maxima_send(master_address, "pinet-cluster", safe_data)
     if result is not None:
-        cluster_event_log.append({"type": "JOIN_REQUEST", "target": master_address, "time": int(time.time() * 1000)})
+        _append_cluster_event(
+            {"type": "JOIN_REQUEST", "target": master_address, "time": int(time.time() * 1000)},
+            {
+                "eventType": "CLUSTER_JOIN_REQUEST",
+                "payload": {"target": master_address, "transport": "maxima"},
+            },
+        )
         return {"success": True, "message": "Join request sent via Maxima"}
 
     return {"success": False, "message": "Failed to send join request — Maxima not reachable"}
@@ -160,7 +178,14 @@ async def cluster_exec(body: dict):
     command = body.get("command", "")
     if not target_node_id or not command:
         raise HTTPException(400, "targetNodeId and command required")
-    cluster_event_log.append({"type": "EXEC_REQUEST", "target": target_node_id, "command": command, "time": int(time.time() * 1000)})
+    _append_cluster_event(
+        {"type": "EXEC_REQUEST", "target": target_node_id, "command": command, "time": int(time.time() * 1000)},
+        {
+            "eventType": "CLUSTER_EXEC_REQUEST",
+            "nodeId": target_node_id,
+            "payload": {"targetNodeId": target_node_id, "command": command},
+        },
+    )
     return {"success": True, "message": "Exec request queued"}
 
 
@@ -225,7 +250,7 @@ async def cluster_exec_local(body: dict):
 
 @router.get("/cluster/provenance")
 async def get_provenance():
-    return provenance_events
+    return get_provenance_events()
 
 
 @router.get("/cluster/events")
@@ -248,6 +273,14 @@ async def provision_node(body: dict):
 
     node.status = "provisioning"
     save_state()
+    _append_cluster_event(
+        {"type": "NODE_PROVISION_REQUEST", "target": node_id, "time": int(time.time() * 1000)},
+        {
+            "eventType": "NODE_PROVISION_REQUEST",
+            "nodeId": node_id,
+            "payload": {"nodeId": node_id, "ip": str(node.ip)},
+        },
+    )
 
     install_script = "curl -sSL https://raw.githubusercontent.com/WilliamMajanja/Minima-PiNet-Os/main/install.sh | bash"
     try:

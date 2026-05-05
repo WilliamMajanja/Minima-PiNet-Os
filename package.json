@@ -21,7 +21,8 @@
     "release:validate-boot": "node scripts/validate-boot-config.js",
     "release:smoke-cli": "bash scripts/smoke-test-cli.sh",
     "release:img": "bash scripts/create-release-img.sh",
-    "release:packages": "node scripts/generate-release-packages.js"
+    "release:packages": "node scripts/generate-release-packages.js",
+    "release:provenance": "node scripts/generate-rmpe2-provenance.js"
   },
   "dependencies": {
     "adm-zip": "^0.5.16"

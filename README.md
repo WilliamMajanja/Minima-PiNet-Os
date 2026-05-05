@@ -108,6 +108,7 @@ A more detailed view lives in **[wiki/Architecture.md](wiki/Architecture.md)** a
 | Frontend | **Jinja2** templates + vanilla JS/CSS — no SPA build chain, no supply‑chain bloat |
 | Blockchain | **Minima** L1 (Java) — full node in <500 MB |
 | P2P bus | **Maxima** — Minima's end‑to‑end encrypted message protocol |
+| State verification | **RMP + RNPE-2** — compressed state proofs and peer exchange for missing block validation |
 | Cluster orchestration | **k3s** (lightweight Kubernetes) + Go cluster manager |
 | Workload isolation | **LXC** with GPU/NPU passthrough |
 | Storage | **IPFS** (content‑addressed, blockchain‑anchored) |
