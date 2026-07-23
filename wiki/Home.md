@@ -19,25 +19,21 @@ Minima PiNet OS is a **zero-bloat Linux distribution** designed for edge computi
 
 ### Using PiNet OS
 - [CLI Reference](CLI-Reference) — `pinet` command-line tool
-- [API Reference](API-Reference) — All 86 REST API endpoints
-- [Desktop Applications](Desktop-Applications) — 20 built-in apps and window management
+- [API Reference](API-Reference) — All 93 REST API endpoints
+- [Desktop Applications](Desktop-Applications) — 19 built-in apps and window management
 - [DApp Development](DApp-Development) — Build and publish decentralized apps
 
 ### Hardware & Networking
 - [Hardware Guide](Hardware-Guide) — GPIO, HAL, HATs, PCIe/NVMe
-- [Networking](Networking) — Interfaces, firewall, WireGuard, PXE boot
-- [AI and Edge Computing](AI-and-Edge-Computing) — NPU, AI runtimes, DePAI
 
 ### Cluster & Infrastructure
 - [Cluster Management](Cluster-Management) — Multi-node clusters, Maxima protocol
-- [Kernel and Services](Kernel-and-Services) — OS kernel, 18 services, type system
 - [Security](Security) — Zero-trust architecture, 15 security controls (including CPIP security provider)
 
 ### Operations
-- [Release Process](Release-Process) — CI/CD, artifacts, versioning
-- [Troubleshooting](Troubleshooting) — Common issues and diagnostics
-- [Contributing](Contributing) — How to contribute to PiNet OS
-- [FAQ](FAQ) — Frequently asked questions
+- [Release Process](https://github.com/WilliamMajanja/Minima-PiNet-Os/releases) — CI/CD, artifacts, versioning (see RELEASE_NOTES.md)
+- [Troubleshooting](https://github.com/WilliamMajanja/Minima-PiNet-Os/issues) — Common issues and diagnostics
+- [Contributing](https://github.com/WilliamMajanja/Minima-PiNet-Os/blob/main/POLICY.md) — How to contribute to PiNet OS
 
 ---
 

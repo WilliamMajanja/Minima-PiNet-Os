@@ -22,7 +22,7 @@ Centralised cloud has a structural problem: every workload, every identity, and 
 - a **k3s edge cluster** that runs containerised workloads,
 - a **local AI accelerator** (Hailo‑8L NPU, 13 TOPS) for on‑device LLM and vision inference,
 - a **zero‑trust mesh participant** (WireGuard + LUKS + TPM‑sealed keys + CPIP security provider),
-- and a **browser‑accessible desktop OS** with 20 built‑in management apps.
+- and a **browser‑accessible desktop OS** with 19 built‑in management apps.
 
 Three Pis form a 48 GB self‑healing cluster. Thirty Pis form a regional decentralised cloud. **No central API server. No cloud account. No vendor lock‑in.**
 
@@ -47,7 +47,7 @@ The intersection of these four trends did not exist 18 months ago. **PiNet‑OS 
 2. **Decentralised control plane.** Cluster coordination runs over Minima's encrypted **Maxima** P2P bus. There is **no central API server to compromise or pay for**.
 3. **Zero‑trust by default.** LUKS full‑disk encryption with TPM 2.0 sealing, WireGuard‑only inter‑container traffic, blockchain‑anchored remote attestation, fail2ban, NetworkPolicy default‑deny, **CPIP security provider** (AES‑256‑GCM, ECDSA P‑256, HMAC‑SHA256 RPC auth, ITF Defense probe blocking).
 4. **AI without the cloud.** Hailo‑8L NPU passthrough into LXC; ARM NEON / GGUF 4‑bit fallback on Pi 4; deterministic latency via cgroup CPU pinning.
-5. **A real OS, not a demo.** 20 built‑in desktop apps (terminal, system monitor, cluster manager, wallet, Maxima messenger, DApp store, AI assistant, …) over a single Python (FastAPI + Jinja) stack — auditable, type‑checked, no SPA build chain.
+5. **A real OS, not a demo.** 19 built‑in desktop apps (terminal, system monitor, cluster manager, wallet, Maxima messenger, DApp store, AI assistant, …) over a single Python (FastAPI + Jinja) stack — auditable, type‑checked, no SPA build chain.
 6. **DApp platform built in.** Three DApp kinds (`typescript`, `python-dashboard`, `minidapp`) install via signed manifest into a sandboxed iframe with a permissioned bridge to OS APIs.
 
 ---
@@ -61,9 +61,9 @@ flowchart TB
         N1["Pi 5 · Master<br/>16 GB · Hailo-8L"]
         N2["Pi 5 · Worker<br/>16 GB · Hailo-8L"]
         N3["Pi 5 · Worker<br/>16 GB · Hailo-8L"]
-        N1 <-- "Maxima P2P (encrypted)" --> N2
-        N2 <-- "Maxima P2P (encrypted)" --> N3
-        N1 <-- "Maxima P2P (encrypted)" --> N3
+        N1 <-->|"Maxima P2P (encrypted)"| N2
+        N2 <-->|"Maxima P2P (encrypted)"| N3
+        N1 <-->|"Maxima P2P (encrypted)"| N3
     end
 
     subgraph Node["Each Node"]
@@ -73,7 +73,7 @@ flowchart TB
         MIN["Minima L1 Node<br/>P2P :9001 · RPC :9005 · MDS :9003/:9004"]
         CPIP["CPIP Security Sidecar<br/>AES-256-GCM · ECDSA P-256<br/>ITF Defense :4180"]
         API["FastAPI Backend (Python 3.11)<br/>REST · WebSocket · PTY"]
-        UI["Jinja2 Web Desktop<br/>20 built-in apps"]
+        UI["Jinja2 Web Desktop<br/>19 built-in apps"]
         AI["Edge AI Runtime<br/>Hailo-8L · ONNX · GGUF"]
         BOOT --> K3S --> API --> UI
         K3S --> MIN
@@ -237,6 +237,12 @@ The desktop server reads the following environment variables:
 | `CPIP_TOKEN_TTL` | `300` | RPC token time‑to‑live in seconds |
 | `CPIP_MTLS_CERT` | _(empty)_ | mTLS client certificate for RPC transport |
 | `CPIP_MTLS_KEY` | _(empty)_ | mTLS client key for RPC transport |
+| `CPIP_MTLS_CA` | _(empty)_ | mTLS Certificate Authority for RPC transport |
+| `CPIP_PROVIDER_URL` | `http://127.0.0.1:4180` | CPIP security provider endpoint |
+| `CPIP_API_KEY` | _(empty)_ | CPIP API key for provider authentication |
+| `CPIP_NODE_CERT` | _(empty)_ | CPIP node identity certificate (ECDSA P-256) |
+| `CPIP_NODE_KEY` | _(empty)_ | CPIP node identity private key |
+| `CPIP_DEFENSE_ENABLED` | `1` | Enable ITF Defense (probe blocking, IP blacklisting) |
 
 Copy `.env.example` to `.env` to override. API keys (e.g. for AI providers) are optional.
 

@@ -9,7 +9,7 @@ Type=simple
 User=pi
 WorkingDirectory=/opt/pinet/desktop
 Environment=PYTHONUNBUFFERED=1
-Environment=PORT=3000
+Environment=PINET_DESKTOP_PORT=3000
 Environment=PINET_MINIMA_P2P_PORT=9001
 Environment=PINET_MINIMA_RPC_PORT=9005
 Environment=PINET_HOME=/home/pi/.pinet

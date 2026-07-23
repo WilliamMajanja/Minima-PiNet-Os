@@ -116,7 +116,6 @@ pinet open system-monitor
 | `maxima-messenger` | Maxima P2P messenger |
 | `cluster-manager` | Cluster orchestrator |
 | `depai-executor` | DePAI workload executor |
-| `imager-utility` | Pi Imager utility |
 | `file-explorer` | File system browser |
 | `settings` | System settings |
 | `visual-studio` | Visual asset studio |

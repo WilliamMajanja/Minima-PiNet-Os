@@ -37,6 +37,13 @@
       "hostname": "pinet-sigma",
       "role": "worker",
       "hat": "AI_NPU"
+    },
+    {
+      "mac_address": "d8:3a:dd:dd:dd:dd",
+      "ip_address": "192.168.1.13",
+      "hostname": "pinet-rho",
+      "role": "worker",
+      "hat": "AI_NPU"
     }
   ]
 }

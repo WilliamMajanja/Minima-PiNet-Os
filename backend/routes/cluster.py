@@ -282,7 +282,7 @@ async def provision_node(body: dict):
         },
     )
 
-    install_script = "curl -sSL https://raw.githubusercontent.com/WilliamMajanja/Minima-PiNet-Os/main/install.sh | bash"
+    install_script = "curl -sSL https://raw.githubusercontent.com/WilliamMajanja/Minima-PiNet-Os/main/bin/pinet-setup | sh"
     try:
         subprocess.Popen(
             ["rpi-connect", "shell", node.ip, install_script],

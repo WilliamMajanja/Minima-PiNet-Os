@@ -168,7 +168,7 @@ check_python() {
     log_ok "Python found: $_python_ver"
     return 0
   else
-    log_error "Python3 not found. Web desktop requires Python 3.10+."
+    log_error "Python3 not found. Web desktop requires Python 3.11+."
     log_info "Install with: sudo apt install -y python3 python3-pip"
     return 1
   fi

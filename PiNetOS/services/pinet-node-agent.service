@@ -4,7 +4,7 @@ After=pinet-edge-runtime.service
 
 [Service]
 Type=simple
-ExecStart=/pinet/services/cluster-manager/node-agent
+ExecStart=/opt/pinet/services/cluster-manager/node-agent
 Restart=always
 
 [Install]

@@ -17,10 +17,8 @@ PiNet OS includes a suite of built-in desktop applications rendered by a Jinja2-
 | Cluster Manager | `cluster-manager` | Multi-node cluster orchestration dashboard |
 | DePAI Executor | `depai-executor` | Decentralized AI workload execution |
 | Settings | `settings` | System configuration panel |
-| Setup Wizard | `setup-wizard` | First-boot setup and configuration |
 | Imager Utility | `imager-utility` | Raspberry Pi disk image flashing tool |
 | File Explorer | `file-explorer` | Virtual filesystem browser |
-| Visual Studio | `visual-studio` | Visual asset design studio |
 | DApp Store | `dapp-store` | Browse, install, and manage DApps |
 | Process Manager | `process-manager` | Process list, tree, signals, resource usage |
 | User Manager | `user-manager` | User and group management |
@@ -29,7 +27,6 @@ PiNet OS includes a suite of built-in desktop applications rendered by a Jinja2-
 | Log Viewer | `log-viewer` | Syslog viewer with filtering and search |
 | Device Manager | `device-manager` | Hardware device enumeration and management |
 | Power Manager | `power-manager` | Power state, CPU governor, scheduled actions |
-| Boot Splash | `boot-splash` | Animated boot splash screen |
 
 ---
 

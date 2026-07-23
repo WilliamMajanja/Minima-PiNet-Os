@@ -11,10 +11,10 @@ We maintain a strict rolling-release security model. Only the latest stable rele
 
 | Version | Supported | Notes |
 | :--- | :--- | :--- |
-| **3.0.x (Current)** | ✅ Yes | K3s cluster, zero-trust NetworkPolicy, PodSecurity hardening. |
-| **2.0.x (LTS)** | ✅ Yes | Enterprise Hypervisor, Zero Trust Attestation. |
+| **1.2.x (Current)** | ✅ Yes | K3s cluster, zero-trust NetworkPolicy, PodSecurity hardening, CPIP security provider. |
+| **1.1.x (LTS)** | ✅ Yes | FastAPI desktop, security hardening baseline. |
 | **1.0.x (Legacy)** | ⚠️ Critical only | Critical security patches only. |
-| **< 0.9.x** | ❌ No | End of Life. |
+| **< 1.0.x** | ❌ No | End of Life. |
 
 *Note: Upstream components (Debian Bookworm, Docker, Minima Node) are subject to their respective maintainers' security lifecycles. Our OTA (Over-The-Air) update mechanism will push upstream patches as they are verified against our stack.*
 

@@ -5,9 +5,9 @@ This checklist defines the minimum release bar to ship PiNetOS as a cohesive pro
 ## 1) Product Layers and Contracts
 
 - [ ] Runtime/Cluster layer (`bin/`, `lib/`, `PiNetOS/pinet`) has stable role lifecycle semantics (`master`, `worker`, `join`).
-- [ ] Control API layer (`server.ts` endpoints) is validated for runtime health, minima status, cluster state, and auth flows.
-- [ ] Desktop UX/UI layer (`components/`, `services/`) surfaces operational state and degraded-mode behavior clearly.
-- [ ] Shared type contracts (`types/`) remain the source of truth for app/service interfaces.
+- [ ] Control API layer (`backend/main.py` + `backend/routes/` endpoints) is validated for runtime health, minima status, cluster state, and auth flows.
+- [ ] Desktop UX/UI layer (`frontend/templates/`, `frontend/static/`) surfaces operational state and degraded-mode behavior clearly.
+- [ ] Shared type contracts (`backend/models.py`) remain the source of truth for app/service interfaces.
 
 ## 2) Raspberry Pi Boot Chain Readiness
 

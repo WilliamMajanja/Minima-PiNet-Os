@@ -270,17 +270,18 @@ async def scan_subnet(subnet: str = Query(...)):
     mem = psutil.virtual_memory()
     active_nodes.append({
         "id": "n1",
-        "name": "Pi-Alpha",
+        "name": "pinet-alpha",
         "ip": "192.168.1.10",
         "hat": "SSD_NVME",
         "status": "online",
         "metrics": {"cpu": round(cpu), "ram": round(mem.used / (1024**3), 1), "temp": 0, "iops": 0},
     })
 
-    # Known cluster nodes
+    # Known cluster nodes (matches pinet-config.json)
     known = [
-        {"id": "n2", "name": "Pi-Beta", "ip": "192.168.1.11", "hat": "SSD_NVME"},
-        {"id": "n3", "name": "Pi-Sigma", "ip": "192.168.1.12", "hat": "AI_NPU"},
+        {"id": "n2", "name": "pinet-beta", "ip": "192.168.1.11", "hat": "SSD_NVME"},
+        {"id": "n3", "name": "pinet-sigma", "ip": "192.168.1.12", "hat": "AI_NPU"},
+        {"id": "n4", "name": "pinet-rho", "ip": "192.168.1.13", "hat": "AI_NPU"},
     ]
 
     async def ping_host(ip: str) -> bool:
@@ -304,7 +305,7 @@ async def scan_subnet(subnet: str = Query(...)):
         })
 
     # Scan remaining /24
-    known_ips = {"192.168.1.10", "192.168.1.11", "192.168.1.12", "127.0.0.1"}
+    known_ips = {"192.168.1.10", "192.168.1.11", "192.168.1.12", "192.168.1.13", "127.0.0.1"}
     batch_size = 30
     for batch_start in range(1, 255, batch_size):
         tasks = []

@@ -13,5 +13,5 @@ func main() {
 		fmt.Fprintf(w, "Cluster Manager OK")
 	})
 	
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":9090", nil))
 }

@@ -2,7 +2,7 @@
 set -e
 MINIMA_VERSION="${MINIMA_VERSION:-1.0.49-cpip}"
 MINIMA_JAR_URL="https://github.com/WilliamMajanja/Minima-private/releases/download/v1.0.49/minima-v1.0.49-cpip.jar"
-MINIMA_JAR_FALLBACK_URL="https://github.com/WilliamMajanja/minima-core/releases/download/v1.1.2.4-security/minima-v1.1.2.4-cpip.jar"
+MINIMA_JAR_FALLBACK_URL="https://github.com/WilliamMajanja/minima-core/releases/download/v1.0.49/minima-v1.0.49-cpip.jar"
 echo "Installing Minima v${MINIMA_VERSION}..."
 mkdir -p /opt/minima
 mkdir -p /home/pi/.pinet/bin

@@ -26,11 +26,5 @@
   },
   "dependencies": {
     "adm-zip": "^0.6.0"
-  },
-  "overrides": {
-    "lodash": ">=4.18.1",
-    "axios": ">=1.15.0",
-    "protobufjs": ">=7.5.5",
-    "follow-redirects": ">=1.15.12"
   }
 }
