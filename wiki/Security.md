@@ -170,6 +170,16 @@ Comprehensive security audit trail:
 | GET | `/api/security/profiles` | AppArmor/MAC profiles |
 | GET | `/api/security/integrity` | File integrity check results |
 | GET | `/api/security/threats` | Threat detection alerts |
+| GET | `GET /cpip/crypto` | CPIP crypto engine status |
+| POST | `POST /cpip/crypto` | CPIP key rotation |
+| GET/POST | `/cpip/defense` | ITF Defense posture and actions |
+| GET/POST | `/cpip/emergency` | Emergency mode (activate, rotate_keys, wipe) |
+| GET | `/cpip/incident` | Incident alerts and audit chain |
+| GET | `/cpip/anti-isp` | Anti-ISP policy status/toggle |
+| GET | `/cpip/anti-stingray` | Anti-Stingray detection status/toggle |
+| GET | `/cpip/anti-surveillance` | Anti-Surveillance defense status/toggle |
+| GET | `/cpip/net-neutrality` | Net-Neutrality countermeasure status/toggle |
+| GET | `/cpip/signal` | Signal awareness (bandwidth, jamming detection) |
 
 ---
 
@@ -188,10 +198,10 @@ The following are explicitly **not** mitigated by PiNet OS:
 
 ## Incident Response
 
-1. **Detect** — Security Center alerts and fail2ban notifications
-2. **Contain** — Isolate affected node from cluster (`pinet stop`)
-3. **Investigate** — Review audit logs (`/api/security/audit`)
-4. **Remediate** — Apply fixes, rotate keys, update system
+1. **Detect** — Security Center alerts, fail2ban notifications, CPIP ITF Defense alerts
+2. **Contain** — Isolate affected node from cluster (`pinet stop`), activate CPIP emergency mode (`POST /cpip/emergency {"action":"activate"}`)
+3. **Investigate** — Review audit logs (`/api/security/audit`), CPIP incident chain (`GET /cpip/incident`)
+4. **Remediate** — Apply fixes, rotate CPIP keys (`POST /cpip/emergency {"action":"rotate_keys"}`), secure wipe (`POST /cpip/emergency {"action":"wipe"}`), update system
 5. **Report** — Document incident and notify affected parties
 
 ---

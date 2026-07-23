@@ -7,13 +7,18 @@ This document outlines the operational, security, and ethical policies governing
 ## 1. Security & Attestation Policy
 *   **Remote Attestation:** All PiNet 3.0 nodes must support remote attestation. System integrity is verified by hashing `/boot/firmware` and `/etc/pinet` against the Minima blockchain.
 *   **Zero Trust:** No service is trusted by default. All inter-container communication must occur over encrypted WireGuard veth pairs. Kubernetes NetworkPolicy enforces default-deny ingress and egress per namespace with explicit allowlists.
+*   **CPIP Security Provider:** All nodes must use The Coffee Protocol (CPIP v4.0.2) as the primary cryptographic security provider. CPIP provides AES-256-GCM (FIPS 197), ECDSA/ECDH P-256 (FIPS 186-4), RSA-KEM-2048 (SP 800-56B), HMAC-SHA256 (FIPS 180-4), and optional 1nf1D3L Kyber (non-FIPS ML-KEM-768) for post-quantum key exchange. FIPS 140-2/3 mode (`CPIP_FIPS=1`) is mandatory for regulated deployments.
+*   **CPIP ITF Defense:** Active probe blocking, pentest tool detection, and IP blacklisting must be enabled (`CPIP_DEFENSE_ENABLED=1`) on all production nodes. Runtime defense policy groups (Anti-ISP, Anti-Stingray, Anti-Surveillance, Net-Neutrality) are individually toggleable via API without restart.
+*   **CPIP Node Identity:** Node identity is established via CPIP-signed ECDSA P-256 keypairs with challenge-response authentication. The legacy MAC-derived node ID is deprecated. Cluster join requires `AUTH_CHALLENGE`/`AUTH_RESPONSE` message exchange.
+*   **CPIP RPC Authentication:** Minima RPC calls must use HMAC-SHA256 token authentication (`CPIP_RPC_AUTH=1`). Basic Auth is deprecated. mTLS is recommended for external RPC exposure.
+*   **CPIP Key Rotation:** Emergency key rotation is available via `POST /cpip/emergency {"action":"rotate_keys"}`. Regular key rotation is recommended every 90 days for production deployments.
 *   **LXC Isolation:** Enterprise workloads must run within LXC containers. Direct host access is restricted to the `pinet-admin` group.
 *   **Pod Security:** All K3s workloads must run as non-root, drop all Linux capabilities, and disable privilege escalation. ResourceQuota and LimitRange are enforced per namespace to prevent resource exhaustion.
 
 ## 2. Data Privacy Policy
 *   **Decentralized-First:** PiNet 3.0 prioritizes decentralized storage (IPFS) and communication (Maxima). Personal data should never be stored in centralized cloud environments.
-*   **Encryption at Rest:** All sensitive cluster secrets and blockchain keys are encrypted using hardware-backed keys where available (TPM 2.0 or Secure Boot).
-*   **Telemetry:** PiNet 3.0 does not collect telemetry. System logs remain local to the node unless explicitly shared by the user for debugging.
+*   **Encryption at Rest:** All sensitive cluster secrets and blockchain keys are encrypted using hardware-backed keys where available (TPM 2.0 or Secure Boot). CPIP CoffeeCipher v3 (AES-256-GCM with HKDF-SHA256) provides application-layer encryption with domain-separated key derivation (recipe: "minima"). Encrypted persistence uses v3 format with HMAC integrity verification.
+*   **Telemetry:** PiNet 3.0 does not collect telemetry. System logs remain local to the node unless explicitly shared by the user for debugging. CPIP audit logs (SHA-256 tamper-evident chain) are stored locally.
 
 ## 3. Hardware Support Policy
 *   **Primary Target:** Raspberry Pi 5 (16GB) is the reference platform for all PiNet 3.0 development.
@@ -22,7 +27,8 @@ This document outlines the operational, security, and ethical policies governing
 
 ## 4. Release & Artifact Policy
 *   **Verified Builds:** Only images generated via the **Enterprise Imager Utility** and passing the `pinet-health-check.sh` suite are considered "Official Releases."
-*   **GitHub Distribution:** All official artifacts must be cryptographically signed and pushed to the GitHub Release repository.
+*   **CPIP FIPS Self-Test:** All release artifacts must pass CPIP FIPS power-on self-tests (AES-256-GCM, HMAC-SHA256, HKDF-SHA256, ECDSA P-256, ECDH P-256) before publication. In FIPS mode (`CPIP_FIPS=1`), self-test failure blocks startup.
+*   **GitHub Distribution:** All official artifacts must be cryptographically signed (ECDSA P-256 via CPIP) and pushed to the GitHub Release repository.
 *   **Rolling Updates:** PiNet 3.0 follows a rolling-release model for the Web3 UI, while the underlying LXC hypervisor receives quarterly stability patches.
 
 ## 5. Ethical AI Usage

@@ -155,6 +155,9 @@ Full instructions: **[DEPLOYMENT.md](DEPLOYMENT.md)** · **[wiki/Installation.md
 | Supply chain | CodeQL + Dependabot in CI; signed release artifacts; reproducible 256 MB image |
 | Input validation | Allowlist regex everywhere; `execFile` (never `exec`) for any system call |
 | Rate limiting | Per‑IP limits on every state‑changing API endpoint |
+| **CPIP crypto provider** | **AES‑256‑GCM (FIPS 197) + HKDF‑SHA256; ECDSA/ECDH P‑256 (FIPS 186‑4); RSA‑KEM‑2048; HMAC‑SHA256; optional 1nf1D3L Kyber PQ KEM; FIPS 140‑2/3 self‑tests** |
+| **CPIP ITF Defense** | **Probe blocking (HTTP 418), pentest tool fingerprinting, IP blacklisting; Anti‑ISP/Anti‑Stingray/Anti‑Surveillance/Net‑Neutrality policy groups** |
+| **CPIP node identity** | **ECDSA P‑256 challenge‑response auth; HMAC‑SHA256 RPC tokens; mTLS support** |
 
 Every code change runs through CodeQL on push; the v1.2.0 release continues the v1.1.0 security baseline of zero open alerts. Disclosure policy: **[SECURITY.md](SECURITY.md)**.
 

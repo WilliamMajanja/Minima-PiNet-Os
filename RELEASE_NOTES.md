@@ -149,6 +149,17 @@ All release artifacts are accompanied by `SHA256SUMS.txt`. Verify integrity befo
 sha256sum --check SHA256SUMS.txt
 ```
 
+**CPIP Security Provider (The Coffee Protocol v4.0.2):** This release integrates CPIP as the primary security provider for all Minima nodes. Key additions:
+- CoffeeCipher v3 (AES-256-GCM + HKDF-SHA256) for data at rest and RPC payload encryption
+- ECDSA/ECDH P-256 (FIPS 186-4) for node identity and challenge-response authentication
+- RSA-KEM-2048 (SP 800-56B) for key encapsulation; optional 1nf1D3L Kyber (non-FIPS ML-KEM-768) for PQ hybrid
+- HMAC-SHA256 RPC token authentication replacing Basic Auth
+- ITF Defense: probe blocking (HTTP 418), pentest tool detection, IP blacklisting
+- Anti-ISP, Anti-Stingray, Anti-Surveillance, Net-Neutrality defense policy groups
+- FIPS 140-2/3 power-on self-tests (`CPIP_FIPS=1`)
+- CPIP sidecar container in k3s DaemonSet + dedicated `cpip.service` systemd unit
+- Emergency mode: key rotation, secure wipe, peer notification
+
 Vulnerability reports: email `WilliamMajanja@gmail.com`. See [SECURITY.md](SECURITY.md) for the full disclosure policy.
 
 ---
