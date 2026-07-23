@@ -241,9 +241,9 @@ start_minima() {
     start_cpip_sidecar
   fi
 
-  # Check if Minima RPC is already available
-  if wait_for_port "$PINET_MINIMA_RPC_PORT" 3; then
-    log_ok "Minima node already running on port $PINET_MINIMA_RPC_PORT"
+  # Check if Minima P2P port is already in use (node already running)
+  if ss -tlnp 2>/dev/null | grep -q ":${PINET_MINIMA_P2P_PORT} "; then
+    log_ok "Minima node already running on port $PINET_MINIMA_P2P_PORT"
     return 0
   fi
 
