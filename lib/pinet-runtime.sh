@@ -241,6 +241,12 @@ start_minima() {
     start_cpip_sidecar
   fi
 
+  # Check if Minima RPC is already available
+  if wait_for_port "$PINET_MINIMA_RPC_PORT" 3; then
+    log_ok "Minima node already running on port $PINET_MINIMA_RPC_PORT"
+    return 0
+  fi
+
   java -Xmx512m -jar "$PINET_MINIMA_JAR" \
     -data "$PINET_HOME/minima-data" \
     -port "$PINET_MINIMA_P2P_PORT" \
