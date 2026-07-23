@@ -1,76 +1,285 @@
 #!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════════
 # Minima Node CLI — PiNet-OS Enterprise Edge
 # Direct interface to the local Minima node RPC
+#
+# Port layout: P2P=9001, MDS-file=9003, MDS-cmd=9004, RPC=9005
+# This CLI uses the RPC port for all command communication.
+#
+# Supports all Raspberry Pi models: Pi 5/4/3/2/1/Zero/Zero2W/CM3/CM4
+# ═══════════════════════════════════════════════════════════════════════════════
 
-PINET_MINIMA_RPC_PORT="${PINET_MINIMA_RPC_PORT:-9001}"
+PINET_MINIMA_P2P_PORT="${PINET_MINIMA_P2P_PORT:-9001}"
+PINET_MINIMA_RPC_PORT="${PINET_MINIMA_RPC_PORT:-$((PINET_MINIMA_P2P_PORT + 4))}"
 MINIMA_RPC_URL="http://127.0.0.1:$PINET_MINIMA_RPC_PORT"
 
 CYAN='\033[0;36m'
 WHITE='\033[1;37m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
+RED='\033[0;31m'
 NC='\033[0m'
 
-printf "${WHITE}Minima Node CLI v3.0.0${NC} (RPC: $MINIMA_RPC_URL)\n"
+urlencode_cmd() {
+  printf '%s' "$1" | sed 's/ /%20/g; s/:/%3A/g'
+}
+
+minima_rpc() {
+  _cmd="$1"
+  _encoded=$(urlencode_cmd "$_cmd")
+  curl -sf "$MINIMA_RPC_URL/$_encoded" 2>/dev/null
+}
+
+minima_rpc_raw() {
+  _cmd="$1"
+  curl -sf "$MINIMA_RPC_URL/$(urlencode_cmd "$_cmd")" 2>/dev/null
+}
+
+printf "${WHITE}Minima Node CLI v1.1.0${NC} (P2P: $PINET_MINIMA_P2P_PORT | RPC: $PINET_MINIMA_RPC_PORT)\n\n"
 
 case "$1" in
+  # ─── Node Status ────────────────────────────────────────────────────────────
   status)
-    _data=$(curl -s "$MINIMA_RPC_URL/status" 2>/dev/null)
+    _data=$(minima_rpc "status")
     if [ -n "$_data" ] && echo "$_data" | grep -q '"status":true'; then
       printf "${GREEN}● Node is running${NC}\n"
       echo "$_data" | grep -o '"block":[0-9]*' | head -1 | sed "s/.*:\(.*\)/  Block:       \1/"
       echo "$_data" | grep -o '"connected":[0-9]*' | head -1 | sed "s/.*:\(.*\)/  Peers:       \1/"
-      echo "$_data" | grep -o '"version":"[^"]*"' | head -1 | sed 's/.*:"\(.*\)"/  Version:     \1/'
+      _ver=$(echo "$_data" | grep -o '"version":"[^"]*"' | head -1 | sed 's/.*:"\(.*\)"/  Version:     \1/')
+      if [ -n "$_ver" ]; then printf "  %s\n" "$_ver"; fi
       echo "$_data" | grep -o '"uptime":"[^"]*"' | head -1 | sed 's/.*:"\(.*\)"/  Uptime:      \1/'
+      _tip=$(echo "$_data" | grep -o '"tip":"[^"]*"' | head -1 | sed 's/.*:"\(.*\)"/  Tip:         \1/')
+      if [ -n "$_tip" ]; then printf "  %s\n" "$_tip"; fi
     else
       printf "${YELLOW}○ Node is not responding${NC}\n"
       printf "  Minima RPC unavailable at %s\n" "$MINIMA_RPC_URL"
+      printf "  Ensure the node is running with: pinet start\n"
+      printf "  Or check the RPC port (expected: %s)\n" "$PINET_MINIMA_RPC_PORT"
       exit 1
     fi
     ;;
-  peers)
-    printf "${CYAN}Connected Peers:${NC}\n"
-    curl -s "$MINIMA_RPC_URL/status" 2>/dev/null | grep -o '"connected":[0-9]*' | head -1 | sed "s/.*:\(.*\)/  Count: \1/"
-    ;;
+
+  # ─── Wallet ─────────────────────────────────────────────────────────────────
   balance)
     printf "${CYAN}Token Balance:${NC}\n"
-    _data=$(curl -s "$MINIMA_RPC_URL/balance" 2>/dev/null)
+    _data=$(minima_rpc "balance")
     if [ -n "$_data" ]; then
-      echo "$_data" | grep -o '"confirmed":"[^"]*"' | head -1 | sed 's/.*:"\(.*\)"/  Confirmed: \1 MIN/'
-      echo "$_data" | grep -o '"sendable":"[^"]*"' | head -1 | sed 's/.*:"\(.*\)"/  Sendable:  \1 MIN/'
+      _confirmed=$(echo "$_data" | grep -o '"confirmed":"[^"]*"' | head -1 | sed 's/.*:"\(.*\)"/')
+      _sendable=$(echo "$_data" | grep -o '"sendable":"[^"]*"' | head -1 | sed 's/.*:"\(.*\)"/')
+      _tokenid=$(echo "$_data" | grep -o '"tokenid":"[^"]*"' | head -1 | sed 's/.*:"\(.*\)"/')
+      if [ -n "$_confirmed" ]; then
+        printf "  Confirmed: %s MIN\n" "$_confirmed"
+      fi
+      if [ -n "$_sendable" ]; then
+        printf "  Sendable:  %s MIN\n" "$_sendable"
+      fi
+      # Show all tokens
+      _tokencount=$(echo "$_data" | grep -o '"tokenid"' | wc -l)
+      if [ "$_tokencount" -gt 1 ]; then
+        printf "\n  ${CYAN}All tokens (%d):${NC}\n" "$_tokencount"
+        echo "$_data" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    resp = data.get('response', [])
+    if isinstance(resp, list):
+        for t in resp:
+            tid = t.get('tokenid', '?')
+            conf = t.get('confirmed', '0')
+            send = t.get('sendable', '0')
+            name = t.get('token', t.get('name', ''))
+            print(f'  {tid}: confirmed={conf} sendable={send} {name}')
+except: pass
+" 2>/dev/null || true
+      fi
     else
-      printf "  Cannot connect to Minima RPC\n"
+      printf "  ${RED}Cannot connect to Minima RPC at %s${NC}\n" "$MINIMA_RPC_URL"
     fi
     ;;
-  maxima)
-    printf "${CYAN}Maxima Info:${NC}\n"
-    curl -s "$MINIMA_RPC_URL/maxima" 2>/dev/null
+
+  newaddress)
+    printf "${CYAN}New Address:${NC}\n"
+    minima_rpc_raw "newaddress"
     printf "\n"
     ;;
+
+  getaddress)
+    printf "${CYAN}Current Address:${NC}\n"
+    minima_rpc_raw "getaddress"
+    printf "\n"
+    ;;
+
+  keys)
+    printf "${CYAN}Wallet Keys:${NC}\n"
+    minima_rpc_raw "keys"
+    printf "\n"
+    ;;
+
+  send)
+    if [ -z "$2" ] || [ -z "$3" ]; then
+      printf "Usage: minima send <address> <amount> [tokenid]\n"
+      exit 1
+    fi
+    _addr="$2"
+    _amt="$3"
+    _tokenid="${4:-}"
+    printf "${CYAN}Sending %s Minima to %s...${NC}\n" "$_amt" "$_addr"
+    _cmd="send address:$_addr amount:$_amt"
+    if [ -n "$_tokenid" ]; then
+      _cmd="$_cmd tokenid:$_tokenid"
+    fi
+    minima_rpc_raw "$_cmd"
+    printf "\n"
+    ;;
+
+  # ─── Network ────────────────────────────────────────────────────────────────
+  peers)
+    printf "${CYAN}Connected Peers:${NC}\n"
+    _data=$(minima_rpc "peers")
+    if [ -n "$_data" ]; then
+      echo "$_data"
+    else
+      minima_rpc_raw "status" | grep -o '"connected":[0-9]*' | head -1 | sed "s/.*:\(.*\)/  Connected: \1/"
+    fi
+    ;;
+
+  network)
+    printf "${CYAN}Network Status:${NC}\n"
+    minima_rpc_raw "network"
+    printf "\n"
+    ;;
+
+  connect)
+    if [ -z "$2" ]; then
+      printf "Usage: minima connect <host> [port]\n"
+      exit 1
+    fi
+    _host="$2"
+    _port="${3:-}"
+    printf "${CYAN}Connecting to %s...${NC}\n" "$_host"
+    _cmd="connect host:$_host"
+    if [ -n "$_port" ]; then _cmd="$_cmd port:$_port"; fi
+    minima_rpc_raw "$_cmd"
+    printf "\n"
+    ;;
+
+  disconnect)
+    if [ -z "$2" ]; then
+      printf "Usage: minima disconnect <peer_id>\n"
+      exit 1
+    fi
+    minima_rpc_raw "disconnect id:$2"
+    printf "\n"
+    ;;
+
+  # ─── Blockchain ─────────────────────────────────────────────────────────────
+  block)
+    if [ -z "$2" ]; then
+      printf "Usage: minima block <number>\n"
+      exit 1
+    fi
+    printf "${CYAN}Block #%s:${NC}\n" "$2"
+    minima_rpc_raw "block number:$2"
+    printf "\n"
+    ;;
+
+  mempool)
+    printf "${CYAN}Transaction Mempool:${NC}\n"
+    minima_rpc_raw "mempool"
+    printf "\n"
+    ;;
+
+  tokens)
+    printf "${CYAN}Known Tokens:${NC}\n"
+    minima_rpc_raw "tokens"
+    printf "\n"
+    ;;
+
+  automine)
+    if [ "$2" = "on" ] || [ "$2" = "true" ] || [ "$2" = "1" ]; then
+      printf "${CYAN}Enabling auto-mine...${NC}\n"
+      minima_rpc_raw "automine enable:true"
+    elif [ "$2" = "off" ] || [ "$2" = "false" ] || [ "$2" = "0" ]; then
+      printf "${CYAN}Disabling auto-mine...${NC}\n"
+      minima_rpc_raw "automine enable:false"
+    else
+      minima_rpc_raw "automine"
+    fi
+    printf "\n"
+    ;;
+
+  # ─── Maxima ─────────────────────────────────────────────────────────────────
+  maxima)
+    printf "${CYAN}Maxima Identity:${NC}\n"
+    minima_rpc_raw "maxima"
+    printf "\n"
+    ;;
+
   contacts)
     printf "${CYAN}Maxima Contacts:${NC}\n"
-    curl -s "$MINIMA_RPC_URL/maxima%20action:contacts" 2>/dev/null
+    minima_rpc_raw "$(urlencode_cmd "maxcontacts action:list")"
     printf "\n"
     ;;
+
+  # ─── Backup / Restore ───────────────────────────────────────────────────────
+  backup)
+    printf "${CYAN}Creating node backup...${NC}\n"
+    minima_rpc_raw "backup"
+    printf "\n"
+    ;;
+
+  # ─── Raw Command ────────────────────────────────────────────────────────────
   cmd)
     shift
     _cmd="$*"
     if [ -z "$_cmd" ]; then
       printf "Usage: minima cmd <command>\n"
+      printf "Example: minima cmd status\n"
       exit 1
     fi
-    curl -s "$MINIMA_RPC_URL/$(echo "$_cmd" | sed 's/ /%20/g')" 2>/dev/null
+    minima_rpc_raw "$_cmd"
     printf "\n"
     ;;
+
+  # ─── Help ────────────────────────────────────────────────────────────────────
+  help|--help|-h)
+    printf "\n${WHITE}Minima Node CLI v1.1.0${NC}\n"
+    printf "P2P port: %s | RPC port: %s | MDS: %s/%s\n\n" \
+      "$PINET_MINIMA_P2P_PORT" "$PINET_MINIMA_RPC_PORT" \
+      "$((PINET_MINIMA_P2P_PORT + 2))" "$((PINET_MINIMA_P2P_PORT + 3))"
+    printf "${WHITE}Node Status:${NC}\n"
+    printf "  ${CYAN}status${NC}          Show node status, version, uptime\n"
+    printf "  ${CYAN}peers${NC}           Show connected peers\n"
+    printf "  ${CYAN}network${NC}         Show network status\n"
+    printf "  ${CYAN}block${NC} <n>       Get block info by number\n"
+    printf "  ${CYAN}mempool${NC}         Show transaction mempool\n"
+    printf "  ${CYAN}automine${NC} [on|off] Toggle auto-mining\n\n"
+    printf "${WHITE}Wallet:${NC}\n"
+    printf "  ${CYAN}balance${NC}         Show token balance (all tokens)\n"
+    printf "  ${CYAN}newaddress${NC}      Generate new wallet address\n"
+    printf "  ${CYAN}getaddress${NC}      Get current default address\n"
+    printf "  ${CYAN}keys${NC}            List all wallet keys\n"
+    printf "  ${CYAN}send${NC} <addr> <amt> [tok]  Send Minima or tokens\n\n"
+    printf "${WHITE}Network:${NC}\n"
+    printf "  ${CYAN}connect${NC} <host> [port]  Connect to a peer\n"
+    printf "  ${CYAN}disconnect${NC} <id>        Disconnect from a peer\n\n"
+    printf "${WHITE}Maxima Messaging:${NC}\n"
+    printf "  ${CYAN}maxima${NC}          Show Maxima identity\n"
+    printf "  ${CYAN}contacts${NC}        List Maxima contacts\n\n"
+    printf "${WHITE}Maintenance:${NC}\n"
+    printf "  ${CYAN}tokens${NC}          List all known tokens\n"
+    printf "  ${CYAN}backup${NC}          Create full node backup\n"
+    printf "  ${CYAN}cmd${NC} <command>   Execute arbitrary Minima RPC command\n\n"
+    printf "${WHITE}Examples:${NC}\n"
+    printf "  minima status\n"
+    printf "  minima send Mx123... 1.0\n"
+    printf "  minima send Mx123... 10 0x00\n"
+    printf "  minima connect 192.168.1.50 9001\n"
+    printf "  minima cmd 'maxima action:poll'\n\n"
+    ;;
+
   *)
     printf "\nUsage: ${CYAN}minima${NC} <command>\n\n"
-    printf "Commands:\n"
-    printf "  ${CYAN}status${NC}     Show node status\n"
-    printf "  ${CYAN}peers${NC}      Show connected peers\n"
-    printf "  ${CYAN}balance${NC}    Show token balance\n"
-    printf "  ${CYAN}maxima${NC}     Show Maxima identity\n"
-    printf "  ${CYAN}contacts${NC}   List Maxima contacts\n"
-    printf "  ${CYAN}cmd${NC} <cmd>  Execute arbitrary Minima command\n"
-    printf "\n"
+    printf "Type ${CYAN}minima help${NC} for available commands.\n\n"
     ;;
 esac

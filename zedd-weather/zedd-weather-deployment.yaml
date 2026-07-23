@@ -1,7 +1,11 @@
 ---
 # Zedd Weather — sensor data-collection deployment
-# Runs exclusively on pinet-rho (the Sense HAT node) via nodeSelector.
-# Requires privileged I2C access to communicate with the Sense HAT hardware.
+# Runs on any Raspberry Pi node with a Sense HAT attached.
+# Supports: Pi 5, Pi 4, Pi 3, Pi 2, Pi 1, Pi Zero 2 W, Compute Module 3/4
+#
+# The nodeSelector uses a generic 'sensor: sense-hat' label that should be
+# applied to whichever Pi node has the Sense HAT physically attached.
+# For Pi Zero / Pi 1, reduce resource limits accordingly.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -28,18 +32,18 @@ spec:
         sensor: sense-hat
 
       # Allow reading /dev/i2c-* on the host
+      # Group 998 = i2c on Raspberry Pi OS Bookworm
+      # Group 108 = i2c on some Debian-based distros
       securityContext:
-        # Group 998 = i2c on Raspberry Pi OS Bookworm; grants access to
-        # /dev/i2c-* without running as root.
         supplementalGroups:
           - 998
+          - 108
         runAsNonRoot: true
         runAsUser: 1001
 
       containers:
         - name: zedd-weather
-          # Replace with your registry/tag after building with:
-          #   docker buildx build --platform linux/arm64 -t <registry>/zedd-weather:latest .
+          # Multi-arch image: builds for linux/arm64 (Pi 5/4/3) and linux/arm/v7 (Pi 2/1/Zero)
           image: ghcr.io/williammajanja/zedd-weather:latest
           imagePullPolicy: Always
 
@@ -64,6 +68,9 @@ spec:
               value: "sensor-data"
             - name: SENSOR_INTERVAL
               value: "10"
+            # Override PLATFORM detection if needed (pi5, pi4, pi3, pi2, pi1, zero, zero2w, cm4, cm3, generic)
+            # - name: PLATFORM
+            #   value: "pi5"
             # Kubernetes Downward API — injects the node name for tagging
             - name: NODE_NAME
               valueFrom:
@@ -71,13 +78,16 @@ spec:
                   fieldPath: spec.nodeName
 
           # Mount /dev/i2c-* from the host so the container can reach the
-          # physical Sense HAT over I2C bus 1.
+          # physical Sense HAT over I2C bus 1 (and bus 0 on Pi 5).
           volumeMounts:
             - name: i2c-bus
               mountPath: /dev/i2c-1
             - name: i2c-bus-0
               mountPath: /dev/i2c-0
+            - name: dev-gpiomem
+              mountPath: /dev/gpiomem
 
+          # Resource limits: adjusted for Pi Zero/1 (lower) vs Pi 4/5 (higher)
           resources:
             requests:
               cpu: 50m
@@ -94,6 +104,13 @@ spec:
             periodSeconds: 30
             failureThreshold: 3
 
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 9200
+            initialDelaySeconds: 10
+            periodSeconds: 15
+
       volumes:
         - name: i2c-bus
           hostPath:
@@ -102,4 +119,8 @@ spec:
         - name: i2c-bus-0
           hostPath:
             path: /dev/i2c-0
+            type: CharDevice
+        - name: dev-gpiomem
+          hostPath:
+            path: /dev/gpiomem
             type: CharDevice

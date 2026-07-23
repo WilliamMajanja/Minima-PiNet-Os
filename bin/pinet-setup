@@ -1,7 +1,7 @@
 #!/bin/sh
 # PiNet-OS Setup Script
 # One-time setup: installs dependencies, downloads Minima, configures the environment
-# POSIX-compatible — works on any Linux distro on Raspberry Pi 5
+# POSIX-compatible — works on all Raspberry Pi models and compatible Linux systems
 
 set -e
 
@@ -14,6 +14,46 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 printf "\n${WHITE}╔══════════════════════════════════════════════════╗${NC}\n"
 printf "${WHITE}║       PiNet-OS v%s — Initial Setup           ║${NC}\n" "$PINET_VERSION"
 printf "${WHITE}╚══════════════════════════════════════════════════╝${NC}\n\n"
+
+# ─── Detect Platform ─────────────────────────────────────────────────────
+
+detect_platform() {
+  if [ -f /proc/device-tree/model ]; then
+    _model=$(tr -d '\0' < /proc/device-tree/model)
+  else
+    _model="Unknown"
+  fi
+
+  case "$_model" in
+    *"Raspberry Pi 5"*|*"BCM2712"*)
+      printf "Raspberry Pi 5 (BCM2712 / ARM64)"
+      ;;
+    *"Raspberry Pi 4"*|*"BCM2711"*)
+      printf "Raspberry Pi 4 (BCM2711 / ARM64)"
+      ;;
+    *"Raspberry Pi 3"*|*"BCM2837"*)
+      printf "Raspberry Pi 3 (BCM2837 / ARM64)"
+      ;;
+    *"Raspberry Pi 2"*|*"BCM2836"*)
+      printf "Raspberry Pi 2 (BCM2836 / ARM7)"
+      ;;
+    *"Raspberry Pi 1"*|*"BCM2835"*"Raspberry Pi Model"*)
+      printf "Raspberry Pi 1 (BCM2835 / ARM6)"
+      ;;
+    *"Raspberry Pi Zero"*|*"BCM2835"*"Pi Zero"*)
+      printf "Raspberry Pi Zero (BCM2835 / ARM6)"
+      ;;
+    *"Compute Module"*)
+      printf "Raspberry Pi Compute Module"
+      ;;
+    *)
+      printf "Generic Linux (%s)" "$_model"
+      ;;
+  esac
+}
+
+PLATFORM=$(detect_platform)
+log_info "Platform: $PLATFORM"
 
 # ─── Create Runtime Directories ───────────────────────────────────────────────
 
@@ -55,26 +95,31 @@ check_python || exit 1
 
 # ─── Download Minima JAR ──────────────────────────────────────────────────────
 
-MINIMA_VERSION="1.0.35"
-MINIMA_JAR_URL="https://github.com/nicholasg/Minima/releases/latest/download/minima.jar"
+MINIMA_JAR_URL="https://github.com/minima-global/Minima/releases/download/v${PINET_MINIMA_VERSION}/minima.jar"
+MINIMA_JAR_FALLBACK_URL="https://github.com/minima-global/Minima/raw/master/jar/minima.jar"
 
 if [ ! -f "$PINET_MINIMA_JAR" ]; then
-  log_info "Downloading Minima v$MINIMA_VERSION..."
+  log_info "Downloading Minima v${PINET_MINIMA_VERSION}..."
   mkdir -p "$(dirname "$PINET_MINIMA_JAR")"
+  _downloaded=0
   if command -v curl >/dev/null 2>&1; then
-    curl -fsSL -o "$PINET_MINIMA_JAR" "$MINIMA_JAR_URL" 2>/dev/null || {
-      log_warn "Could not download Minima JAR from GitHub."
-      log_info "Please manually place minima.jar at: $PINET_MINIMA_JAR"
+    curl -fsSL -o "$PINET_MINIMA_JAR" "$MINIMA_JAR_URL" 2>/dev/null && _downloaded=1 || {
+      log_warn "Primary download URL failed, trying fallback..."
+      curl -fsSL -o "$PINET_MINIMA_JAR" "$MINIMA_JAR_FALLBACK_URL" 2>/dev/null && _downloaded=1 || true
     }
   elif command -v wget >/dev/null 2>&1; then
-    wget -q -O "$PINET_MINIMA_JAR" "$MINIMA_JAR_URL" 2>/dev/null || {
-      log_warn "Could not download Minima JAR from GitHub."
-      log_info "Please manually place minima.jar at: $PINET_MINIMA_JAR"
+    wget -q -O "$PINET_MINIMA_JAR" "$MINIMA_JAR_URL" 2>/dev/null && _downloaded=1 || {
+      log_warn "Primary download URL failed, trying fallback..."
+      wget -q -O "$PINET_MINIMA_JAR" "$MINIMA_JAR_FALLBACK_URL" 2>/dev/null && _downloaded=1 || true
     }
   fi
 
-  if [ -f "$PINET_MINIMA_JAR" ]; then
+  if [ "$_downloaded" = "1" ] && [ -f "$PINET_MINIMA_JAR" ]; then
     log_ok "Minima JAR downloaded to $PINET_MINIMA_JAR"
+  else
+    log_warn "Could not download Minima JAR from GitHub."
+    log_info "Please manually download v${PINET_MINIMA_VERSION} and place at: $PINET_MINIMA_JAR"
+    log_info "Download URL: $MINIMA_JAR_URL"
   fi
 else
   log_ok "Minima JAR already present at $PINET_MINIMA_JAR"
@@ -110,6 +155,12 @@ cd "$PROJECT_DIR"
 if [ ! -f ".env" ] && [ -f ".env.example" ]; then
   log_info "Creating .env from .env.example..."
   cp ".env.example" ".env"
+  # Write the correct RPC port into .env
+  if grep -q "PINET_MINIMA_RPC_PORT" .env 2>/dev/null; then
+    sed -i "s/^PINET_MINIMA_RPC_PORT=.*/PINET_MINIMA_RPC_PORT=${PINET_MINIMA_RPC_PORT}/" .env
+  else
+    echo "PINET_MINIMA_RPC_PORT=${PINET_MINIMA_RPC_PORT}" >> .env
+  fi
   log_ok ".env file created. Edit it to set your API keys and preferences."
 elif [ -f ".env" ]; then
   log_ok ".env already exists."
@@ -123,9 +174,11 @@ if [ ! -f "$IDENTITY_FILE" ]; then
   cat > "$IDENTITY_FILE" << EOF
 {
   "nodeId": "$_node_id",
+  "platform": "$PLATFORM",
   "createdAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "platform": "$(uname -s) $(uname -m)",
-  "hostname": "$(hostname 2>/dev/null || echo 'unknown')"
+  "hostname": "$(hostname 2>/dev/null || echo 'unknown')",
+  "minimaRpcPort": $PINET_MINIMA_RPC_PORT,
+  "minimaP2pPort": $PINET_MINIMA_P2P_PORT
 }
 EOF
   log_ok "Node identity created: $_node_id"
@@ -139,9 +192,12 @@ printf "\n${GREEN}╔═══════════════════�
 printf "${GREEN}║          Setup Complete!                          ║${NC}\n"
 printf "${GREEN}╚══════════════════════════════════════════════════╝${NC}\n\n"
 
+printf "  ${CYAN}Platform:${NC}   $PLATFORM\n"
 printf "  ${CYAN}Runtime:${NC}    $PINET_HOME\n"
 printf "  ${CYAN}Config:${NC}     $PINET_CONFIG_FILE\n"
 printf "  ${CYAN}Minima:${NC}     $PINET_MINIMA_JAR\n"
+printf "  ${CYAN}P2P Port:${NC}   $PINET_MINIMA_P2P_PORT\n"
+printf "  ${CYAN}RPC Port:${NC}   $PINET_MINIMA_RPC_PORT\n"
 printf "  ${CYAN}Node ID:${NC}    $(generate_node_id)\n"
 printf "\n"
 printf "  ${WHITE}Next steps:${NC}\n"

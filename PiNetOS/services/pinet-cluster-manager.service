@@ -10,7 +10,7 @@ Type=simple
 User=root
 Environment=PINET_NODE_ID=%H
 Environment=PINET_ROLE=worker
-Environment=PINET_MINIMA_RPC_URL=http://127.0.0.1:9001
+Environment=PINET_MINIMA_RPC_URL=http://127.0.0.1:9005
 Environment=PINET_CLUSTER_API_PORT=9090
 Environment=PINET_MAXIMA_APP=pinet-cluster
 ExecStart=/opt/pinet/cluster-manager

@@ -98,7 +98,7 @@ spec:
   policyTypes:
     - Egress
   egress:
-    # → Minima RPC/P2P/Maxima within the namespace
+    # → Minima RPC/P2P/MDS/Maxima within the namespace
     - to:
         - podSelector:
             matchLabels:
@@ -106,9 +106,11 @@ spec:
       ports:
         - port: 9001
           protocol: TCP
-        - port: 9002
-          protocol: TCP
         - port: 9003
+          protocol: TCP
+        - port: 9004
+          protocol: TCP
+        - port: 9005
           protocol: TCP
     # → Kubernetes API server (K3s service CIDR for cluster health/status)
     - to:
@@ -139,17 +141,21 @@ spec:
       ports:
         - port: 9001
           protocol: TCP
-        - port: 9002
-          protocol: TCP
         - port: 9003
           protocol: TCP
-    # P2P and Maxima traffic from other Minima pods and external peers
+        - port: 9004
+          protocol: TCP
+        - port: 9005
+          protocol: TCP
+    # P2P and RPC traffic from other Minima pods and external peers
     - ports:
         - port: 9001
           protocol: TCP
-        - port: 9002
-          protocol: TCP
         - port: 9003
+          protocol: TCP
+        - port: 9004
+          protocol: TCP
+        - port: 9005
           protocol: TCP
 ---
 # Allow Minima egress for P2P network participation and Maxima messaging
@@ -165,13 +171,15 @@ spec:
   policyTypes:
     - Egress
   egress:
-    # P2P / Maxima — needs to reach other Minima peers on the internet
+    # P2P / RPC / MDS — needs to reach other Minima peers on the internet
     - ports:
         - port: 9001
           protocol: TCP
-        - port: 9002
-          protocol: TCP
         - port: 9003
+          protocol: TCP
+        - port: 9004
+          protocol: TCP
+        - port: 9005
           protocol: TCP
 
 # =============================================================================

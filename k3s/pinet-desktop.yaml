@@ -9,10 +9,11 @@ metadata:
   namespace: pinet-system
 data:
   PINET_DESKTOP_PORT: "3000"
-  PINET_MINIMA_RPC_PORT: "9001"
+  PINET_MINIMA_P2P_PORT: "9001"
+  PINET_MINIMA_RPC_PORT: "9005"
   PINET_CLUSTER_API_PORT: "9090"
-  # Point to the in-cluster Minima headless service
-  MINIMA_RPC_URL: "http://minima.pinet-system.svc.cluster.local:9001"
+  # Point to the in-cluster Minima headless service (RPC port 9005)
+  MINIMA_RPC_URL: "http://minima.pinet-system.svc.cluster.local:9005"
 ---
 apiVersion: apps/v1
 kind: Deployment

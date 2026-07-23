@@ -1,17 +1,10 @@
 """PiNet-OS Pydantic Models — ported from types.ts and types/ directory."""
 from __future__ import annotations
+from decimal import Decimal
 from typing import Optional, Literal, Any
 from pydantic import BaseModel, Field
 from enum import Enum
 
-# --- App IDs ---
-BuiltinAppId = Literal[
-    "minima-node", "system-monitor", "terminal", "wallet", "ai-assistant",
-    "maxima-messenger", "cluster-manager", "depai-executor", "settings",
-    "setup-wizard", "imager-utility", "file-explorer", "visual-studio",
-    "dapp-store", "process-manager", "user-manager", "network-manager",
-    "security-center", "log-viewer", "device-manager", "power-manager",
-]
 
 class OSMode(str, Enum):
     PINET = "pinet"
@@ -19,18 +12,20 @@ class OSMode(str, Enum):
     UBUNTU = "ubuntu"
     DEBIAN = "debian"
 
+
 class HatType(str, Enum):
     AI_NPU = "AI_NPU"
     SENSE = "SENSE"
     SSD_NVME = "SSD_NVME"
     NONE = "NONE"
 
+
 class NodeStatus(str, Enum):
     SYNCED = "Synced"
     SYNCING = "Syncing"
     OFFLINE = "Offline"
 
-# --- Core Models ---
+
 class WindowState(BaseModel):
     id: str
     title: str
@@ -43,6 +38,21 @@ class WindowState(BaseModel):
     width: int = 900
     height: int = 560
 
+
+class MinimaState(BaseModel):
+    balance: Decimal = Decimal("0")
+    block_height: int = Field(alias="blockHeight", default=0)
+    status: str = "Offline"
+    peers: int = 0
+    transactions: list[dict[str, Any]] = Field(default_factory=list)
+    version: str = ""
+    uptime: str = ""
+    tip: str = ""
+
+    class Config:
+        populate_by_name = True
+
+
 class NodeStats(BaseModel):
     block_height: int = Field(alias="blockHeight", default=0)
     peers: int = 0
@@ -53,6 +63,7 @@ class NodeStats(BaseModel):
     class Config:
         populate_by_name = True
 
+
 class SystemStats(BaseModel):
     cpu: float = 0
     ram: float = 0
@@ -60,11 +71,13 @@ class SystemStats(BaseModel):
     disk: float = 0
     uptime: Optional[float] = None
 
+
 class ClusterNodeMetrics(BaseModel):
     cpu: float = 0
     ram: float = 0
     temp: float = 0
     iops: float = 0
+
 
 class ClusterNode(BaseModel):
     id: str
@@ -73,6 +86,7 @@ class ClusterNode(BaseModel):
     hat: str = "NONE"
     status: str = "online"
     metrics: ClusterNodeMetrics = ClusterNodeMetrics()
+
 
 class HypervisorSwitchResult(BaseModel):
     success: bool
@@ -93,6 +107,7 @@ class HypervisorSwitchResult(BaseModel):
     class Config:
         populate_by_name = True
 
+
 class Settings(BaseModel):
     wallpaper: str = "carbon"
     node_alias: str = Field(alias="nodeAlias", default="Pi-Alpha-Node")
@@ -100,6 +115,7 @@ class Settings(BaseModel):
 
     class Config:
         populate_by_name = True
+
 
 class PiNet2State(BaseModel):
     lxc_status: str = Field(alias="lxcStatus", default="uninitialized")
@@ -118,15 +134,6 @@ class PiNet2State(BaseModel):
     class Config:
         populate_by_name = True
 
-class MinimaState(BaseModel):
-    balance: float = 0
-    block_height: int = Field(alias="blockHeight", default=0)
-    status: str = "Offline"
-    peers: int = 0
-    transactions: list[dict[str, Any]] = Field(default_factory=list)
-
-    class Config:
-        populate_by_name = True
 
 class PiNetState(BaseModel):
     minima: MinimaState = MinimaState()
@@ -134,11 +141,12 @@ class PiNetState(BaseModel):
     settings: Settings = Settings()
     pinet2: PiNet2State = PiNet2State()
 
-# --- DApp Models ---
+
 class DAppKind(str, Enum):
     TYPESCRIPT = "typescript"
     PYTHON_DASHBOARD = "python-dashboard"
     MINIDAPP = "minidapp"
+
 
 class DAppManifest(BaseModel):
     id: str
@@ -157,6 +165,7 @@ class DAppManifest(BaseModel):
     class Config:
         populate_by_name = True
 
+
 class DAppRecord(BaseModel):
     manifest: DAppManifest
     install_path: str = Field(alias="installPath")
@@ -167,7 +176,7 @@ class DAppRecord(BaseModel):
     class Config:
         populate_by_name = True
 
-# --- Cluster Protocol Models ---
+
 class ClusterMessageType(str, Enum):
     JOIN_REQUEST = "JOIN_REQUEST"
     JOIN_ACCEPT = "JOIN_ACCEPT"
@@ -179,6 +188,7 @@ class ClusterMessageType(str, Enum):
     METRICS = "METRICS"
     DEREGISTER = "DEREGISTER"
 
+
 class FileItem(BaseModel):
     name: str
     type: str
@@ -186,13 +196,16 @@ class FileItem(BaseModel):
     modified: float
     permissions: str = "rw-r--r--"
 
+
 class CommandRequest(BaseModel):
     command: str
+
 
 class MaximaSendRequest(BaseModel):
     to: str
     application: str
     data: Any
+
 
 class ClusterExecRequest(BaseModel):
     target_node_id: str = Field(alias="targetNodeId")
@@ -201,6 +214,7 @@ class ClusterExecRequest(BaseModel):
 
     class Config:
         populate_by_name = True
+
 
 class LocalExecRequest(BaseModel):
     workload_id: Optional[str] = Field(alias="workloadId", default=None)

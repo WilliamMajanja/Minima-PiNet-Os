@@ -1,8 +1,7 @@
 #!/bin/sh
 # ═══════════════════════════════════════════════════════════════════════════════
 # PiNet-OS — Enterprise Edge Infrastructure CLI
-# Spawnable from any Linux distro CLI on Raspberry Pi 5
-# No dedicated image required — runs as a contained environment
+# Supports all Raspberry Pi models (Pi 5/4/3/2/1/Zero/Zero2W/CM3/CM4)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 set -e
@@ -55,13 +54,60 @@ else
   exit 1
 fi
 
+# ─── Platform Detection ────────────────────────────────────────────────────────
+
+detect_pi_model() {
+  if [ -f /proc/device-tree/model ]; then
+    _model=$(tr -d '\0' < /proc/device-tree/model)
+    _ml=$(echo "$_model" | tr '[:upper:]' '[:lower:]')
+    if echo "$_ml" | grep -q "pi 5\|bcm2712"; then echo "pi5"
+    elif echo "$_ml" | grep -q "pi 4\|bcm2711"; then echo "pi4"
+    elif echo "$_ml" | grep -q "pi 3\|bcm2837"; then echo "pi3"
+    elif echo "$_ml" | grep -q "pi 2\|bcm2836"; then echo "pi2"
+    elif echo "$_ml" | grep -q "zero 2\|zero2"; then echo "zero2w"
+    elif echo "$_ml" | grep -q "zero"; then echo "zero"
+    elif echo "$_ml" | grep -q "compute module 4\|cm4"; then echo "cm4"
+    elif echo "$_ml" | grep -q "compute module 3\|cm3"; then echo "cm3"
+    elif echo "$_ml" | grep -q "compute module"; then echo "cm"
+    elif echo "$_ml" | grep -q "pi 1\|model a\|model b"; then echo "pi1"
+    elif echo "$_ml" | grep -q "raspberry pi"; then echo "pi"
+    else echo "generic"
+    fi
+  elif grep -q "BCM2712" /proc/cpuinfo 2>/dev/null; then echo "pi5"
+  elif grep -q "BCM2711" /proc/cpuinfo 2>/dev/null; then echo "pi4"
+  elif grep -q "BCM2837" /proc/cpuinfo 2>/dev/null; then echo "pi3"
+  elif grep -q "BCM2836" /proc/cpuinfo 2>/dev/null; then echo "pi2"
+  elif grep -q "BCM2835" /proc/cpuinfo 2>/dev/null; then echo "pi1"
+  else echo "generic"
+  fi
+}
+
+pi_model_label() {
+  case "$1" in
+    pi5)     printf "Raspberry Pi 5 (BCM2712 / ARM64)" ;;
+    pi4)     printf "Raspberry Pi 4 (BCM2711 / ARM64)" ;;
+    pi3)     printf "Raspberry Pi 3 (BCM2837 / ARM64)" ;;
+    pi2)     printf "Raspberry Pi 2 (BCM2836 / ARM32)" ;;
+    pi1)     printf "Raspberry Pi 1 (BCM2835 / ARM6)" ;;
+    zero)    printf "Raspberry Pi Zero (BCM2835 / ARM6)" ;;
+    zero2w)  printf "Raspberry Pi Zero 2 W (BCM2837 / ARM64)" ;;
+    cm4)     printf "Compute Module 4 (BCM2711 / ARM64)" ;;
+    cm3)     printf "Compute Module 3 (BCM2837 / ARM64)" ;;
+    cm)      printf "Compute Module" ;;
+    pi)      printf "Raspberry Pi (unknown model)" ;;
+    *)       printf "Generic Linux (%s)" "$(uname -m)" ;;
+  esac
+}
+
+PI_MODEL=$(detect_pi_model)
+PI_LABEL=$(pi_model_label "$PI_MODEL")
+
 # ─── Subcommands ──────────────────────────────────────────────────────────────
 
 cmd_start() {
   _role="worker"
   _master_addr=""
 
-  # Parse arguments
   while [ $# -gt 0 ]; do
     case "$1" in
       --role)
@@ -87,7 +133,6 @@ cmd_start() {
     esac
   done
 
-  # Validate role
   case "$_role" in
     master|worker) ;;
     *) log_error "Invalid role: $_role. Must be 'master' or 'worker'."; exit 2 ;;
@@ -100,21 +145,17 @@ cmd_start() {
   else
     log_info "Starting PiNet-OS as WORKER (standalone)"
   fi
+  log_info "Platform: $PI_LABEL"
 
-  # Check if already running
   if is_running; then
     log_info "PiNet-OS is already running."
     show_status
     return 0
   fi
 
-  # Initialize directories
   init_runtime_dirs
-
-  # Generate/update config
   generate_config "$_role" "$_master_addr"
 
-  # Start Minima node
   if [ -f "$PINET_MINIMA_JAR" ]; then
     start_minima
   else
@@ -122,7 +163,6 @@ cmd_start() {
     log_info "Run 'pinet setup' to install Minima."
   fi
 
-  # Start web desktop
   start_desktop "$PINET_DESKTOP_ROOT"
 
   if [ -f "$PINET_HOME/desktop.pid" ]; then
@@ -133,12 +173,12 @@ cmd_start() {
     rm -f "$PINET_PID_FILE"
   fi
 
-  # Show status
   show_status
-
   log_ok "PiNet-OS is running."
   printf "  ${CYAN}Desktop:${NC}  http://localhost:$PINET_DESKTOP_PORT\n"
-  printf "  ${CYAN}Minima:${NC}   http://localhost:$PINET_MINIMA_RPC_PORT\n"
+  printf "  ${CYAN}Minima RPC:${NC} http://localhost:$PINET_MINIMA_RPC_PORT\n"
+  printf "  ${CYAN}Minima P2P:${NC} port $PINET_MINIMA_P2P_PORT\n"
+  printf "  ${CYAN}Platform:${NC}  $PI_LABEL\n"
   printf "\n"
 }
 
@@ -150,33 +190,32 @@ cmd_stop() {
   stop_all
 }
 
+cmd_restart() {
+  log_info "Restarting PiNet-OS..."
+  cmd_stop
+  sleep 2
+  cmd_start "$@"
+}
+
 cmd_status() {
   if [ "${1:-}" = "--json" ]; then
     _node_id=$(read_config_value "nodeId")
     _role=$(read_config_value "role")
     _platform="$(uname -s)"
     _arch="$(uname -m)"
-
     _running=false
     _minima_running=false
     _desktop_running=false
     _cluster_joined=false
 
-    if is_running; then
-      _running=true
-    fi
-
+    if is_running; then _running=true; fi
     if [ -f "$PINET_HOME/minima.pid" ] && kill -0 "$(cat "$PINET_HOME/minima.pid" 2>/dev/null)" 2>/dev/null; then
       _minima_running=true
     fi
-
     if [ -f "$PINET_HOME/desktop.pid" ] && kill -0 "$(cat "$PINET_HOME/desktop.pid" 2>/dev/null)" 2>/dev/null; then
       _desktop_running=true
     fi
-
-    if [ -f "$PINET_STATE_DIR/cluster.json" ]; then
-      _cluster_joined=true
-    fi
+    if [ -f "$PINET_STATE_DIR/cluster.json" ]; then _cluster_joined=true; fi
 
     printf '{\n'
     printf '  "version": "%s",\n' "$PINET_VERSION"
@@ -185,7 +224,10 @@ cmd_status() {
     printf '  "role": "%s",\n' "${_role:-unknown}"
     printf '  "platform": "%s",\n' "$_platform"
     printf '  "architecture": "%s",\n' "$_arch"
+    printf '  "piModel": "%s",\n' "$PI_MODEL"
+    printf '  "piLabel": "%s",\n' "$PI_LABEL"
     printf '  "ports": {\n'
+    printf '    "minimaP2P": %s,\n' "$PINET_MINIMA_P2P_PORT"
     printf '    "minimaRpc": %s,\n' "$PINET_MINIMA_RPC_PORT"
     printf '    "desktop": %s,\n' "$PINET_DESKTOP_PORT"
     printf '    "clusterApi": %s\n' "$PINET_CLUSTER_API_PORT"
@@ -200,8 +242,8 @@ cmd_status() {
   fi
 
   show_status
+  printf "  ${CYAN}Platform:${NC} $PI_LABEL\n"
 
-  # Try to get live data from the desktop API
   if command -v curl >/dev/null 2>&1; then
     _api="http://localhost:$PINET_DESKTOP_PORT"
     _minima_data=$(curl -s "$_api/api/minima/status" 2>/dev/null || echo "")
@@ -210,6 +252,7 @@ cmd_status() {
       echo "$_minima_data" | grep -o '"status":"[^"]*"' | head -1 | sed 's/.*:"\(.*\)"/    Status: \1/'
       echo "$_minima_data" | grep -o '"blockHeight":[0-9]*' | head -1 | sed 's/.*:\(.*\)/    Block:  \1/'
       echo "$_minima_data" | grep -o '"peers":[0-9]*' | head -1 | sed 's/.*:\(.*\)/    Peers:  \1/'
+      echo "$_minima_data" | grep -o '"version":"[^"]*"' | head -1 | sed 's/.*:"\(.*\)"/    Version: \1/'
       printf "\n"
     fi
 
@@ -259,6 +302,7 @@ cmd_shell() {
   log_info "Attaching to PiNet-OS session..."
   export PS1="\[\e[35m\]pinet@$(hostname)\[\e[0m\]:\[\e[36m\]\w\[\e[0m\]\$ "
   export PINET_HOME
+  export PINET_MINIMA_P2P_PORT
   export PINET_MINIMA_RPC_PORT
   export PINET_DESKTOP_PORT
   exec "${SHELL:-/bin/sh}"
@@ -285,7 +329,6 @@ cmd_open() {
     printf "  maxima-messenger  Maxima P2P messenger\n"
     printf "  cluster-manager   Cluster orchestrator\n"
     printf "  depai-executor    DePAI workload executor\n"
-    printf "  imager-utility    Pi Imager utility\n"
     printf "  file-explorer     File system browser\n"
     printf "  settings          System settings\n"
     printf "  visual-studio     Visual asset studio\n"
@@ -294,7 +337,6 @@ cmd_open() {
   printf "${GREEN}Opening application: %s${NC}\n" "$_app_id"
   echo "PINET_CMD:OPEN:$_app_id"
 
-  # Try to open in browser
   _url="http://localhost:$PINET_DESKTOP_PORT"
   if command -v xdg-open >/dev/null 2>&1; then
     xdg-open "$_url" 2>/dev/null &
@@ -313,7 +355,6 @@ cmd_cluster() {
     if [ -n "$_data" ] && echo "$_data" | grep -q '"nodes"'; then
       echo "$_data"
     else
-      # Fallback to node list
       _nodes=$(curl -s "http://localhost:$PINET_DESKTOP_PORT/api/cluster/nodes" 2>/dev/null || echo "[]")
       printf "  ${WHITE}%-12s %-20s %-16s %-10s %-8s${NC}\n" "ID" "NAME" "IP" "STATUS" "HAT"
       printf "  ────────── ──────────────────── ──────────────── ────────── ────────\n"
@@ -326,56 +367,424 @@ cmd_cluster() {
   fi
 }
 
+# ─── Pi Hardware Commands ───────────────────────────────────────────────────────
+
+cmd_detect() {
+  printf "\n${WHITE}╔══════════════════════════════════════════════╗${NC}\n"
+  printf "${WHITE}║     PiNet-OS Hardware Detection               ║${NC}\n"
+  printf "${WHITE}╚══════════════════════════════════════════════╝${NC}\n\n"
+
+  printf "  ${CYAN}Model:${NC}       $PI_LABEL\n"
+  printf "  ${CYAN}Model ID:${NC}   $PI_MODEL\n"
+  printf "  ${CYAN}Kernel:${NC}     $(uname -r)\n"
+  printf "  ${CYAN}Arch:${NC}       $(uname -m)\n"
+  printf "  ${CYAN}OS:${NC}         $(grep -s '^PRETTY_NAME=' /etc/os-release 2>/dev/null | cut -d'"' -f2 || echo 'Unknown')\n"
+
+  if [ -f /proc/device-tree/model ]; then
+    printf "  ${CYAN}DT Model:${NC}  $(tr -d '\0' < /proc/device-tree/model)\n"
+  fi
+
+  _mem_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null || echo "0")
+  _mem_gb=$((_mem_kb / 1024 / 1024))
+  printf "  ${CYAN}RAM:${NC}        ${_mem_gb} GB\n"
+
+  if [ -f /sys/class/thermal/thermal_zone0/temp ]; then
+    _temp=$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo "0")
+    _temp_c=$((_temp / 1000))
+    printf "  ${CYAN}CPU Temp:${NC}   ${_temp_c}°C\n"
+  fi
+
+  if ls /dev/i2c-* >/dev/null 2>&1; then
+    printf "  ${CYAN}I2C:${NC}        $(ls /dev/i2c-* 2>/dev/null | wc -l) bus(es)\n"
+  fi
+  if ls /dev/spidev* >/dev/null 2>&1; then
+    printf "  ${CYAN}SPI:${NC}        $(ls /dev/spidev* 2>/dev/null | wc -l) device(s)\n"
+  fi
+  if ls /dev/nvme* >/dev/null 2>&1; then
+    printf "  ${CYAN}NVMe:${NC}      $(ls /dev/nvme* 2>/dev/null | wc -l) device(s)\n"
+  fi
+  if command -v vcgencmd >/dev/null 2>&1; then
+    printf "  ${CYAN}VC Temp:${NC}    $(vcgencmd measure_temp 2>/dev/null || echo 'N/A')\n"
+    printf "  ${CYAN}VC Clock:${NC}    $(vcgencmd measure_clock arm 2>/dev/null | awk -F= '{printf "%.0f MHz\n", $2/1000000}' || echo 'N/A')\n"
+  fi
+  printf "\n"
+}
+
+cmd_config() {
+  _action="${1:-show}"
+  case "$_action" in
+    show)
+      if [ -f "$PINET_CONFIG_FILE" ]; then
+        printf "${CYAN}Configuration:${NC} $PINET_CONFIG_FILE\n\n"
+        cat "$PINET_CONFIG_FILE"
+      else
+        log_warn "No configuration file found at $PINET_CONFIG_FILE"
+        log_info "Run 'pinet setup' to generate one."
+      fi
+      ;;
+    edit)
+      _editor="${EDITOR:-${VISUAL:-vi}}"
+      if [ -f "$PINET_CONFIG_FILE" ]; then
+        log_info "Opening $PINET_CONFIG_FILE with $_editor..."
+        "$_editor" "$PINET_CONFIG_FILE"
+      else
+        log_error "No configuration file found. Run 'pinet setup' first."
+      fi
+      ;;
+    reset)
+      log_warn "This will reset the configuration to defaults."
+      printf "Continue? [y/N] "
+      read -r _confirm
+      if [ "$_confirm" = "y" ] || [ "$_confirm" = "Y" ]; then
+        rm -f "$PINET_CONFIG_FILE"
+        generate_config "worker"
+        log_ok "Configuration reset."
+      else
+        log_info "Reset cancelled."
+      fi
+      ;;
+    *)
+      log_error "Unknown config action: $_action (use: show, edit, reset)"
+      ;;
+  esac
+}
+
+cmd_pi_config() {
+  if ! command -v raspi-config >/dev/null 2>&1 && ! [ -f /usr/bin/raspi-config ] && ! [ -f /usr/local/bin/raspi-config ]; then
+    log_warn "raspi-config is not installed."
+    log_info "On Raspberry Pi OS, install it with: sudo apt install raspi-config"
+    log_info "Alternatively, configure manually via /boot/config.txt and raspi-config nonint."
+    return 1
+  fi
+  if [ "$(id -u)" -ne 0 ]; then
+    log_warn "raspi-config requires root. Running with sudo..."
+    sudo raspi-config
+  else
+    raspi-config
+  fi
+}
+
+cmd_pi_config_nonint() {
+  _param="$1"
+  _value="$2"
+  if [ -z "$_param" ]; then
+    printf "${WHITE}raspi-config non-interactive commands:${NC}\n\n"
+    printf "  ${CYAN}pinet pi-config-nonint do_wifi ${NC}<country> <ssid> <psk>\n"
+    printf "  ${CYAN}pinet pi-config-nonint do_hostname ${NC}<name>\n"
+    printf "  ${CYAN}pinet pi-config-nonint do_ssh${NC} 0|1\n"
+    printf "  ${CYAN}pinet pi-config-nonint do_vnc${NC} 0|1\n"
+    printf "  ${CYAN}pinet pi-config-nonint do_spi${NC} 0|1\n"
+    printf "  ${CYAN}pinet pi-config-nonint do_i2c${NC} 0|1\n"
+    printf "  ${CYAN}pinet pi-config-nonint do_serial${NC} 0|1\n"
+    printf "  ${CYAN}pinet pi-config-nonint do_camera${NC} 0|1\n"
+    printf "  ${CYAN}pinet pi-config-nonint do_boot_behaviour${NC} B1|B2|B3|B4\n"
+    printf "  ${CYAN}pinet pi-config-nonint do_overclock${NC} <mode>\n"
+    printf "  ${CYAN}pinet pi-config-nonint do_change_locale${NC} <locale>\n"
+    printf "  ${CYAN}pinet pi-config-nonint do_change_timezone${NC} <timezone>\n"
+    return 0
+  fi
+  if command -v raspi-config >/dev/null 2>&1; then
+    sudo raspi-config nonint "$_param" "${2:-}"
+  else
+    log_error "raspi-config not found. Install with: sudo apt install raspi-config"
+    return 1
+  fi
+}
+
+cmd_imager() {
+  _action="${1:-info}"
+  case "$_action" in
+    info)
+      printf "\n${WHITE}╔══════════════════════════════════════════════╗${NC}\n"
+      printf "${WHITE}║     Raspberry Pi Imager                       ║${NC}\n"
+      printf "${WHITE}╚══════════════════════════════════════════════╝${NC}\n\n"
+      if command -v rpi-imager >/dev/null 2>&1; then
+        printf "  ${GREEN}Installed:${NC}  $(which rpi-imager)\n"
+      elif [ -f /usr/bin/rpi-imager ]; then
+        printf "  ${GREEN}Installed:${NC}  /usr/bin/rpi-imager\n"
+      else
+        printf "  ${YELLOW}Not installed.${NC}\n"
+        printf "  Install with: sudo apt install rpi-imager\n"
+        printf "  Or download from: https://www.raspberrypi.com/software/\n"
+      fi
+      printf "\n  ${CYAN}Usage:${NC} pinet imager launch\n"
+      printf "  ${CYAN}      ${NC} pinet imager install\n"
+      printf "  ${CYAN}      ${NC} pinet imager flash <image> <device>\n\n"
+      ;;
+    launch)
+      if command -v rpi-imager >/dev/null 2>&1; then
+        rpi-imager &
+      elif [ -f /usr/bin/rpi-imager ]; then
+        /usr/bin/rpi-imager &
+      else
+        log_error "rpi-imager not found. Install with: pinet imager install"
+        return 1
+      fi
+      ;;
+    install)
+      log_info "Installing Raspberry Pi Imager..."
+      if command -v apt >/dev/null 2>&1; then
+        sudo apt update && sudo apt install -y rpi-imager
+      elif command -v snap >/dev/null 2>&1; then
+        sudo snap install rpi-imager
+      else
+        log_error "No supported package manager found. Download from:"
+        log_info "https://www.raspberrypi.com/software/"
+        return 1
+      fi
+      ;;
+    flash)
+      _image="${2:-}"
+      _device="${3:-}"
+      if [ -z "$_image" ] || [ -z "$_device" ]; then
+        log_error "Usage: pinet imager flash <image> <device>"
+        log_info "Example: pinet imager flash PiNetOS-RaspberryPi.img /dev/sdX"
+        return 1
+      fi
+      if [ ! -f "$_image" ]; then
+        log_error "Image not found: $_image"
+        return 1
+      fi
+      if [ "$(id -u)" -ne 0 ]; then
+        log_error "Flash requires root. Running with sudo..."
+        sudo dd if="$_image" of="$_device" bs=4M status=progress conv=fsync
+      else
+        dd if="$_image" of="$_device" bs=4M status=progress conv=fsync
+      fi
+      log_ok "Image flashed to $_device"
+      sync
+      log_info "You can now insert the SD card and boot your Raspberry Pi."
+      ;;
+    *)
+      log_error "Unknown imager action: $_action (use: info, launch, install, flash)"
+      ;;
+  esac
+}
+
+cmd_pi_apps() {
+  _action="${1:-list}"
+  case "$_action" in
+    list)
+      printf "\n${WHITE}╔══════════════════════════════════════════════╗${NC}\n"
+      printf "${WHITE}║     Pi-Apps (Raspberry Pi App Store)          ║${NC}\n"
+      printf "${WHITE}╚══════════════════════════════════════════════╝${NC}\n\n"
+      if [ -d "$HOME/pi-apps" ]; then
+        printf "  ${GREEN}Pi-Apps is installed${NC} at $HOME/pi-apps\n"
+        if [ -f "$HOME/pi-apps/manage" ]; then
+          printf "\n  ${CYAN}Installed apps:${NC}\n"
+          "$HOME/pi-apps/manage" list-installed 2>/dev/null || echo "  (unable to list)"
+        fi
+      else
+        printf "  ${YELLOW}Pi-Apps is not installed.${NC}\n"
+        printf "  Install with: ${CYAN}pinet pi-apps install${NC}\n"
+      fi
+      printf "\n"
+      ;;
+    install)
+      log_info "Installing Pi-Apps..."
+      if [ -d "$HOME/pi-apps" ]; then
+        log_ok "Pi-Apps is already installed at $HOME/pi-apps"
+        return 0
+      fi
+      if command -v wget >/dev/null 2>&1; then
+        wget -qO- https://raw.githubusercontent.com/Botspot/pi-apps/master/install | bash
+      elif command -v curl >/dev/null 2>&1; then
+        curl -fsSL https://raw.githubusercontent.com/Botspot/pi-apps/master/install | bash
+      else
+        log_error "Neither wget nor curl found. Cannot download Pi-Apps installer."
+        return 1
+      fi
+      if [ -d "$HOME/pi-apps" ]; then
+        log_ok "Pi-Apps installed successfully."
+      else
+        log_error "Pi-Apps installation failed."
+        return 1
+      fi
+      ;;
+    uninstall)
+      if [ ! -d "$HOME/pi-apps" ]; then
+        log_warn "Pi-Apps is not installed."
+        return 0
+      fi
+      log_info "Uninstalling Pi-Apps..."
+      "$HOME/pi-apps/manage" uninstall 2>/dev/null || rm -rf "$HOME/pi-apps"
+      log_ok "Pi-Apps uninstalled."
+      ;;
+    update)
+      if [ ! -d "$HOME/pi-apps" ]; then
+        log_error "Pi-Apps is not installed. Run 'pinet pi-apps install' first."
+        return 1
+      fi
+      log_info "Updating Pi-Apps..."
+      "$HOME/pi-apps/manage" update-all 2>/dev/null || git -C "$HOME/pi-apps" pull 2>/dev/null
+      log_ok "Pi-Apps updated."
+      ;;
+    run)
+      if [ ! -d "$HOME/pi-apps" ]; then
+        log_error "Pi-Apps is not installed. Run 'pinet pi-apps install' first."
+        return 1
+      fi
+      "$HOME/pi-apps/gui" &
+      ;;
+    *)
+      log_error "Unknown pi-apps action: $_action (use: list, install, uninstall, update, run)"
+      ;;
+  esac
+}
+
+cmd_gpio() {
+  if [ "$(id -u)" -ne 0 ]; then
+    log_warn "GPIO operations may require root. Consider running with sudo."
+  fi
+
+  _action="${1:-info}"
+  case "$_action" in
+    info)
+      printf "\n${WHITE}╔══════════════════════════════════════════════╗${NC}\n"
+      printf "${WHITE}║     GPIO Information (%s)           ║${NC}\n" "$PI_LABEL"
+      printf "${WHITE}╚══════════════════════════════════════════════╝${NC}\n\n"
+
+      if [ -d /sys/class/gpio ]; then
+        printf "  ${GREEN}GPIO sysfs available${NC}\n"
+        printf "  Exported pins: $(ls /sys/class/gpio/ 2>/dev/null | grep -c 'gpio[0-9]')\n"
+      else
+        printf "  ${YELLOW}GPIO sysfs not available${NC} (may need: sudo raspi-config > Interface > GPIO)\n"
+      fi
+
+      if command -v raspi-gpio >/dev/null 2>&1; then
+        printf "\n  ${CYAN}Pin states (raspi-gpio):${NC}\n"
+        raspi-gpio get 2>/dev/null || echo "  (unable to read pin states)"
+      elif command -v pinctrl >/dev/null 2>&1; then
+        printf "\n  ${CYAN}Pin states (pinctrl):${NC}\n"
+        sudo pinctrl 2>/dev/null | head -40 || echo "  (unable to read pin states)"
+      fi
+
+      printf "\n  ${CYAN}Common GPIO commands:${NC}\n"
+      printf "  pinet gpio export <pin>      Export a GPIO pin\n"
+      printf "  pinet gpio unexport <pin>    Unexport a GPIO pin\n"
+      printf "  pinet gpio read <pin>        Read a GPIO pin value\n"
+      printf "  pinet gpio write <pin> <0|1> Write a GPIO pin value\n"
+      printf "  pinet gpio pwm <pin> <duty>  Set PWM duty cycle\n\n"
+      ;;
+    export)
+      _pin="${2:-}"
+      if [ -z "$_pin" ]; then log_error "Usage: pinet gpio export <pin_number>"; return 1; fi
+      echo "$_pin" | sudo tee /sys/class/gpio/export >/dev/null 2>&1
+      log_ok "GPIO $_pin exported"
+      ;;
+    unexport)
+      _pin="${2:-}"
+      if [ -z "$_pin" ]; then log_error "Usage: pinet gpio unexport <pin_number>"; return 1; fi
+      echo "$_pin" | sudo tee /sys/class/gpio/unexport >/dev/null 2>&1
+      log_ok "GPIO $_pin unexported"
+      ;;
+    read)
+      _pin="${2:-}"
+      if [ -z "$_pin" ]; then log_error "Usage: pinet gpio read <pin_number>"; return 1; fi
+      if [ -f "/sys/class/gpio/gpio$_pin/value" ]; then
+        cat "/sys/class/gpio/gpio$_pin/value"
+      else
+        log_error "GPIO $_pin not exported. Run 'pinet gpio export $_pin' first."
+        return 1
+      fi
+      ;;
+    write)
+      _pin="${2:-}"
+      _value="${3:-}"
+      if [ -z "$_pin" ] || [ -z "$_value" ]; then
+        log_error "Usage: pinet gpio write <pin_number> <0|1>"
+        return 1
+      fi
+      if [ ! -f "/sys/class/gpio/gpio$_pin/value" ]; then
+        echo "$_pin" | sudo tee /sys/class/gpio/export >/dev/null 2>&1
+        echo "out" | sudo tee "/sys/class/gpio/gpio$_pin/direction" >/dev/null 2>&1
+      fi
+      echo "$_value" | sudo tee "/sys/class/gpio/gpio$_pin/value" >/dev/null 2>&1
+      ;;
+    *)
+      log_error "Unknown GPIO action: $_action (use: info, export, unexport, read, write)"
+      ;;
+  esac
+}
+
 cmd_version() {
   printf "${MAGENTA}PiNet-OS v%s${NC} — Enterprise Edge Infrastructure\n" "$PINET_VERSION"
-  printf "  Architecture: %s\n" "$(uname -m)"
-  printf "  Kernel:       %s\n" "$(uname -r)"
-  printf "  Minima:       v%s\n" "$(echo "$PINET_VERSION" | cut -d. -f1-2)"
-  printf "  Node.js:      %s\n" "$(node --version 2>/dev/null || echo 'not installed')"
-  printf "  Java:         %s\n" "$(java -version 2>&1 | head -1 || echo 'not installed')"
+  printf "  Platform:   %s (%s)\n" "$PI_LABEL" "$(uname -m)"
+  printf "  Kernel:     %s\n" "$(uname -r)"
+  printf "  Minima:     v%s (P2P=%s RPC=%s)\n" "$PINET_MINIMA_VERSION" "$PINET_MINIMA_P2P_PORT" "$PINET_MINIMA_RPC_PORT"
+  printf "  Java:       %s\n" "$(java -version 2>&1 | head -1 || echo 'not installed')"
+  printf "  Python:     %s\n" "$(python3 --version 2>/dev/null || echo 'not installed')"
+  if command -v node >/dev/null 2>&1; then
+    printf "  Node.js:    %s\n" "$(node --version 2>/dev/null)"
+  fi
 }
 
 cmd_help() {
-  printf "\n${WHITE}PiNet-OS — Enterprise Edge Infrastructure for AI, Web3 & IoT${NC}\n\n"
+  printf "\n${WHITE}PiNet-OS — Enterprise Edge Infrastructure for AI, Web3 & IoT${NC}\n"
+  printf "  Platform: ${CYAN}%s${NC}\n\n" "$PI_LABEL"
   printf "Usage: ${CYAN}pinet${NC} <command> [options]\n\n"
   printf "${WHITE}Lifecycle:${NC}\n"
-  printf "  ${CYAN}setup${NC}                      One-time setup (install dependencies)\n"
-  printf "  ${CYAN}start${NC} [--role R] [--master] Start PiNet-OS runtime\n"
-  printf "  ${CYAN}stop${NC}                       Stop all PiNet-OS services\n"
-  printf "  ${CYAN}status${NC} [--json]            Show runtime status\n"
-  printf "  ${CYAN}logs${NC} [--follow]            View service logs\n"
-  printf "  ${CYAN}shell${NC}                      Attach to PiNet-OS session\n"
+  printf "  ${CYAN}setup${NC}                         One-time setup (install dependencies)\n"
+  printf "  ${CYAN}start${NC} [--role R] [--master]  Start PiNet-OS runtime\n"
+  printf "  ${CYAN}stop${NC}                          Stop all PiNet-OS services\n"
+  printf "  ${CYAN}restart${NC} [--role R] [--master] Restart PiNet-OS\n"
+  printf "  ${CYAN}status${NC} [--json]              Show runtime status\n"
+  printf "  ${CYAN}logs${NC} [--follow]              View service logs\n"
+  printf "  ${CYAN}shell${NC}                         Attach to PiNet-OS session\n"
   printf "\n${WHITE}Cluster:${NC}\n"
-  printf "  ${CYAN}join${NC} <master_address>      Join an existing cluster\n"
-  printf "  ${CYAN}cluster${NC}                    Show cluster topology\n"
+  printf "  ${CYAN}join${NC} <master_address>         Join an existing cluster\n"
+  printf "  ${CYAN}cluster${NC}                       Show cluster topology\n"
+  printf "\n${WHITE}Raspberry Pi Tools:${NC}\n"
+  printf "  ${CYAN}detect${NC}                        Detect Pi model and hardware\n"
+  printf "  ${CYAN}pi-config${NC}                     Launch raspi-config\n"
+  printf "  ${CYAN}pi-config-nonint${NC} <cmd> <val>  Non-interactive raspi-config\n"
+  printf "  ${CYAN}imager${NC} [info|launch|install]  Raspberry Pi Imager\n"
+  printf "  ${CYAN}imager flash${NC} <img> <dev>       Flash an image to SD card\n"
+  printf "  ${CYAN}pi-apps${NC} [list|install|run]    Pi-Apps app store\n"
+  printf "  ${CYAN}gpio${NC} [info|read|write|export] GPIO pin management\n"
+  printf "  ${CYAN}config${NC} [show|edit|reset]      Manage PiNet-OS configuration\n"
   printf "\n${WHITE}Applications:${NC}\n"
-  printf "  ${CYAN}open${NC} [app_id]              Launch a desktop application\n"
+  printf "  ${CYAN}open${NC} [app_id]                 Launch a desktop application\n"
   printf "\n${WHITE}System:${NC}\n"
-  printf "  ${CYAN}version${NC}                    Show version information\n"
-  printf "  ${CYAN}help${NC}                       Show this help message\n"
+  printf "  ${CYAN}version${NC}                       Show version information\n"
+  printf "  ${CYAN}help${NC}                          Show this help message\n"
   printf "\n${WHITE}Roles:${NC}\n"
   printf "  ${CYAN}master${NC}  — Cluster coordinator, accepts join requests\n"
   printf "  ${CYAN}worker${NC}  — Joins a master, executes workloads\n"
+  printf "\n${WHITE}Supported Pi Models:${NC}\n"
+  printf "  Pi 5, Pi 4, Pi 3, Pi 2, Pi 1, Pi Zero, Pi Zero 2 W, CM3, CM4\n"
   printf "\n${WHITE}Examples:${NC}\n"
-  printf "  pinet setup                                # First-time setup\n"
-  printf "  pinet start --role master                  # Start as master\n"
-  printf "  pinet start --role worker --master 1.2.3.4 # Join cluster\n"
-  printf "  pinet open cluster-manager                 # Launch cluster UI\n"
+  printf "  pinet setup                                  # First-time setup\n"
+  printf "  pinet start --role master                     # Start as master\n"
+  printf "  pinet start --role worker --master 1.2.3.4    # Join cluster\n"
+  printf "  pinet detect                                  # Show hardware info\n"
+  printf "  pinet pi-apps install                         # Install Pi-Apps\n"
+  printf "  pinet imager flash image.img /dev/sdX         # Flash SD card\n"
+  printf "  pinet pi-config                               # Launch raspi-config\n"
+  printf "  pinet gpio info                                # Show GPIO status\n"
   printf "\n"
 }
 
 # ─── Main Dispatch ────────────────────────────────────────────────────────────
 
 case "${1:-help}" in
-  start)   shift; cmd_start "$@" ;;
-  stop)    cmd_stop ;;
-  status)  shift; cmd_status "$@" ;;
-  join)    shift; cmd_join "$@" ;;
-  logs)    shift; cmd_logs "$@" ;;
-  shell)   cmd_shell ;;
-  setup)   cmd_setup ;;
-  open)    shift; cmd_open "$@" ;;
-  cluster) cmd_cluster ;;
+  start)       shift; cmd_start "$@" ;;
+  stop)        cmd_stop ;;
+  restart)     shift; cmd_restart "$@" ;;
+  status)      shift; cmd_status "$@" ;;
+  join)        shift; cmd_join "$@" ;;
+  logs)        shift; cmd_logs "$@" ;;
+  shell)       cmd_shell ;;
+  setup)       cmd_setup ;;
+  open)        shift; cmd_open "$@" ;;
+  cluster)     cmd_cluster ;;
+  detect)      cmd_detect ;;
+  config)      shift; cmd_config "$@" ;;
+  pi-config)   shift; cmd_pi_config "$@" ;;
+  pi-config-nonint) shift; cmd_pi_config_nonint "$@" ;;
+  imager)      shift; cmd_imager "$@" ;;
+  pi-apps)     shift; cmd_pi_apps "$@" ;;
+  gpio)        shift; cmd_gpio "$@" ;;
   version|info) cmd_version ;;
   help|--help|-h) cmd_help ;;
   *)

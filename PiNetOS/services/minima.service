@@ -8,7 +8,9 @@ Documentation=https://github.com/WilliamMajanja/Minima-PiNet-Os
 Type=simple
 User=pi
 Environment=PINET_HOME=/home/pi/.pinet
-ExecStart=/usr/bin/java -jar /home/pi/.pinet/bin/minima.jar -data /home/pi/.pinet/minima-data -rpcenable -rpc 9001
+Environment=PINET_MINIMA_P2P_PORT=9001
+Environment=PINET_MINIMA_RPC_PORT=9005
+ExecStart=/usr/bin/java -Xmx512m -jar /home/pi/.pinet/bin/minima.jar -data /home/pi/.pinet/minima-data -port 9001 -rpcenable -mdsenable
 Restart=always
 RestartSec=10
 StandardOutput=journal

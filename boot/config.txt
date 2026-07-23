@@ -1,132 +1,127 @@
-# PiNetOS Raspberry Pi 5 Boot Configuration
+# PiNetOS Raspberry Pi Boot Configuration
 # /boot/config.txt
 #
+# Supports: Pi 5, Pi 4, Pi 3, Pi 2, Pi 1, Pi Zero 2 W, Pi Zero W, Compute Module
 # Documentation: https://www.raspberrypi.com/documentation/computers/config_txt.html
 
 # ===========================================================================
 # MEMORY SPLIT
 # ===========================================================================
-# Reserve 512 MB for VideoCore GPU (16 GB model — headroom for dual HDMI @ 4K)
+# 512 MB for VideoCore GPU on 4/8/16 GB models; reduced for lower-memory models
 gpu_mem=512
 
 # ===========================================================================
-# KERNEL SELECTION
+# KERNEL SELECTION (ARM64 for Pi 5/4/3, ARM32 fallback for Pi 2/1/Zero)
 # ===========================================================================
 kernel=kernel8.img
 arm_64bit=1
 
 # ===========================================================================
-# CPU OVERCLOCK (Conservative — safe for all RPi 5 units with active cooling)
-# WARNING: Overclocking may void your warranty. Ensure you have adequate
-# cooling (e.g. Official Active Cooler) before enabling. Not all units
-# are stable at 2600 MHz — reduce to arm_freq=2400 if instability occurs.
+# RASPBERRY PI 5 (BCM2712 / Cortex-A76 / ARM64)
 # ===========================================================================
-# Default: 2400 MHz; mild overclock to 2600 MHz
+[pi5]
+# CPU overclock — safe with active cooling; reduce to 2400 if unstable
 over_voltage=2
 arm_freq=2600
-
-# Disable CPU frequency scaling floor (let schedutil manage)
-# arm_freq_min=1500
+# PCIe / NVMe
+dtparam=nvme
+dtoverlay=rpi-poe-plus
+# Pi 5 has 4K60 HDMI capability
+hdmi_enable_4kp60=1
 
 # ===========================================================================
-# HDMI OUTPUT (micro-HDMI port 0)
+# RASPBERRY PI 4 (BCM2711 / Cortex-A72 / ARM64)
 # ===========================================================================
-# Force HDMI even if no display is detected at boot
+[pi4]
+arm_freq=1800
+# USB boot
+program_usb_boot_mode=1
+# PoE+ HAT fan
+dtoverlay=rpi-poe-plus
+dtparam=nvme
+
+# ===========================================================================
+# RASPBERRY PI 3 (BCM2837 / Cortex-A53 / ARM64)
+# ===========================================================================
+[pi3]
+arm_freq=1200
+# WiFi/BT on Pi 3
+dtoverlay=disable-bt
+dtoverlay=pi3-disable-bt
+
+# ===========================================================================
+# RASPBERRY PI 2 (BCM2836 / Cortex-A7 / ARM32)
+# ===========================================================================
+[pi2]
+arm_freq=1000
+gpu_mem=256
+
+# ===========================================================================
+# RASPBERRY PI 1 / ZERO / ZERO W / ZERO 2 W (BCM2835 / ARM6/ARM64)
+# ===========================================================================
+[pi1]
+gpu_mem=128
+
+[zero]
+gpu_mem=128
+
+[zero2w]
+arm_freq=1000
+gpu_mem=256
+
+# ===========================================================================
+# COMPUTE MODULE 4 / 3 / 1
+# ===========================================================================
+[cm4]
+arm_freq=1800
+program_usb_boot_mode=1
+
+[cm3]
+arm_freq=1200
+
+# ===========================================================================
+# COMMON SETTINGS (applied to all models)
+# ===========================================================================
+[all]
+
+# ─── HDMI OUTPUT ─────────────────────────────────────────────────────────────
 hdmi_force_hotplug=1
 hdmi_safe=0
-
-# HDMI group: 1=CEA (TV), 2=DMT (monitor)
 hdmi_group=2
-# HDMI mode: 82 = 1920x1080 @ 60Hz (DMT)
 hdmi_mode=82
 
-# Enable 4K @ 60Hz on HDMI port 0 (requires HDMI 2.0 cable)
-# hdmi_enable_4kp60=1
-
-# ===========================================================================
-# HDMI AUDIO
-# ===========================================================================
+# ─── HDMI AUDIO ──────────────────────────────────────────────────────────────
 dtparam=audio=on
 hdmi_drive=2
 
-# ===========================================================================
-# DISPLAY ROTATE
-# ===========================================================================
-# display_rotate=0  # 0=normal, 1=90°, 2=180°, 3=270°
-
-# ===========================================================================
-# USB BOOT
-# ===========================================================================
-# Allow boot from USB mass storage (NVMe via PCIe adapter)
+# ─── USB BOOT ────────────────────────────────────────────────────────────────
 program_usb_boot_mode=1
 otg_mode=1
 
-# ===========================================================================
-# PCIe / NVMe
-# ===========================================================================
-# Enable PCIe Gen 3 (experimental on RPi 5)
-dtparam=pciex1_gen=3
-
-# ===========================================================================
-# UART / SERIAL CONSOLE
-# ===========================================================================
+# ─── UART / SERIAL CONSOLE ───────────────────────────────────────────────────
 enable_uart=1
-# Redirect primary UART to GPIO 14/15 (pins 8/10)
 dtoverlay=disable-bt
 
-# ===========================================================================
-# I2C
-# ===========================================================================
+# ─── I2C ─────────────────────────────────────────────────────────────────────
 dtparam=i2c_arm=on
 dtparam=i2c1=on
-# Increase I2C speed to 400 kHz (fast mode)
 dtparam=i2c_arm_baudrate=400000
 
-# ===========================================================================
-# SPI
-# ===========================================================================
+# ─── SPI ─────────────────────────────────────────────────────────────────────
 dtparam=spi=on
 
-# ===========================================================================
-# GPIO / PWM
-# ===========================================================================
-# PWM on GPIO 18 (hardware PWM channel 0)
-# dtoverlay=pwm,pin=18,func=2
-
-# ===========================================================================
-# CAMERA / ISP
-# ===========================================================================
-# camera_auto_detect=1
-# dtoverlay=imx708      # RPi Camera Module 3
-
-# ===========================================================================
-# WATCHDOG
-# ===========================================================================
+# ─── WATCHDOG ────────────────────────────────────────────────────────────────
 dtparam=watchdog=on
 
-# ===========================================================================
-# REAL-TIME CLOCK (add-on HAT)
-# ===========================================================================
-# dtoverlay=i2c-rtc,ds3231
-
-# ===========================================================================
-# 1-WIRE (temperature sensor GPIO 4)
-# ===========================================================================
-# dtoverlay=w1-gpio
-
-# ===========================================================================
-# HAT+ / EEPROM
-# ===========================================================================
+# ─── HAT+ / EEPROM ───────────────────────────────────────────────────────────
 force_eeprom_read=0
 
-# ===========================================================================
-# CONDITIONAL OVERCLOCKS (RPi 5 only)
-# ===========================================================================
-[pi5]
-dtparam=nvme
-dtoverlay=rpi-poe-plus
-arm_freq=2600
-over_voltage=2
+# ─── REAL-TIME CLOCK (DS3231 on I2C) ────────────────────────────────────────
+# dtoverlay=i2c-rtc,ds3231
 
-[all]
-# Re-enable all settings unconditionally below this line
+# ─── 1-WIRE (temperature sensor GPIO 4) ─────────────────────────────────────
+# dtoverlay=w1-gpio
+
+# ─── CAMERA ──────────────────────────────────────────────────────────────────
+# camera_auto_detect=1
+# dtoverlay=imx708

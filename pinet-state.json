@@ -1,16 +1,32 @@
 {
-  "version": "1.2.0",
   "minima": {
-    "balance": 0,
+    "balance": "0",
     "blockHeight": 0,
-    "status": "Not Connected",
+    "status": "Offline",
     "peers": 0,
-    "transactions": []
+    "transactions": [],
+    "version": "",
+    "uptime": "",
+    "tip": ""
   },
   "cluster": [],
   "settings": {
-    "wallpaper": "carbon",
+    "wallpaper": "nebula",
     "nodeAlias": "",
     "torEnabled": false
+  },
+  "pinet2": {
+    "lxcStatus": "uninitialized",
+    "resourcePriority": "host",
+    "aiAcceleration": "detecting",
+    "healthStatus": "unknown",
+    "lastHealthCheck": null,
+    "systemHash": null,
+    "containerName": "pinet-enterprise-env",
+    "cpuset": "2-3",
+    "networkType": "wireguard-veth",
+    "buildStatus": "idle",
+    "lastBuild": null,
+    "buildLog": []
   }
 }

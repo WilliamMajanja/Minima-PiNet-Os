@@ -1,5 +1,5 @@
 # Zedd Weather — Python dependencies
-# Pinned to the latest stable releases compatible with arm64 / RPi OS Bookworm.
+# Compatible with all Raspberry Pi models (ARM64/ARM32) and x86_64 for CI.
 
 sense-hat>=2.6.0
 influxdb-client>=1.43.0

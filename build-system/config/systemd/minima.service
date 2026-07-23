@@ -1,17 +1,23 @@
 [Unit]
 Description=Minima Blockchain Node
-After=network.target
+After=network-online.target
+Wants=network-online.target
+Documentation=https://github.com/WilliamMajanja/Minima-PiNet-Os
 
 [Service]
 Type=simple
 User=pi
 Group=pi
 WorkingDirectory=/opt/minima
-ExecStart=/usr/bin/java -jar /opt/minima/minima.jar -daemon -rpcenable
+Environment=PINET_MINIMA_P2P_PORT=9001
+Environment=PINET_MINIMA_RPC_PORT=9005
+ExecStart=/usr/bin/java -Xmx512m -jar /opt/minima/minima.jar -daemon -rpcenable -port 9001 -mdsenable
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
+SyslogIdentifier=minima-node
+LimitNOFILE=65536
 
 [Install]
 WantedBy=multi-user.target

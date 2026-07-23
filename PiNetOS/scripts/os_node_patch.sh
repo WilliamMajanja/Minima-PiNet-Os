@@ -147,15 +147,23 @@ ACTION REQUIRED:
 To maintain peer connectivity and prevent consensus isolation, you MUST log into
 your local network router and configure the following Port Forwarding rules:
 
-1. Protocol: TCP
-   External Port: 9001
-   Internal Port: 9001
-   Internal IP: ${CURRENT_IP%/*}
-
-2. Protocol: TCP
-   External Port: 9002
-   Internal Port: 9002
-   Internal IP: ${CURRENT_IP%/*}
+ 1. Protocol: TCP
+    External Port: 9001
+    Internal Port: 9001
+    Internal IP: ${CURRENT_IP%/*}
+    Comment: Minima P2P (peer-to-peer networking)
+ 
+ 2. Protocol: TCP
+    External Port: 9005
+    Internal Port: 9005
+    Internal IP: ${CURRENT_IP%/*}
+    Comment: Minima RPC (command interface)
+ 
+ 3. Protocol: TCP
+    External Port: 9003
+    Internal Port: 9003
+    Internal IP: ${CURRENT_IP%/*}
+    Comment: Minima MDS (MiniDAPP file server)
 
 Failure to implement these rules will result in the node operating in a degraded,
 outbound-only state, severely impacting the PiNet neural mesh and blockchain sync.
@@ -211,7 +219,10 @@ ufw default allow outgoing
 # Punch surgical holes
 ufw allow 22/tcp comment 'SSH'
 ufw allow 9001/tcp comment 'Minima P2P'
-ufw allow 9002/tcp comment 'Minima RPC'
+ufw allow 9003/tcp comment 'Minima MDS-file'
+ufw allow 9004/tcp comment 'Minima MDS-cmd'
+ufw allow 9005/tcp comment 'Minima RPC'
+ufw allow 3000/tcp comment 'PiNet Desktop'
 
 # Enable firewall
 ufw --force enable >/dev/null 2>&1

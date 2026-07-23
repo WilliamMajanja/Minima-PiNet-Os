@@ -6,8 +6,8 @@ and serves the Jinja2 frontend.
 from __future__ import annotations
 
 import asyncio
-import os
 from contextlib import asynccontextmanager
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -52,8 +52,8 @@ from .websocket.cluster import router as ws_cluster_router
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
 
+# ─── Background task: poll Minima node status and balance ────────────────
 
-# --- Background task: poll Minima node status and balance ---
 async def _poll_minima_status():
     """Periodically poll the local Minima node to keep cached state fresh."""
     from .minima_client import minima_client
@@ -62,26 +62,24 @@ async def _poll_minima_status():
             status_data = await minima_client.status()
             if status_data and status_data.get("status"):
                 state = get_state()
-                chain = (status_data.get("response") or {}).get("chain") or {}
-                net = (status_data.get("response") or {}).get("network") or {}
-                state.minima.block_height = chain.get("block", state.minima.block_height)
-                state.minima.peers = net.get("connected", state.minima.peers)
-                state.minima.status = "Synced"
+                response = status_data.get("response") or {}
+                chain = response.get("chain") or {}
+                net = response.get("network") or {}
+                node = response.get("node") or {}
 
-                # Also update balance
+                state.minima.block_height = int(chain.get("block", state.minima.block_height) or state.minima.block_height)
+                state.minima.peers = int(net.get("connected", state.minima.peers) or state.minima.peers)
+                state.minima.status = "Synced"
+                state.minima.version = str(node.get("version", "") or status_data.get("version", "") or state.minima.version)
+                state.minima.uptime = str(node.get("uptime", "") or state.minima.uptime)
+                state.minima.tip = str(chain.get("tip", "") or state.minima.tip)
+
                 balance_data = await minima_client.balance()
                 if balance_data and balance_data.get("status"):
-                    resp_list = balance_data.get("response") or []
-                    if resp_list:
-                        # Sum the confirmed balance for the native Minima token (tokenid 0x00)
-                        total = 0.0
-                        for token in resp_list:
-                            if token.get("tokenid", "") in ("0x00", "0", ""):
-                                try:
-                                    total += float(token.get("confirmed", 0))
-                                except (ValueError, TypeError):
-                                    pass
-                        state.minima.balance = total
+                    parsed = minima_client.parse_balance(balance_data)
+                    native = parsed.get("0x00", Decimal("0"))
+                    state.minima.balance = native
+
                 save_state()
             else:
                 state = get_state()
@@ -89,6 +87,10 @@ async def _poll_minima_status():
         except Exception:
             state = get_state()
             state.minima.status = "Offline"
+            try:
+                save_state()
+            except Exception:
+                pass
         await asyncio.sleep(10)
 
 
@@ -102,6 +104,8 @@ async def lifespan(app: FastAPI):
         await task
     except asyncio.CancelledError:
         pass
+    from .minima_client import minima_client
+    await minima_client.close()
 
 
 def create_app() -> FastAPI:

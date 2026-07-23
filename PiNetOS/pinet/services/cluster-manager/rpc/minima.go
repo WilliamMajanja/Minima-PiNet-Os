@@ -10,6 +10,9 @@ import (
 )
 
 // MinimaClient handles communication with the local Minima node via RPC
+//
+// Port layout: P2P=base (default 9001), MDS-file=base+2, MDS-cmd=base+3, RPC=base+4
+// This client connects to the RPC port (default 9005) for all command communication.
 type MinimaClient struct {
 	BaseURL    string
 	HTTPClient *http.Client
@@ -32,6 +35,7 @@ type MinimaStatus struct {
 		Difficulty string `json:"difficulty"`
 		Weight     int    `json:"weight"`
 		Length     int    `json:"length"`
+		Tip        string `json:"tip"`
 	} `json:"chain"`
 	Network struct {
 		Connected  int    `json:"connected"`
@@ -40,6 +44,10 @@ type MinimaStatus struct {
 		P2P        string `json:"p2p"`
 		RPC        string `json:"rpc"`
 	} `json:"network"`
+	Node struct {
+		Version string `json:"version"`
+		Uptime  string `json:"uptime"`
+	} `json:"node"`
 	Version string `json:"version"`
 	Uptime  string `json:"uptime"`
 }
@@ -96,13 +104,14 @@ func (c *MinimaClient) Status() (*MinimaStatus, error) {
 	return &status, nil
 }
 
-// Burn creates a burn transaction with metadata
+// Burn creates a burn transaction with base64-encoded metadata
 func (c *MinimaClient) Burn(amount string, data map[string]interface{}) (*MinimaResponse, error) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal data: %w", err)
 	}
-	command := fmt.Sprintf("burn amount:%s data:%s", amount, string(jsonData))
+	encoded := base64URLEncode(jsonData)
+	command := fmt.Sprintf("burn amount:%s data:base64:%s", amount, encoded)
 	return c.Call(command)
 }
 
@@ -112,11 +121,36 @@ func (c *MinimaClient) HealthCheck() bool {
 	return err == nil
 }
 
-// VerifyWorkload verifies a workload by txpowid (previously in minima.go)
+// VerifyWorkload verifies a workload by txpowid
 func (c *MinimaClient) VerifyWorkload(workloadID string) bool {
 	result, err := c.Call(fmt.Sprintf("txpowinfo txpowid:%s", workloadID))
 	if err != nil {
 		return false
 	}
 	return result.Status
+}
+
+// Peers returns the list of connected peers
+func (c *MinimaClient) Peers() (*MinimaResponse, error) {
+	return c.Call("peers")
+}
+
+// Network returns the network status
+func (c *MinimaClient) Network() (*MinimaResponse, error) {
+	return c.Call("network")
+}
+
+// NewAddress generates a new wallet address
+func (c *MinimaClient) NewAddress() (*MinimaResponse, error) {
+	return c.Call("newaddress")
+}
+
+// Balance returns the token balance list
+func (c *MinimaClient) Balance() (*MinimaResponse, error) {
+	return c.Call("balance")
+}
+
+// base64URLEncode encodes bytes to a URL-safe base64 string
+func base64URLEncode(data []byte) string {
+	return url.QueryEscape(string(data))
 }

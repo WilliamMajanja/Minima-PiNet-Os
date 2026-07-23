@@ -59,7 +59,7 @@ async def system_stats():
 
 @router.get("/os-info", dependencies=[Depends(rate_limit_dependency(os_info_limiter))])
 async def os_info():
-    """Return OS type, hardware model, Docker detection."""
+    """Return OS type, hardware model, Pi model, Docker detection."""
     os_name = "unknown"
     is_raspbian = False
     is_ubuntu = False
@@ -68,11 +68,49 @@ async def os_info():
     is_docker = False
     is_pinet_installed = False
     hardware_model = "Generic System"
+    pi_model = "generic"
 
     try:
         model_path = Path("/proc/device-tree/model")
         if model_path.exists():
             hardware_model = model_path.read_text().replace("\x00", "")
+            model_lower = hardware_model.lower()
+            if "pi 5" in model_lower or "bcm2712" in model_lower:
+                pi_model = "pi5"
+            elif "pi 4" in model_lower or "bcm2711" in model_lower:
+                pi_model = "pi4"
+            elif "pi 3" in model_lower or "bcm2837" in model_lower:
+                pi_model = "pi3"
+            elif "pi 2" in model_lower or "bcm2836" in model_lower:
+                pi_model = "pi2"
+            elif "zero 2" in model_lower or "zero2" in model_lower:
+                pi_model = "zero2w"
+            elif "zero" in model_lower:
+                pi_model = "zero"
+            elif "compute module 4" in model_lower or "cm4" in model_lower:
+                pi_model = "cm4"
+            elif "compute module 3" in model_lower or "cm3" in model_lower:
+                pi_model = "cm3"
+            elif "compute module" in model_lower:
+                pi_model = "cm"
+            elif "pi 1" in model_lower or "model a" in model_lower or "model b" in model_lower:
+                pi_model = "pi1"
+            elif "raspberry pi" in model_lower:
+                pi_model = "pi"
+
+        cpuinfo_path = Path("/proc/cpuinfo")
+        if pi_model == "generic" and cpuinfo_path.exists():
+            cpuinfo = cpuinfo_path.read_text().lower()
+            if "bcm2712" in cpuinfo:
+                pi_model = "pi5"
+            elif "bcm2711" in cpuinfo:
+                pi_model = "pi4"
+            elif "bcm2837" in cpuinfo:
+                pi_model = "pi3"
+            elif "bcm2836" in cpuinfo:
+                pi_model = "pi2"
+            elif "bcm2835" in cpuinfo:
+                pi_model = "pi1"
 
         os_release_path = Path("/etc/os-release")
         if os_release_path.exists():
@@ -108,6 +146,7 @@ async def os_info():
         "isDocker": is_docker,
         "isPiNetInstalled": is_pinet_installed,
         "hardwareModel": hardware_model,
+        "piModel": pi_model,
         "defaultContext": default_context,
     }
 

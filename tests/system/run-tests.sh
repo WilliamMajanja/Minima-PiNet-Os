@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # =============================================================================
 # PiNetOS System Test Runner
-# Tests hardware, services, networking, and HAL on a live Raspberry Pi 5
+# Tests hardware, services, networking, and HAL on all Raspberry Pi models
+# (Pi 5, Pi 4, Pi 3, Pi 2, Pi 1, Pi Zero/Zero 2 W, Compute Module)
 #
 # Usage: ./tests/system/run-tests.sh [--suite SUITE] [--verbose]
 # Suites: all, hardware, services, networking, hal, security
@@ -39,36 +40,111 @@ mkdir -p "${RESULTS_DIR}"
 LOG="${RESULTS_DIR}/test-$(date +%Y%m%d-%H%M%S).log"
 exec > >(tee -a "${LOG}") 2>&1
 
+# ---- Detect Pi Model --------------------------------------------------------
+detect_pi_model() {
+    local model=""
+    if [ -f /proc/device-tree/model ]; then
+        model=$(tr -d '\0' < /proc/device-tree/model)
+    fi
+    local model_lower=$(echo "$model" | tr '[:upper:]' '[:lower:]')
+
+    if echo "$model_lower" | grep -q "pi 5\|bcm2712"; then
+        echo "pi5"
+    elif echo "$model_lower" | grep -q "pi 4\|bcm2711"; then
+        echo "pi4"
+    elif echo "$model_lower" | grep -q "pi 3\|bcm2837"; then
+        echo "pi3"
+    elif echo "$model_lower" | grep -q "pi 2\|bcm2836"; then
+        echo "pi2"
+    elif echo "$model_lower" | grep -q "zero 2\|zero2"; then
+        echo "zero2w"
+    elif echo "$model_lower" | grep -q "zero"; then
+        echo "zero"
+    elif echo "$model_lower" | grep -q "compute module 4\|cm4"; then
+        echo "cm4"
+    elif echo "$model_lower" | grep -q "compute module 3\|cm3"; then
+        echo "cm3"
+    elif echo "$model_lower" | grep -q "compute module"; then
+        echo "cm"
+    elif echo "$model_lower" | grep -q "pi 1\|model a\|model b"; then
+        echo "pi1"
+    elif [ -n "$model_lower" ]; then
+        echo "pi"
+    else
+        echo "generic"
+    fi
+}
+
+PI_MODEL=$(detect_pi_model)
+PI_LABEL=""
+case "$PI_MODEL" in
+    pi5)     PI_LABEL="Raspberry Pi 5 (BCM2712 / ARM64)" ;;
+    pi4)     PI_LABEL="Raspberry Pi 4 (BCM2711 / ARM64)" ;;
+    pi3)     PI_LABEL="Raspberry Pi 3 (BCM2837 / ARM64)" ;;
+    pi2)     PI_LABEL="Raspberry Pi 2 (BCM2836 / ARM32)" ;;
+    pi1)     PI_LABEL="Raspberry Pi 1 (BCM2835 / ARM6)" ;;
+    zero)    PI_LABEL="Raspberry Pi Zero (BCM2835 / ARM6)" ;;
+    zero2w)  PI_LABEL="Raspberry Pi Zero 2 W (BCM2837 / ARM64)" ;;
+    cm4)     PI_LABEL="Compute Module 4 (BCM2711 / ARM64)" ;;
+    cm3)     PI_LABEL="Compute Module 3 (BCM2837 / ARM64)" ;;
+    cm)      PI_LABEL="Compute Module" ;;
+    pi)      PI_LABEL="Raspberry Pi (unknown model)" ;;
+    *)       PI_LABEL="Generic Linux System" ;;
+esac
+
+MINIMA_P2P_PORT="${PINET_MINIMA_P2P_PORT:-9001}"
+MINIMA_RPC_PORT="${PINET_MINIMA_RPC_PORT:-$((MINIMA_P2P_PORT + 4))}"
+
 echo "=============================================="
 echo " PiNetOS System Test Suite"
 echo " Suite: ${SUITE}"
 echo " Date:  $(date)"
 echo " Host:  $(uname -n)"
 echo " Arch:  $(uname -m)"
+echo " Model: ${PI_LABEL}"
+echo " Minima P2P: ${MINIMA_P2P_PORT}  RPC: ${MINIMA_RPC_PORT}"
 echo "=============================================="
 
 # =============================================================================
 # SUITE: Hardware
 # =============================================================================
 test_hardware() {
-    section "Hardware Tests"
+    section "Hardware Tests (${PI_LABEL})"
 
-    # BCM2712 CPU detection
+    # CPU detection — supports all Pi SoCs
     if grep -q "Cortex-A76\|BCM2712" /proc/cpuinfo 2>/dev/null; then
-        pass "CPU: BCM2712 (Cortex-A76) detected"
-    elif grep -q "Raspberry Pi 5" /proc/device-tree/model 2>/dev/null; then
-        pass "CPU: Raspberry Pi 5 detected via device tree"
+        pass "CPU: BCM2712 (Cortex-A76) — Raspberry Pi 5"
+    elif grep -q "Cortex-A72\|BCM2711" /proc/cpuinfo 2>/dev/null; then
+        pass "CPU: BCM2711 (Cortex-A72) — Raspberry Pi 4 / CM4"
+    elif grep -q "Cortex-A53\|BCM2837" /proc/cpuinfo 2>/dev/null; then
+        pass "CPU: BCM2837 (Cortex-A53) — Raspberry Pi 3 / Zero 2 W / CM3"
+    elif grep -q "Cortex-A7\|BCM2836" /proc/cpuinfo 2>/dev/null; then
+        pass "CPU: BCM2836 (Cortex-A7) — Raspberry Pi 2"
+    elif grep -q "ARMv6\|BCM2835" /proc/cpuinfo 2>/dev/null; then
+        pass "CPU: BCM2835 (ARMv6) — Raspberry Pi 1 / Zero / Zero W"
+    elif [ -f /proc/device-tree/model ]; then
+        local _m; _m=$(tr -d '\0' < /proc/device-tree/model)
+        pass "CPU: ${_m} detected via device tree"
     else
-        skip "CPU: BCM2712 not detected (may be running in VM/simulation)"
+        skip "CPU: Pi SoC not detected (may be running in VM/simulation)"
     fi
 
-    # Memory
+    # Memory — minimum depends on Pi model
     local mem_kb; mem_kb="$(awk '/MemTotal/ {print $2}' /proc/meminfo)"
     local mem_gb; mem_gb=$(( mem_kb / 1024 / 1024 ))
-    if [[ ${mem_kb} -gt $((4 * 1024 * 1024)) ]]; then
-        pass "RAM: ${mem_gb} GB (≥ 4 GB required)"
+    local min_mem_gb=1
+    case "$PI_MODEL" in
+        pi5|pi4) min_mem_gb=4 ;;
+        pi3|zero2w|cm4) min_mem_gb=1 ;;
+        pi2) min_mem_gb=1 ;;
+        pi1|zero|cm3) min_mem_gb=0 ;;
+    esac
+    if [ "$min_mem_gb" -gt 0 ] && [ "$mem_gb" -ge "$min_mem_gb" ]; then
+        pass "RAM: ${mem_gb} GB (≥ ${min_mem_gb} GB required for ${PI_MODEL})"
+    elif [ "$min_mem_gb" -eq 0 ]; then
+        pass "RAM: ${mem_gb} GB (no minimum for ${PI_MODEL})"
     else
-        fail "RAM: Only ${mem_gb} GB detected (minimum 4 GB recommended)"
+        fail "RAM: Only ${mem_gb} GB detected (minimum ${min_mem_gb} GB for ${PI_MODEL})"
     fi
 
     # GPIO sysfs
@@ -78,7 +154,7 @@ test_hardware() {
         skip "GPIO: sysfs interface not available"
     fi
 
-    # I2C
+    # I2C — bus 1 on all Pi models, bus 0 on Pi 5
     if ls /dev/i2c-* &>/dev/null; then
         pass "I2C: $(ls /dev/i2c-* | wc -l) bus(es) found"
     else
@@ -96,20 +172,42 @@ test_hardware() {
     if [[ -f /sys/class/thermal/thermal_zone0/temp ]]; then
         local temp_mc; temp_mc="$(cat /sys/class/thermal/thermal_zone0/temp)"
         local temp_c; temp_c=$(( temp_mc / 1000 ))
-        if [[ ${temp_c} -lt 85 ]]; then
-            pass "Thermal: CPU temperature ${temp_c}°C (normal)"
+        local thermal_limit=85
+        case "$PI_MODEL" in
+            pi5) thermal_limit=80 ;;
+            pi4) thermal_limit=80 ;;
+            pi3) thermal_limit=85 ;;
+            zero2w) thermal_limit=80 ;;
+            *) thermal_limit=85 ;;
+        esac
+        if [[ ${temp_c} -lt ${thermal_limit} ]]; then
+            pass "Thermal: CPU temperature ${temp_c}°C (limit: ${thermal_limit}°C for ${PI_MODEL})"
         else
-            fail "Thermal: CPU temperature ${temp_c}°C (throttle threshold approaching!)"
+            fail "Thermal: CPU temperature ${temp_c}°C (limit: ${thermal_limit}°C for ${PI_MODEL})"
         fi
     else
         skip "Thermal: Temperature sensor not accessible"
     fi
 
-    # NVMe / PCIe
-    if ls /dev/nvme* &>/dev/null; then
-        pass "NVMe: $(ls /dev/nvme* | wc -l) NVMe device(s) found"
+    # NVMe / PCIe (Pi 5 and CM4 only)
+    case "$PI_MODEL" in
+        pi5|cm4)
+            if ls /dev/nvme* &>/dev/null; then
+                pass "NVMe: $(ls /dev/nvme* | wc -l) NVMe device(s) found"
+            else
+                skip "NVMe: No NVMe devices found (optional on ${PI_MODEL})"
+            fi
+            ;;
+        *)
+            skip "NVMe: Not applicable for ${PI_MODEL}"
+            ;;
+    esac
+
+    # Minima RPC connectivity check
+    if curl -sf "http://127.0.0.1:${MINIMA_RPC_PORT}/status" >/dev/null 2>&1; then
+        pass "Minima: RPC reachable on port ${MINIMA_RPC_PORT}"
     else
-        skip "NVMe: No NVMe devices found"
+        skip "Minima: RPC not reachable on port ${MINIMA_RPC_PORT} (may not be running)"
     fi
 }
 
@@ -166,23 +264,31 @@ test_services() {
 test_networking() {
     section "Networking Tests"
 
-    # Ethernet interface
-    if ip link show eth0 &>/dev/null; then
-        pass "Ethernet: eth0 found"
-        if ip addr show eth0 | grep -q 'inet '; then
-            pass "Ethernet: eth0 has IPv4 address"
+    # Ethernet interface (eth0 on most Pi models, could be end0 on some)
+    local eth_iface=""
+    for iface in eth0 end0 enp0s1; do
+        if ip link show "$iface" &>/dev/null; then
+            eth_iface="$iface"
+            break
+        fi
+    done
+
+    if [ -n "$eth_iface" ]; then
+        pass "Ethernet: ${eth_iface} found"
+        if ip addr show "$eth_iface" | grep -q 'inet '; then
+            pass "Ethernet: ${eth_iface} has IPv4 address"
         else
-            fail "Ethernet: eth0 has no IPv4 address"
+            fail "Ethernet: ${eth_iface} has no IPv4 address"
         fi
     else
-        skip "Ethernet: eth0 not found"
+        skip "Ethernet: no wired interface found"
     fi
 
-    # WiFi interface
+    # WiFi interface (wlan0 on Pi 3/4/5/Zero W)
     if ip link show wlan0 &>/dev/null; then
         pass "WiFi: wlan0 found"
     else
-        skip "WiFi: wlan0 not found"
+        skip "WiFi: wlan0 not found (not all Pi models have WiFi)"
     fi
 
     # DNS resolution
@@ -241,10 +347,15 @@ test_hal() {
         local node_version; node_version="$(node --version)"
         pass "Node.js: ${node_version}"
     else
-        fail "Node.js: not installed"
+        # On Pi Zero/1, Node.js may not be installed due to ARM6 limitations
+        if [ "$PI_MODEL" = "pi1" ] || [ "$PI_MODEL" = "zero" ]; then
+            skip "Node.js: not installed (not required on ${PI_MODEL})"
+        else
+            fail "Node.js: not installed"
+        fi
     fi
 
-    # vcgencmd (VideoCore firmware tool)
+    # vcgencmd (VideoCore firmware tool — Pi only)
     if command -v vcgencmd &>/dev/null; then
         local temp; temp="$(vcgencmd measure_temp 2>/dev/null || echo 'N/A')"
         pass "vcgencmd: available (${temp})"
@@ -332,7 +443,7 @@ esac
 TOTAL=$((PASS + FAIL + SKIP))
 echo
 echo "=============================================="
-echo " Test Results"
+echo " Test Results (${PI_LABEL})"
 echo "=============================================="
 echo -e "  ${GREEN}PASS: ${PASS}${NC}"
 echo -e "  ${RED}FAIL: ${FAIL}${NC}"

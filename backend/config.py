@@ -2,13 +2,22 @@
 import os
 
 # Network Ports
-MINIMA_RPC_PORT = int(os.getenv("PINET_MINIMA_RPC_PORT", "9001"))
+# Minima port layout: base port (9001) = P2P, base+2 = MDS file server,
+# base+3 = MDS command server, base+4 = RPC HTTP server.
+# PiNet-OS connects to the RPC port (base+4) for all command communication.
+MINIMA_P2P_PORT = int(os.getenv("PINET_MINIMA_P2P_PORT", "9001"))
+MINIMA_RPC_PORT = int(os.getenv("PINET_MINIMA_RPC_PORT", "9005"))
+MINIMA_MDS_FILE_PORT = MINIMA_P2P_PORT + 2
+MINIMA_MDS_CMD_PORT = MINIMA_P2P_PORT + 3
 DESKTOP_PORT = int(os.getenv("PINET_DESKTOP_PORT", "3000"))
 CLUSTER_API_PORT = int(os.getenv("PINET_CLUSTER_API_PORT", "9090"))
 
 # Minima RPC
 MINIMA_RPC_URL = os.getenv("MINIMA_RPC_URL", f"http://127.0.0.1:{MINIMA_RPC_PORT}")
-MINIMA_RPC_TIMEOUT = 5000  # ms
+MINIMA_RPC_TIMEOUT = int(os.getenv("PINET_MINIMA_RPC_TIMEOUT", "10000"))
+MINIMA_RPC_RETRIES = int(os.getenv("PINET_MINIMA_RPC_RETRIES", "3"))
+MINIMA_RPC_RETRY_DELAY = float(os.getenv("PINET_MINIMA_RPC_RETRY_DELAY", "1.0"))
+MINIMA_VERSION = "1.0.49"
 
 # Cluster Timing
 HEARTBEAT_INTERVAL = 10000
@@ -50,7 +59,6 @@ DAPP_ALLOWED_EXTENSIONS = (".zip", ".tar.gz", ".mds.zip")
 
 # Version
 PINET_VERSION = "1.2.0"
-MINIMA_VERSION = "1.0.35"
 
 # Kernel / Init System
 DEFAULT_RUN_LEVEL = 5

@@ -12,21 +12,30 @@ type MaximaClient struct {
 	application string
 }
 
+// MaximaContactsResponse represents the response from maxcontacts action:list
+type MaximaContactsResponse struct {
+	AllowAllContacts bool            `json:"allowallcontacts"`
+	Contacts         []MaximaContact `json:"contacts"`
+}
+
 // MaximaContact represents a Maxima network contact
 type MaximaContact struct {
-	ID             int    `json:"id"`
-	PublicKey      string `json:"publickey"`
-	CurrentAddress string `json:"currentaddress"`
-	MyAddress      string `json:"myaddress"`
-	LastSeen       int64  `json:"lastseen"`
-	SameChain      bool   `json:"samechain"`
+	ID             int             `json:"id"`
+	PublicKey      string          `json:"publickey"`
+	CurrentAddress string          `json:"currentaddress"`
+	MyAddress      string          `json:"myaddress"`
+	LastSeen       int64           `json:"lastseen"`
+	SameChain      bool            `json:"samechain"`
+	ExtraData      json.RawMessage `json:"extradata,omitempty"`
 }
 
 // MaximaInfo represents our own Maxima identity
 type MaximaInfo struct {
-	PublicKey string `json:"publickey"`
-	Address   string `json:"address"`
-	Name      string `json:"name"`
+	PublicKey    string `json:"publickey"`
+	MxPublicKey  string `json:"mxpublickey"`
+	Address      string `json:"address"`
+	Name         string `json:"name"`
+	StaticMLS    bool   `json:"staticmls"`
 }
 
 // MaximaMessage represents an incoming Maxima message
@@ -67,32 +76,41 @@ func (c *MaximaClient) GetInfo() (*MaximaInfo, error) {
 }
 
 // GetContacts retrieves the list of Maxima contacts
+// Uses the correct "maxcontacts action:list" command (not "maxima action:contacts")
 func (c *MaximaClient) GetContacts() ([]MaximaContact, error) {
-	result, err := c.minima.Call("maxima action:contacts")
+	result, err := c.minima.Call("maxcontacts action:list")
 	if err != nil {
 		return nil, err
 	}
 
 	if !result.Status {
-		return nil, fmt.Errorf("maxima contacts failed: %s", result.Error)
+		return nil, fmt.Errorf("maxcontacts failed: %s", result.Error)
 	}
 
-	var contacts []MaximaContact
-	if err := json.Unmarshal(result.Response, &contacts); err != nil {
-		return nil, fmt.Errorf("failed to parse contacts: %w", err)
+	var contactsResp MaximaContactsResponse
+	if err := json.Unmarshal(result.Response, &contactsResp); err != nil {
+		// Fallback: try parsing as a plain list for compatibility
+		var contacts []MaximaContact
+		if err2 := json.Unmarshal(result.Response, &contacts); err2 != nil {
+			return nil, fmt.Errorf("failed to parse contacts: %w", err)
+		}
+		return contacts, nil
 	}
 
-	return contacts, nil
+	return contactsResp.Contacts, nil
 }
 
 // Send sends a message to a Maxima contact
+// Uses base64 encoding for the data payload to avoid URL-encoding issues
 func (c *MaximaClient) Send(to string, data interface{}) error {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("failed to marshal message: %w", err)
 	}
 
-	command := fmt.Sprintf("maxima action:send to:%s application:%s data:%s", to, c.application, string(jsonData))
+	// Base64-encode the JSON payload for safe URL embedding
+	encoded := base64URLEncode(jsonData)
+	command := fmt.Sprintf("maxima action:send to:%s application:%s data:base64:%s", to, c.application, encoded)
 	result, err := c.minima.Call(command)
 	if err != nil {
 		return fmt.Errorf("maxima send failed: %w", err)
@@ -118,7 +136,7 @@ func (c *MaximaClient) Poll() ([]MaximaMessage, error) {
 	}
 
 	if !result.Status {
-		return nil, nil // No messages is not an error
+		return nil, nil
 	}
 
 	var messages []MaximaMessage

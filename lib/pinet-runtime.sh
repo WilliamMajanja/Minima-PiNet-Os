@@ -45,10 +45,16 @@ PY
 
 PINET_HOME="${PINET_HOME:-$HOME/.pinet}"
 PINET_VERSION="${PINET_VERSION:-$(detect_pinet_version)}"
-PINET_MINIMA_RPC_PORT="${PINET_MINIMA_RPC_PORT:-9001}"
+
+# Minima port layout: base port (default 9001) = P2P, base+4 = RPC
+# PiNet-OS connects to the RPC port for all command communication.
+PINET_MINIMA_P2P_PORT="${PINET_MINIMA_P2P_PORT:-9001}"
+PINET_MINIMA_RPC_PORT="${PINET_MINIMA_RPC_PORT:-$((PINET_MINIMA_P2P_PORT + 4))}"
+PINET_MINIMA_RPC_URL="${PINET_MINIMA_RPC_URL:-http://127.0.0.1:$PINET_MINIMA_RPC_PORT}"
 PINET_DESKTOP_PORT="${PINET_DESKTOP_PORT:-3000}"
 PINET_CLUSTER_API_PORT="${PINET_CLUSTER_API_PORT:-9090}"
 PINET_MINIMA_JAR="${PINET_MINIMA_JAR:-$PINET_HOME/bin/minima.jar}"
+PINET_MINIMA_VERSION="${PINET_MINIMA_VERSION:-1.0.49}"
 PINET_PID_FILE="$PINET_HOME/pinet.pid"
 PINET_LOG_DIR="$PINET_HOME/logs"
 PINET_STATE_DIR="$PINET_HOME/state"
@@ -64,7 +70,7 @@ BLUE='\033[0;34m'
 MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
 WHITE='\033[1;37m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 
@@ -86,7 +92,6 @@ init_runtime_dirs() {
 # ─── Config Management ────────────────────────────────────────────────────────
 
 generate_node_id() {
-  # Generate a stable node ID from hostname + MAC address
   if command -v ip >/dev/null 2>&1; then
     _mac=$(ip link show 2>/dev/null | grep -m1 'link/ether' | awk '{print $2}' | tr -d ':')
   else
@@ -107,7 +112,9 @@ generate_config() {
   "nodeId": "$_node_id",
   "role": "$_role",
   "masterAddress": "$_master_addr",
+  "minimaVersion": "$PINET_MINIMA_VERSION",
   "ports": {
+    "minimaP2P": $PINET_MINIMA_P2P_PORT,
     "minimaRpc": $PINET_MINIMA_RPC_PORT,
     "desktop": $PINET_DESKTOP_PORT,
     "clusterApi": $PINET_CLUSTER_API_PORT
@@ -135,7 +142,6 @@ CONFIGEOF
 }
 
 read_config_value() {
-  # Simple JSON value reader (no jq dependency)
   _key="$1"
   if [ -f "$PINET_CONFIG_FILE" ]; then
     grep "\"$_key\"" "$PINET_CONFIG_FILE" | head -1 | sed 's/.*: *"\{0,1\}\([^",}]*\)"\{0,1\}.*/\1/'
@@ -212,11 +218,10 @@ wait_for_port() {
   _elapsed=0
   while [ "$_elapsed" -lt "$_timeout" ]; do
     if command -v curl >/dev/null 2>&1; then
-      curl -s "http://127.0.0.1:$_port" >/dev/null 2>&1 && return 0
+      curl -sf "http://127.0.0.1:$_port/status" >/dev/null 2>&1 && return 0
     elif command -v wget >/dev/null 2>&1; then
-      wget -q -O /dev/null "http://127.0.0.1:$_port" 2>/dev/null && return 0
+      wget -q -O /dev/null "http://127.0.0.1:$_port/status" 2>/dev/null && return 0
     else
-      # Fallback: try /dev/tcp if bash, or just sleep
       (echo > "/dev/tcp/127.0.0.1/$_port") 2>/dev/null && return 0
     fi
     sleep 1
@@ -226,16 +231,18 @@ wait_for_port() {
 }
 
 start_minima() {
-  log_info "Starting Minima node on RPC port $PINET_MINIMA_RPC_PORT..."
-  java -jar "$PINET_MINIMA_JAR" \
+  log_info "Starting Minima node (P2P port $PINET_MINIMA_P2P_PORT, RPC port $PINET_MINIMA_RPC_PORT)..."
+  java -Xmx512m -jar "$PINET_MINIMA_JAR" \
     -data "$PINET_HOME/minima-data" \
-    -rpcenable -rpc "$PINET_MINIMA_RPC_PORT" \
+    -port "$PINET_MINIMA_P2P_PORT" \
+    -rpcenable \
+    -mdsenable \
     > "$PINET_LOG_DIR/minima.log" 2>&1 &
   _minima_pid=$!
   echo "$_minima_pid" > "$PINET_HOME/minima.pid"
 
-  log_info "Waiting for Minima RPC to become available..."
-  if wait_for_port "$PINET_MINIMA_RPC_PORT" 60; then
+  log_info "Waiting for Minima RPC to become available on port $PINET_MINIMA_RPC_PORT..."
+  if wait_for_port "$PINET_MINIMA_RPC_PORT" 120; then
     log_ok "Minima node started (PID: $_minima_pid)"
     return 0
   else
@@ -261,7 +268,7 @@ start_desktop() {
     return 1
   }
 
-  PINET_MINIMA_RPC_PORT="$PINET_MINIMA_RPC_PORT" \
+  PINET_MINIMA_RPC_URL="$PINET_MINIMA_RPC_URL" \
   PINET_HOME="$PINET_HOME" \
   PINET_DESKTOP_PORT="$PINET_DESKTOP_PORT" \
   python3 run.py > "$PINET_LOG_DIR/desktop.log" 2>&1 &
@@ -286,13 +293,11 @@ stop_process() {
     if [ -n "$_pid" ] && kill -0 "$_pid" 2>/dev/null; then
       log_info "Stopping $_name (PID: $_pid)..."
       kill "$_pid" 2>/dev/null
-      # Wait up to 10 seconds for graceful shutdown
       _w=0
       while [ "$_w" -lt 10 ] && kill -0 "$_pid" 2>/dev/null; do
         sleep 1
         _w=$((_w + 1))
       done
-      # Force kill if still running
       if kill -0 "$_pid" 2>/dev/null; then
         kill -9 "$_pid" 2>/dev/null
       fi
@@ -318,28 +323,24 @@ show_status() {
   printf "${WHITE}║       PiNet-OS v%s Status               ║${NC}\n" "$PINET_VERSION"
   printf "${WHITE}╚══════════════════════════════════════════════╝${NC}\n\n"
 
-  # Node ID
   _node_id=$(read_config_value "nodeId")
   _role=$(read_config_value "role")
   printf "  ${CYAN}Node ID:${NC}    %s\n" "${_node_id:-unknown}"
   printf "  ${CYAN}Role:${NC}       %s\n" "${_role:-unknown}"
   printf "  ${CYAN}Platform:${NC}   %s %s\n" "$(uname -s)" "$(uname -m)"
 
-  # Minima status
   if [ -f "$PINET_HOME/minima.pid" ] && kill -0 "$(cat "$PINET_HOME/minima.pid" 2>/dev/null)" 2>/dev/null; then
-    printf "  ${GREEN}Minima:${NC}     ● Running (port %s)\n" "$PINET_MINIMA_RPC_PORT"
+    printf "  ${GREEN}Minima:${NC}     ● Running (P2P %s / RPC %s)\n" "$PINET_MINIMA_P2P_PORT" "$PINET_MINIMA_RPC_PORT"
   else
     printf "  ${RED}Minima:${NC}     ○ Stopped\n"
   fi
 
-  # Desktop status
   if [ -f "$PINET_HOME/desktop.pid" ] && kill -0 "$(cat "$PINET_HOME/desktop.pid" 2>/dev/null)" 2>/dev/null; then
     printf "  ${GREEN}Desktop:${NC}    ● Running (port %s)\n" "$PINET_DESKTOP_PORT"
   else
     printf "  ${RED}Desktop:${NC}    ○ Stopped\n"
   fi
 
-  # Cluster info
   if [ -f "$PINET_STATE_DIR/cluster.json" ]; then
     printf "  ${CYAN}Cluster:${NC}    State file present\n"
   else
@@ -349,20 +350,21 @@ show_status() {
   printf "\n"
 }
 
-# ─── Maxima Helpers ───────────────────────────────────────────────────────────
+# ─── Minima RPC Helpers ──────────────────────────────────────────────────────
+
+minima_rpc() {
+  _cmd="$1"
+  _encoded_cmd=$(printf '%s' "$_cmd" | sed 's/ /%20/g; s/:/%3A/g')
+  curl -sf "$PINET_MINIMA_RPC_URL/$_encoded_cmd" 2>/dev/null
+}
 
 maxima_send() {
   _to="$1"
   _app="$2"
   _data="$3"
-
-  if command -v curl >/dev/null 2>&1; then
-    curl -s "http://127.0.0.1:$PINET_MINIMA_RPC_PORT/maxima+action:send+to:${_to}+application:${_app}+data:${_data}" 2>/dev/null
-  fi
+  minima_rpc "maxima action:send to:$_to application:$_app data:$_data"
 }
 
 maxima_contacts() {
-  if command -v curl >/dev/null 2>&1; then
-    curl -s "http://127.0.0.1:$PINET_MINIMA_RPC_PORT/maxima+action:contacts" 2>/dev/null
-  fi
+  minima_rpc "maxcontacts action:list"
 }
