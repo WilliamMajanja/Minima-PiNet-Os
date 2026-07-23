@@ -8,8 +8,8 @@ sudo apt-get update
 sudo apt-get install -y python3 python3-pip python3-venv build-essential
 
 # Install Python dependencies
-python3 -m pip install --upgrade pip
-python3 -m pip install -r requirements.txt
+python3 -m pip install --break-system-packages --upgrade pip
+python3 -m pip install --break-system-packages -r requirements.txt
 
 # Configure autostart
 mkdir -p ~/.config/autostart
