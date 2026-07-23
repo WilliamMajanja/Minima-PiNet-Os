@@ -232,6 +232,12 @@ wait_for_port() {
 
 start_minima() {
   log_info "Starting Minima node (P2P port $PINET_MINIMA_P2P_PORT, RPC port $PINET_MINIMA_RPC_PORT)..."
+
+  # Start CPIP security sidecar before Minima
+  if [ "${CPIP_ENABLED:-1}" = "1" ]; then
+    start_cpip_sidecar
+  fi
+
   java -Xmx512m -jar "$PINET_MINIMA_JAR" \
     -data "$PINET_HOME/minima-data" \
     -port "$PINET_MINIMA_P2P_PORT" \
@@ -248,6 +254,40 @@ start_minima() {
   else
     log_warn "Minima RPC not responding yet — it may still be starting up"
     return 0
+  fi
+}
+
+start_cpip_sidecar() {
+  if [ -z "${CPIP_SERVER_PATH:-}" ]; then
+    CPIP_SERVER_PATH="/opt/cpip/server.py"
+  fi
+  if [ ! -f "$CPIP_SERVER_PATH" ]; then
+    log_warn "CPIP server not found at $CPIP_SERVER_PATH — security sidecar skipped"
+    return 0
+  fi
+  log_info "Starting CPIP security sidecar (port ${CPIP_PORT:-4180})..."
+  CPIP_PORT="${CPIP_PORT:-4180}" \
+  CPIP_DEFENSE_ENABLED="${CPIP_DEFENSE_ENABLED:-1}" \
+  CPIP_COVERT_KEY="${CPIP_COVERT_KEY:-}" \
+  CPIP_FIPS="${CPIP_FIPS:-0}" \
+  python3 "$CPIP_SERVER_PATH" > "$PINET_LOG_DIR/cpip.log" 2>&1 &
+  _cpip_pid=$!
+  echo "$_cpip_pid" > "$PINET_HOME/cpip.pid"
+  if wait_for_port "${CPIP_PORT:-4180}" 30; then
+    log_ok "CPIP security sidecar started (PID: $_cpip_pid, port ${CPIP_PORT:-4180})"
+  else
+    log_warn "CPIP sidecar not responding — continuing without it"
+  fi
+}
+
+stop_cpip_sidecar() {
+  if [ -f "$PINET_HOME/cpip.pid" ]; then
+    _cpip_pid=$(cat "$PINET_HOME/cpip.pid" 2>/dev/null)
+    if [ -n "$_cpip_pid" ] && kill -0 "$_cpip_pid" 2>/dev/null; then
+      kill "$_cpip_pid" 2>/dev/null
+      log_info "CPIP security sidecar stopped (PID: $_cpip_pid)"
+    fi
+    rm -f "$PINET_HOME/cpip.pid"
   fi
 }
 
@@ -312,6 +352,7 @@ stop_all() {
   stop_process "desktop"
   stop_process "cluster-manager"
   stop_process "minima"
+  stop_cpip_sidecar
   rm -f "$PINET_PID_FILE"
   log_ok "All PiNet-OS services stopped."
 }

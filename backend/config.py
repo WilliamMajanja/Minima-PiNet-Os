@@ -109,6 +109,22 @@ INTEGRITY_CHECK_INTERVAL = 3600000
 MAX_FAILED_LOGINS = 5
 LOCKOUT_DURATION = 300000
 
+# CPIP Security Provider (The Coffee Protocol)
+CPIP_ENABLED = os.getenv("CPIP_ENABLED", "1") == "1"
+CPIP_FIPS_MODE = os.getenv("CPIP_FIPS", "0") == "1"
+CPIP_PROVIDER_URL = os.getenv("CPIP_PROVIDER_URL", "http://127.0.0.1:4180")
+CPIP_API_KEY = os.getenv("CPIP_API_KEY", "")
+CPIP_NODE_CERT = os.getenv("CPIP_NODE_CERT", "")
+CPIP_NODE_KEY = os.getenv("CPIP_NODE_KEY", "")
+CPIP_DEFENSE_ENABLED = os.getenv("CPIP_DEFENSE_ENABLED", "1") == "1"
+CPIP_COVERT_KEY = os.getenv("CPIP_COVERT_KEY", "")
+CPIP_RECIPE = os.getenv("CPIP_RECIPE", "minima")
+CPIP_TOKEN_TTL = int(os.getenv("CPIP_TOKEN_TTL", "300"))
+CPIP_RPC_AUTH = os.getenv("CPIP_RPC_AUTH", "1") == "1"
+CPIP_MTLS_CERT = os.getenv("CPIP_MTLS_CERT", "")
+CPIP_MTLS_KEY = os.getenv("CPIP_MTLS_KEY", "")
+CPIP_MTLS_CA = os.getenv("CPIP_MTLS_CA", "")
+
 # CORS
 CORS_ORIGIN = os.getenv("PINET_CORS_ORIGIN", "")
 

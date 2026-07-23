@@ -86,6 +86,9 @@ class ClusterNode(BaseModel):
     hat: str = "NONE"
     status: str = "online"
     metrics: ClusterNodeMetrics = ClusterNodeMetrics()
+    cpip_identity: Optional[str] = None
+    cpip_public_key: Optional[str] = None
+    cpip_attestation: Optional[str] = None
 
 
 class HypervisorSwitchResult(BaseModel):
@@ -187,6 +190,8 @@ class ClusterMessageType(str, Enum):
     SNAPSHOT = "SNAPSHOT"
     METRICS = "METRICS"
     DEREGISTER = "DEREGISTER"
+    AUTH_CHALLENGE = "AUTH_CHALLENGE"
+    AUTH_RESPONSE = "AUTH_RESPONSE"
 
 
 class FileItem(BaseModel):
@@ -205,12 +210,14 @@ class MaximaSendRequest(BaseModel):
     to: str
     application: str
     data: Any
+    signature: Optional[str] = None
 
 
 class ClusterExecRequest(BaseModel):
     target_node_id: str = Field(alias="targetNodeId")
     command: str
     args: list[str] = Field(default_factory=list)
+    signature: Optional[str] = None
 
     class Config:
         populate_by_name = True

@@ -1,6 +1,6 @@
 [Unit]
 Description=Minima Blockchain Node — PiNet-OS Enterprise Edge
-After=network-online.target
+After=network-online.target cpip.service
 Wants=network-online.target
 Documentation=https://github.com/WilliamMajanja/Minima-PiNet-Os
 
@@ -10,6 +10,12 @@ User=pi
 Environment=PINET_HOME=/home/pi/.pinet
 Environment=PINET_MINIMA_P2P_PORT=9001
 Environment=PINET_MINIMA_RPC_PORT=9005
+Environment=CPIP_ENABLED=1
+Environment=CPIP_DEFENSE_ENABLED=1
+Environment=CPIP_RPC_AUTH=1
+Environment=CPIP_FIPS=0
+Environment=CPIP_RECIPE=minima
+Environment=CPIP_TOKEN_TTL=300
 ExecStart=/usr/bin/java -Xmx512m -jar /home/pi/.pinet/bin/minima.jar -data /home/pi/.pinet/minima-data -port 9001 -rpcenable -mdsenable
 Restart=always
 RestartSec=10
@@ -17,6 +23,15 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=minima-node
 LimitNOFILE=65536
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
 
 [Install]
 WantedBy=multi-user.target

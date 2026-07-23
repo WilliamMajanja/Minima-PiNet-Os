@@ -17,10 +17,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .config import (
+    CPIP_DEFENSE_ENABLED,
+    CPIP_ENABLED,
     CORS_ORIGIN,
     DESKTOP_PORT,
     PINET_VERSION,
 )
+from .cpip_provider import CPIPSecurityMiddleware, initialize_cpip
 from .state import get_state, save_state
 
 # Import route modules
@@ -97,6 +100,8 @@ async def _poll_minima_status():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup / shutdown lifecycle."""
+    if CPIP_ENABLED:
+        initialize_cpip()
     task = asyncio.create_task(_poll_minima_status())
     yield
     task.cancel()
@@ -125,6 +130,10 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # --- CPIP Security Middleware ---
+    if CPIP_ENABLED and CPIP_DEFENSE_ENABLED:
+        app.middleware("http")(CPIPSecurityMiddleware())
 
     # --- Request logging ---
     @app.middleware("http")

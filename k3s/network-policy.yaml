@@ -157,6 +157,17 @@ spec:
           protocol: TCP
         - port: 9005
           protocol: TCP
+    # CPIP security sidecar
+    - from:
+        - podSelector:
+            matchLabels:
+              app: pinet-desktop
+        - podSelector:
+            matchLabels:
+              app: minima
+      ports:
+        - port: 4180
+          protocol: TCP
 ---
 # Allow Minima egress for P2P network participation and Maxima messaging
 apiVersion: networking.k8s.io/v1

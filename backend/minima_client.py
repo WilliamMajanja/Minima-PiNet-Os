@@ -17,11 +17,17 @@ from typing import Any
 import httpx
 
 from .config import (
+    CPIP_ENABLED,
+    CPIP_MTLS_CA,
+    CPIP_MTLS_CERT,
+    CPIP_MTLS_KEY,
+    CPIP_RPC_AUTH,
     MINIMA_RPC_RETRIES,
     MINIMA_RPC_RETRY_DELAY,
     MINIMA_RPC_TIMEOUT,
     MINIMA_RPC_URL,
 )
+from .cpip_provider import RpcToken
 
 logger = logging.getLogger(__name__)
 
@@ -61,14 +67,32 @@ class MinimaRpcClient:
         self.retry_delay = retry_delay if retry_delay is not None else MINIMA_RPC_RETRY_DELAY
         self._client: httpx.AsyncClient | None = None
         self._version: str | None = None
+        self._node_id: str = "pinet-node"
+        self._cpip_token: str | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(
-                timeout=httpx.Timeout(self.timeout, connect=5.0),
-                limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
-            )
+            kwargs: dict[str, Any] = {
+                "timeout": httpx.Timeout(self.timeout, connect=5.0),
+                "limits": httpx.Limits(max_connections=10, max_keepalive_connections=5),
+            }
+            if CPIP_ENABLED and CPIP_MTLS_CERT and CPIP_MTLS_KEY:
+                kwargs["cert"] = (CPIP_MTLS_CERT, CPIP_MTLS_KEY)
+            if CPIP_ENABLED and CPIP_MTLS_CA:
+                kwargs["verify"] = CPIP_MTLS_CA
+            self._client = httpx.AsyncClient(**kwargs)
         return self._client
+
+    def _get_auth_headers(self) -> dict[str, str]:
+        """Return CPIP authentication headers for RPC calls."""
+        if not (CPIP_ENABLED and CPIP_RPC_AUTH):
+            return {}
+        if self._cpip_token is None:
+            self._cpip_token = RpcToken.generate(self._node_id)
+        return {
+            "Authorization": f"CPIP {self._cpip_token}",
+            "X-CPIP-Node": self._node_id,
+        }
 
     async def close(self) -> None:
         if self._client and not self._client.is_closed:
@@ -82,15 +106,23 @@ class MinimaRpcClient:
 
         Retries up to ``self.retries`` times on connection errors with
         ``self.retry_delay`` seconds between attempts.
+
+        When CPIP RPC auth is enabled, each request carries an
+        HMAC-SHA256 token in the Authorization header.
         """
         encoded = urllib.parse.quote(command, safe="")
         url = f"{self.rpc_url}/{encoded}"
+        headers = self._get_auth_headers()
         last_exc: Exception | None = None
 
         for attempt in range(self.retries):
             try:
                 client = await self._get_client()
-                resp = await client.get(url)
+                resp = await client.get(url, headers=headers)
+                if resp.status_code == 401 and CPIP_ENABLED and CPIP_RPC_AUTH:
+                    self._cpip_token = RpcToken.generate(self._node_id)
+                    headers = self._get_auth_headers()
+                    resp = await client.get(url, headers=headers)
                 resp.raise_for_status()
                 data = resp.json()
                 return data

@@ -1,0 +1,34 @@
+[Unit]
+Description=CPIP Security Provider — The Coffee Protocol v4.0.2
+After=network-online.target
+Wants=network-online.target
+Documentation=https://github.com/WilliamMajanja/CPIP-
+
+[Service]
+Type=simple
+User=pi
+Environment=CPIP_ENABLED=1
+Environment=CPIP_DEFENSE_ENABLED=1
+Environment=CPIP_PORT=4180
+Environment=CPIP_FIPS=0
+Environment=CPIP_MESH=0
+Environment=CPIP_COVERT=0
+Environment=CPIP_COVERT_KEY=
+ExecStart=/usr/bin/python3 /opt/cpip/server.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cpip-provider
+LimitNOFILE=4096
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target
