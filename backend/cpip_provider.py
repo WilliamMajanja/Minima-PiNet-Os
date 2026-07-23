@@ -28,11 +28,22 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import ec, padding as asym_padding
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+try:
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ec, padding as asym_padding
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+    _CRYPTO_AVAILABLE = True
+except ImportError:
+    _CRYPTO_AVAILABLE = False
+    default_backend = None
+    hashes = None
+    serialization = None
+    ec = None
+    asym_padding = None
+    AESGCM = None
+    HKDF = None
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +119,8 @@ class CoffeeCipher:
     @classmethod
     def encrypt(cls, plaintext: bytes, base_key: bytes | None = None,
                 recipe: str = CPIP_RECIPE) -> bytes:
+        if not _CRYPTO_AVAILABLE:
+            raise RuntimeError("CoffeeCipher requires 'cryptography' package")
         if base_key is None:
             base_key = CPIP_COVERT_KEY
         key = cls.key_from_recipe(base_key, recipe)
@@ -119,6 +132,8 @@ class CoffeeCipher:
     @classmethod
     def decrypt(cls, ciphertext: bytes, base_key: bytes | None = None,
                 recipe: str = CPIP_RECIPE) -> bytes:
+        if not _CRYPTO_AVAILABLE:
+            raise RuntimeError("CoffeeCipher requires 'cryptography' package")
         if base_key is None:
             base_key = CPIP_COVERT_KEY
         if len(ciphertext) < 28:
@@ -145,11 +160,13 @@ class CoffeeCipher:
 class ECP256:
     """ECDSA/ECDH using NIST P-256 (secp256r1) — FIPS 186-4 constant-time."""
 
-    _CURVE = ec.SECP256R1()
+    _CURVE = ec.SECP256R1() if _CRYPTO_AVAILABLE else None
     _CURVE_ORDER = 0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551
 
     @classmethod
     def _derive_key_from_seed(cls, seed: bytes):
+        if not _CRYPTO_AVAILABLE:
+            raise RuntimeError("ECP256 requires 'cryptography' package")
         derived = hashlib.sha256(b"cpip-ecdsa-v1:" + seed).digest()
         privkey = ec.derive_private_key(
             int.from_bytes(derived, "big") % cls._CURVE_ORDER,
@@ -159,6 +176,8 @@ class ECP256:
 
     @classmethod
     def generate_keypair(cls, seed: bytes | None = None):
+        if not _CRYPTO_AVAILABLE:
+            raise RuntimeError("ECP256 requires 'cryptography' package")
         if seed is None:
             seed = secrets.token_bytes(32)
         privkey = cls._derive_key_from_seed(seed)
@@ -170,6 +189,8 @@ class ECP256:
 
     @classmethod
     def sign(cls, message: bytes, seed: bytes) -> bytes:
+        if not _CRYPTO_AVAILABLE:
+            raise RuntimeError("ECP256 requires 'cryptography' package")
         privkey = cls._derive_key_from_seed(seed)
         return privkey.sign(
             message if isinstance(message, bytes) else message.encode(),
@@ -178,6 +199,8 @@ class ECP256:
 
     @classmethod
     def verify(cls, message: bytes, signature: bytes, public_key) -> bool:
+        if not _CRYPTO_AVAILABLE:
+            raise RuntimeError("ECP256 requires 'cryptography' package")
         try:
             if isinstance(public_key, ec.EllipticCurvePublicKey):
                 pubkey_obj = public_key
@@ -198,6 +221,8 @@ class ECP256:
 
     @classmethod
     def key_exchange(cls, our_seed: bytes, their_public_key: bytes) -> bytes:
+        if not _CRYPTO_AVAILABLE:
+            raise RuntimeError("ECP256 requires 'cryptography' package")
         privkey = cls._derive_key_from_seed(our_seed)
         pubkey_obj = ec.EllipticCurvePublicKey.from_encoded_point(
             cls._CURVE, their_public_key,
@@ -246,6 +271,9 @@ def run_fips_self_tests() -> bool:
     Tests AES-256-GCM, HMAC-SHA256, HKDF, ECDSA sign/verify, ECDH.
     """
     global _FIPS_SELF_TESTS_PASSED
+    if not _CRYPTO_AVAILABLE:
+        logger.warning("FIPS self-tests skipped — 'cryptography' package not installed")
+        return False
     try:
         # AES-256-GCM KAT
         kat_key = bytes(range(32))
@@ -601,6 +629,11 @@ def initialize_cpip() -> None:
         logger.info("CPIP security provider disabled")
         return
 
+    if not _CRYPTO_AVAILABLE:
+        logger.warning("CPIP security provider partially active — ITF Defense and RPC tokens enabled, crypto features require 'cryptography' package")
+        RpcToken.init_secret()
+        return
+
     logger.info("CPIP security provider initializing (FIPS=%s, recipe=%s)",
                 CPIP_FIPS_MODE, CPIP_RECIPE)
 
@@ -620,9 +653,12 @@ def initialize_cpip() -> None:
 
 # Auto-initialize on import if enabled
 if CPIP_ENABLED:
-    try:
-        initialize_cpip()
-    except Exception as e:
-        logger.error("CPIP initialization failed: %s", e)
-        if CPIP_FIPS_MODE:
-            raise
+    if not _CRYPTO_AVAILABLE:
+        logger.warning("CPIP enabled but 'cryptography' package not installed — crypto features disabled, ITF Defense still active")
+    else:
+        try:
+            initialize_cpip()
+        except Exception as e:
+            logger.error("CPIP initialization failed: %s", e)
+            if CPIP_FIPS_MODE:
+                raise
