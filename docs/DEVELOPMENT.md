@@ -273,6 +273,9 @@ bash tests/system/run-tests.sh --suite all
 bash tests/system/run-tests.sh --suite networking
 bash tests/system/run-tests.sh --suite security
 
+# CPIP security provider tests (FIPS self-tests, crypto KATs)
+python3 -c "from backend.cpip_provider import run_fips_self_tests; print('CPIP FIPS:', 'PASS' if run_fips_self_tests() else 'SKIP')"
+
 # Verbose output
 bash tests/system/run-tests.sh --suite all --verbose
 ```

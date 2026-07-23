@@ -12,7 +12,7 @@ Go to the **[Latest Release](https://github.com/WilliamMajanja/Minima-PiNet-Os/r
 | :--- | :--- |
 | **`PiNetOS-RaspberryPi.img`** | Flashable disk image — write directly to an SD card or NVMe |
 | **`PiNetOS-RaspberryPi-Package-v*.zip`** | Bundled package containing the `.img`, flashing instructions, checksums, and release notes |
-| `SHA256SUMS.txt` | Cryptographic checksums for all release artifacts |
+| `SHA256SUMS.txt` | Cryptographic checksums for all release artifacts (ECDSA P-256 signed via CPIP) |
 
 > **Recommended:** Download the **Package zip** for an all-in-one bundle, or the standalone `.img` if you only need the image.
 

@@ -6,6 +6,11 @@ PiNet-OS uses Minima's **Maxima protocol** as the exclusive control plane for cl
 coordination. Maxima provides end-to-end encrypted peer-to-peer messaging through the
 Minima blockchain network — no central API server needed.
 
+**CPIP Security Layer:** On top of Maxima's transport encryption, CPIP provides
+CoffeeCipher v3 (AES-256-GCM) application-layer payload encryption and HMAC-SHA256
+mesh heartbeat authentication. Node identity is established via ECDSA P-256
+challenge-response (`AUTH_CHALLENGE`/`AUTH_RESPONSE` message types).
+
 ## Protocol Identity
 
 - **Application ID**: `pinet-cluster`

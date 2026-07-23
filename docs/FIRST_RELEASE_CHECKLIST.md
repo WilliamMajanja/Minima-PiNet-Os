@@ -50,3 +50,6 @@ This checklist defines the minimum release bar to ship PiNetOS as a cohesive pro
 - [ ] Release branch passes code review and security scanning before tag.
 - [ ] Build and release scripts avoid unsafe shell execution patterns.
 - [ ] Known risks and mitigations are tracked in release notes.
+- [ ] CPIP FIPS power-on self-tests pass (AES-256-GCM, HMAC-SHA256, HKDF, ECDSA P-256, ECDH P-256).
+- [ ] Release artifacts are ECDSA P-256 signed via CPIP (per POLICY.md §4).
+- [ ] CPIP ITF Defense verified: probe blocking returns HTTP 418, IP blacklisting works.

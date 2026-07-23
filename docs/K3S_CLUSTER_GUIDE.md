@@ -94,6 +94,19 @@ sudo bash PiNetOS/scripts/k3s-security-hardening.sh server   # on pinet-alpha
 sudo bash PiNetOS/scripts/k3s-security-hardening.sh agent    # on pinet-beta and pinet-sigma
 ```
 
+### CPIP Security Sidecar
+
+The Minima DaemonSet (`k3s/minima.yaml`) includes a CPIP sidecar container (`cpip:4.0.2`, port 4180) that provides:
+
+- **ITF Defense**: probe blocking, pentest tool detection, IP blacklisting
+- **Crypto API**: CoffeeCipher v3 (AES-256-GCM), ECDSA P-256, RSA-KEM-2048
+- **Health probes**: `/health` and `/ready` endpoints
+- **Prometheus metrics**: `/cpip/metrics`
+
+Configuration is via the `minima-config` ConfigMap and `cpip-secret` Secret. Set `CPIP_FIPS=1` for FIPS 140-2/3 mode.
+
+The NetworkPolicy (`k3s/network-policy.yaml`) restricts CPIP port 4180 to Desktop and Minima pods only.
+
 ## 5. Enable Health Monitoring
 
 On each node:

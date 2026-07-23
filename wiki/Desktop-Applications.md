@@ -169,6 +169,10 @@ Comprehensive security dashboard:
 - File integrity monitoring
 - Threat detection alerts
 - Security profile management
+- **CPIP ITF Defense**: probe blocking status (HTTP 418), blacklisted IPs, detected pentest tools
+- **CPIP Crypto Status**: CoffeeCipher v3, ECDSA P-256, RSA-KEM-2048 key material and rotation
+- **CPIP Incident Chain**: tamper-evident SHA-256 audit log (`GET /cpip/incident`)
+- **CPIP Emergency Mode**: key rotation, secure wipe, stealth activation (`POST /cpip/emergency`)
 
 ---
 

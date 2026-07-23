@@ -126,6 +126,10 @@ The RPi 5 **requires active cooling** for sustained workloads. The official **Ac
 > ```bash
 > passwd
 > ```
+>
+> **CPIP Security Provider:** CPIP is enabled by default (`CPIP_ENABLED=1`).
+> For FIPS-mode deployments, set `CPIP_FIPS=1` in `.env` before first boot.
+> See [SECURITY.md](../SECURITY.md) for the full CPIP cryptographic architecture.
 
 ---
 

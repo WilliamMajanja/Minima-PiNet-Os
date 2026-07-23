@@ -106,7 +106,7 @@ minima txpowsearch data:pinet-provenance
 
 ### Logistics
 - Tamper-proof tracking of shipment conditions (temperature, handling)
-- Automated audit trails for compliance
+- Automated audit trails for compliance (supplemented by CPIP SHA-256 tamper-evident audit chain via `GET /cpip/incident`)
 - Verifiable chain of custody
 
 ### EV Infrastructure
@@ -115,7 +115,7 @@ minima txpowsearch data:pinet-provenance
 - Grid load balancing provenance
 
 ### Industrial IoT
-- Compliance-ready audit trails
+- Compliance-ready audit trails (CPIP incident response chain for tamper-evidence)
 - Predictive maintenance event logging
 - Equipment certification provenance
 

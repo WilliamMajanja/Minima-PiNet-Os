@@ -78,4 +78,5 @@ PiNet-OS supports multi-layer connectivity for enterprise resilience:
 | 5G / 4G | High-bandwidth data + coordination |
 | 2G / GSM / SMS | Low-bandwidth fallback for critical signals |
 | WireGuard mesh | Local peer-to-peer encrypted networking |
+| CPIP security sidecar | AES-256-GCM encryption, ECDSA P-256 identity, ITF Defense (port 4180) |
 | Offline | Local data collection, sync when connected |

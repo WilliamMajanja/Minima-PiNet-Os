@@ -88,6 +88,9 @@ Walk through these steps to demonstrate the full PiNet 3.0 feature set.
 - [ ] Navigate to **Security** → **Attestation**
 - [ ] Trigger a manual attestation check
 - [ ] Confirm integrity report shows **VERIFIED** against the Minima ledger
+- [ ] Verify CPIP FIPS self-tests passed (check `cpip.log` or `GET /cpip/crypto`)
+- [ ] Verify CPIP ITF Defense is active (`GET /cpip/defense`)
+- [ ] Test CPIP emergency key rotation (`POST /cpip/emergency {"action":"rotate_keys"}`)
 
 ### ✅ Enterprise Image Builder
 - [ ] Navigate to the **Pi Imager Portal**
