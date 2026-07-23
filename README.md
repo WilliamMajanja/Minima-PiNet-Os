@@ -131,7 +131,7 @@ A more detailed view lives in **[wiki/Architecture.md](wiki/Architecture.md)** a
 ```bash
 git clone https://github.com/WilliamMajanja/Minima-PiNet-Os.git
 cd Minima-PiNet-Os
-pip install -r requirements.txt
+pip install --break-system-packages -r requirements.txt
 python run.py
 ```
 

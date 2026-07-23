@@ -5,7 +5,7 @@ Use this checklist before promoting a PiNet-OS build to a stable production test
 ## 1. Repository and Release Artifact Validation
 
 - Install release dependencies with `npm ci --legacy-peer-deps`.
-- Install Python backend dependencies with `python -m pip install -r requirements.txt`.
+- Install Python backend dependencies with `python -m pip install --break-system-packages -r requirements.txt`.
 - Compile the desktop/backend with `python -m compileall run.py backend`.
 - Validate Raspberry Pi boot configuration with `npm run release:validate-boot`.
 - Smoke test the CLI and desktop startup path with `npm run release:smoke-cli`.

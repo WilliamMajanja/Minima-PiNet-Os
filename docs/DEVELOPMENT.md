@@ -19,7 +19,7 @@ git clone https://github.com/WilliamMajanja/Minima-PiNet-Os.git
 cd Minima-PiNet-Os
 
 # 3. Install Python dependencies
-pip install -r requirements.txt
+pip install --break-system-packages -r requirements.txt
 
 # 4. Start the desktop server
 python run.py
@@ -34,7 +34,7 @@ git clone https://github.com/WilliamMajanja/Minima-PiNet-Os.git
 cd Minima-PiNet-Os
 
 # 2. Install Python dependencies
-pip install -r requirements.txt
+pip install --break-system-packages -r requirements.txt
 
 # 3. Start the desktop server
 python run.py
@@ -51,7 +51,7 @@ docker run --rm -it \
   -p 3000:3000 \
   -w /workspace \
   python:3.11-bookworm \
-  bash -c "pip install -r requirements.txt && python run.py"
+  bash -c "pip install --break-system-packages -r requirements.txt && python run.py"
 ```
 
 ---

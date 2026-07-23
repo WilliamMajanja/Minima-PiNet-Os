@@ -19,7 +19,7 @@ git clone https://github.com/WilliamMajanja/Minima-PiNet-Os.git
 cd Minima-PiNet-Os
 
 # 2. Install Python dependencies
-pip install -r requirements.txt
+pip install --break-system-packages -r requirements.txt
 
 # 3. Copy and configure environment (API keys are optional for the demo)
 cp .env.example .env

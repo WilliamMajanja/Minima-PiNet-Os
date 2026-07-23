@@ -48,7 +48,7 @@ git clone https://github.com/WilliamMajanja/Minima-PiNet-Os.git
 cd Minima-PiNet-Os
 
 # Install dependencies
-pip install -r requirements.txt
+pip install --break-system-packages -r requirements.txt
 
 # Start the desktop server
 python run.py
