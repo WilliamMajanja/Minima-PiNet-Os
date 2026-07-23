@@ -31,7 +31,7 @@ Minima PiNet OS is a **zero-bloat Linux distribution** designed for edge computi
 ### Cluster & Infrastructure
 - [Cluster Management](Cluster-Management) — Multi-node clusters, Maxima protocol
 - [Kernel and Services](Kernel-and-Services) — OS kernel, 18 services, type system
-- [Security](Security) — Zero-trust architecture, 14 security controls
+- [Security](Security) — Zero-trust architecture, 15 security controls (including CPIP security provider)
 
 ### Operations
 - [Release Process](Release-Process) — CI/CD, artifacts, versioning

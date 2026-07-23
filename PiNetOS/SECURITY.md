@@ -1,9 +1,9 @@
 # Security Policy for Minima-PiNet-Os
 
 **Document Classification:** PUBLIC / SECURITY POLICY  
-**Applies To:** Minima-PiNet-Os Core, Edge Node Infrastructure, PiNet Neural Framework
+**Applies To:** Minima-PiNet-Os Core, Edge Node Infrastructure, PiNet Neural Framework, CPIP Security Provider (The Coffee Protocol)
 
-This document outlines the security policies, vulnerability reporting procedures, and the zero-trust threat model governing the Minima-PiNet-Os stack.
+This document outlines the security policies, vulnerability reporting procedures, and the zero-trust threat model governing the Minima-PiNet-Os stack. For the authoritative and current version, see the root [SECURITY.md](../SECURITY.md).
 
 ## Supported Versions
 
@@ -36,11 +36,13 @@ We take the security of our edge computing and blockchain infrastructure extreme
 Minima-PiNet-Os is engineered under a **Zero-Trust** paradigm. When auditing or reporting vulnerabilities, please consider our established threat model and hardening baselines:
 
 ### In-Scope Security Controls
-*   **Cryptographic Authentication:** SSH is strictly limited to `ed25519` key-based authentication. Password authentication and legacy algorithms (RSA/ECDSA) are disabled by default.
-*   **Network Perimeter:** UFW (Uncomplicated Firewall) is configured to default-deny all ingress traffic. Only ports `22` (SSH), `9001` (Minima P2P), and `9002` (Minima RPC) are exposed.
-*   **Brute-Force Mitigation:** `fail2ban` is actively monitoring auth logs and will permanently drop IPs (`bantime = -1`) attempting SSH brute-force attacks.
+*   **CPIP Security Provider (The Coffee Protocol v4.0.2):** All nodes use CPIP for AES-256-GCM (FIPS 197) encryption, ECDSA/ECDH P-256 (FIPS 186-4) node identity, RSA-KEM-2048 (SP 800-56B) key encapsulation, HMAC-SHA256 RPC token auth, and optional 1nf1D3L Kyber (non-FIPS ML-KEM-768) PQ key exchange. FIPS 140-2/3 mode via `CPIP_FIPS=1`.
+*   **CPIP ITF Defense:** Active probe blocking (HTTP 418), pentest tool fingerprinting, IP blacklisting. Defense policy groups: Anti-ISP, Anti-Stingray, Anti-Surveillance, Net-Neutrality.
+*   **Cryptographic Authentication:** SSH is strictly limited to `ed25519` key-based authentication. Password authentication and legacy algorithms (RSA/ECDSA) are disabled by default. CPIP node identity uses ECDSA P-256 (FIPS 186-4) for challenge-response — this is distinct from SSH key algorithms.
+*   **Network Perimeter:** UFW (Uncomplicated Firewall) is configured to default-deny all ingress traffic. Only ports `22` (SSH), `9001` (Minima P2P), `9005` (Minima RPC), `4180` (CPIP Security), and `51820` (WireGuard) are exposed.
+*   **Brute-Force Mitigation:** `fail2ban` is actively monitoring auth logs and will permanently drop IPs (`bantime = -1`) attempting SSH brute-force attacks. CPIP ITF Defense provides complementary API-layer brute-force mitigation with HTTP 418 responses and IP blacklisting.
 *   **Privilege Escalation:** The default `pi` user is locked, expired, and removed from the `sudo` group.
-*   **Data at Rest:** Root and data partitions are encrypted via LUKS.
+*   **Data at Rest:** Root and data partitions are encrypted via LUKS. CPIP CoffeeCipher v3 (AES-256-GCM) provides application-layer encryption with HKDF-SHA256 key derivation.
 *   **Boot Integrity:** Secure Boot and Measured Boot (via TPM 2.0 PCR sealing) ensure the chain of trust from the Boot ROM to the OS kernel.
 
 ### Out of Scope

@@ -31,6 +31,7 @@ systemd
 - **Blockchain P2P**: Minima protocol on port 9001.
 
 ## Security Model
-- **Device Identity**: TPM-backed cryptographic identity.
-- **Secure Node Registration**: Challenge-response over WireGuard.
-- **Encrypted Networking**: All inter-node traffic is encrypted via WireGuard.
+- **Device Identity**: TPM-backed cryptographic identity + CPIP ECDSA P-256 node identity.
+- **Secure Node Registration**: Challenge-response over WireGuard with CPIP `AUTH_CHALLENGE`/`AUTH_RESPONSE`.
+- **Encrypted Networking**: All inter-node traffic is encrypted via WireGuard. CPIP CoffeeCipher v3 (AES-256-GCM) for application-layer encryption.
+- **CPIP Security Provider**: The Coffee Protocol v4.0.2 — AES-256-GCM, ECDSA P-256, RSA-KEM-2048, HMAC-SHA256, optional Kyber PQ KEM, ITF Defense, FIPS self-tests.
