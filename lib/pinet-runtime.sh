@@ -218,12 +218,15 @@ wait_for_port() {
   _elapsed=0
   while [ "$_elapsed" -lt "$_timeout" ]; do
     if command -v curl >/dev/null 2>&1; then
+      curl -sf "http://127.0.0.1:$_port/" >/dev/null 2>&1 && return 0
+      curl -skf "https://127.0.0.1:$_port/" >/dev/null 2>&1 && return 0
       curl -sf "http://127.0.0.1:$_port/status" >/dev/null 2>&1 && return 0
+      curl -skf "https://127.0.0.1:$_port/status" >/dev/null 2>&1 && return 0
     elif command -v wget >/dev/null 2>&1; then
-      wget -q -O /dev/null "http://127.0.0.1:$_port/status" 2>/dev/null && return 0
-    else
-      (echo > "/dev/tcp/127.0.0.1/$_port") 2>/dev/null && return 0
+      wget -q -O /dev/null "http://127.0.0.1:$_port/" 2>/dev/null && return 0
+      wget -q -O /dev/null "https://127.0.0.1:$_port/" 2>/dev/null && return 0
     fi
+    (echo > "/dev/tcp/127.0.0.1/$_port") 2>/dev/null && return 0
     sleep 1
     _elapsed=$((_elapsed + 1))
   done
@@ -265,19 +268,33 @@ start_cpip_sidecar() {
     log_warn "CPIP server not found at $CPIP_SERVER_PATH — security sidecar skipped"
     return 0
   fi
-  log_info "Starting CPIP security sidecar (port ${CPIP_PORT:-4180})..."
-  CPIP_PORT="${CPIP_PORT:-4180}" \
+  _cpip_port="${CPIP_PORT:-4180}"
+  # Check if CPIP is already running on the port
+  if ss -tlnp 2>/dev/null | grep -q ":${_cpip_port} "; then
+    log_ok "CPIP security sidecar already running on port $_cpip_port"
+    return 0
+  fi
+  log_info "Starting CPIP security sidecar (port $_cpip_port)..."
+  CPIP_PORT="$_cpip_port" \
   CPIP_DEFENSE_ENABLED="${CPIP_DEFENSE_ENABLED:-1}" \
   CPIP_COVERT_KEY="${CPIP_COVERT_KEY:-}" \
   CPIP_FIPS="${CPIP_FIPS:-0}" \
   python3 "$CPIP_SERVER_PATH" > "$PINET_LOG_DIR/cpip.log" 2>&1 &
   _cpip_pid=$!
   echo "$_cpip_pid" > "$PINET_HOME/cpip.pid"
-  if wait_for_port "${CPIP_PORT:-4180}" 30; then
-    log_ok "CPIP security sidecar started (PID: $_cpip_pid, port ${CPIP_PORT:-4180})"
-  else
-    log_warn "CPIP sidecar not responding — continuing without it"
-  fi
+  # Wait and check with both HTTP and HTTPS
+  _elapsed=0
+  while [ "$_elapsed" -lt 30 ]; do
+    if curl -skf "https://127.0.0.1:$_cpip_port/" >/dev/null 2>&1 || \
+       curl -sf "http://127.0.0.1:$_cpip_port/" >/dev/null 2>&1 || \
+       (echo > "/dev/tcp/127.0.0.1/$_cpip_port") 2>/dev/null; then
+      log_ok "CPIP security sidecar started (PID: $_cpip_pid, port $_cpip_port)"
+      return 0
+    fi
+    sleep 1
+    _elapsed=$((_elapsed + 1))
+  done
+  log_warn "CPIP sidecar not responding — continuing without it"
 }
 
 stop_cpip_sidecar() {
