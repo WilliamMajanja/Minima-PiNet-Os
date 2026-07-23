@@ -103,5 +103,7 @@ sudo systemctl enable --now minima pinet-cluster-manager pinet-desktop
 | Port | Service | Description |
 |------|---------|-------------|
 | 3000 | Web Desktop | Browser-based control plane |
-| 9001 | Minima RPC | Blockchain node API |
+| 9001 | Minima P2P | Blockchain peer-to-peer |
+| 9005 | Minima RPC | Blockchain node API |
+| 4180 | CPIP Security | ITF Defense + crypto API |
 | 9090 | Cluster API | Go cluster manager API |

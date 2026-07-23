@@ -87,7 +87,9 @@ Default: deny incoming, allow outgoing
 Allow:
   22/tcp     SSH
   3000/tcp   Desktop / API
-  9001/tcp   Minima RPC
+  9001/tcp   Minima P2P
+  9005/tcp   Minima RPC
+  4180/tcp   CPIP Security Provider
   9090/tcp   Cluster API
   51820/udp  WireGuard
 ```

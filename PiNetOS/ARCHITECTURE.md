@@ -26,7 +26,8 @@ All cluster coordination uses the **Maxima protocol** (Minima's encrypted P2P me
 │   Master Node    │ ◄────────────────────────────────► │   Worker Node    │
 │                  │  JOIN_REQUEST, HEARTBEAT,          │                  │
 │  Go Cluster Mgr  │  STATE_UPDATE, EXEC_REQUEST,      │  Go Cluster Mgr  │
-│  Minima (:9001)  │  METRICS, DEREGISTER              │  Minima (:9001)  │
+│  Minima (:9001 P2P, :9005 RPC)  │  METRICS, DEREGISTER            │  Minima (:9001 P2P, :9005 RPC)  │
+│  CPIP (:4180)    │                                    │  CPIP (:4180)    │
 │  Desktop (:3000) │                                    │  Desktop (:3000) │
 │  API (:9090)     │                                    │  API (:9090)     │
 └──────────────────┘                                    └──────────────────┘

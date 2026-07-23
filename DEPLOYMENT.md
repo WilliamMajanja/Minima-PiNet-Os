@@ -106,7 +106,7 @@ All runtime configuration is controlled via environment variables. Copy `.env.ex
 | Variable | Default | Description |
 | :--- | :--- | :--- |
 | `PINET_DESKTOP_PORT` | `3000` | Web desktop / API server port |
-| `PINET_MINIMA_RPC_PORT` | `9001` | Minima blockchain node RPC port |
+| `PINET_MINIMA_RPC_PORT` | `9005` | Minima blockchain node RPC port |
 | `PINET_CLUSTER_API_PORT` | `9090` | PiNet cluster manager API port |
 | `PINET_NETWORK_INTERFACE` | `eth0` | Network interface to bind to |
 | `GEMINI_API_KEY` | — | Google Gemini API key (AI features) |

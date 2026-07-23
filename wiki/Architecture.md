@@ -54,7 +54,8 @@ The control plane uses Minima's **Maxima protocol** for encrypted P2P cluster co
 │   Master Node    │ ◄────────────────────────────────► │   Worker Node    │
 │                  │  JOIN_REQUEST, HEARTBEAT,          │                  │
 │  Go Cluster Mgr  │  STATE_UPDATE, EXEC_REQUEST,      │  Go Cluster Mgr  │
-│  Minima (:9001)  │  METRICS, DEREGISTER              │  Minima (:9001)  │
+│  Minima (:9001 P2P, :9005 RPC)  │  METRICS, DEREGISTER            │  Minima (:9001 P2P, :9005 RPC)  │
+│  CPIP (:4180)    │                                    │  CPIP (:4180)    │
 │  Desktop (:3000) │                                    │  Desktop (:3000) │
 │  API (:9090)     │                                    │  API (:9090)     │
 └──────────────────┘                                    └──────────────────┘
@@ -129,4 +130,4 @@ PiNet OS supports multi-layer connectivity with automatic failover:
 - **Spawnable Runtime** — Can overlay on any existing Linux distro
 - **Decentralized-First** — No central server dependencies
 - **Hardware-Aware** — HAL auto-detects and gracefully degrades
-- **Security by Default** — Zero-trust architecture from boot
+- **Security by Default** — Zero-trust architecture from boot, CPIP security provider (AES-256-GCM, ECDSA P-256, ITF Defense)

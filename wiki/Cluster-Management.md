@@ -334,5 +334,5 @@ Key cluster settings in `config/defaults.ts`:
 
 - [Architecture](Architecture) — Control plane design
 - [Networking](Networking) — WireGuard and network configuration
-- [Security](Security) — Zero-trust cluster security
+- [Security](Security) — Zero-trust cluster security with CPIP security provider
 - [CLI Reference](CLI-Reference) — `pinet cluster` and `pinet join`

@@ -137,7 +137,7 @@ bash /opt/pinetos/tests/system/run-tests.sh --suite all
 Expected output:
 ```
 [PASS] System boot integrity
-[PASS] Minima node reachable on :9001
+[PASS] Minima node reachable on :9005
 [PASS] Desktop API responding on :3000
 [PASS] GPIO HAL initialized
 [PASS] Cluster manager healthy

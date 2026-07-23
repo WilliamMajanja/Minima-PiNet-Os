@@ -303,3 +303,4 @@ The DApp platform exposes the following server endpoints:
 - The PostMessage bridge enforces **permission checks** — DApps can only call methods they declared in their manifest.
 - DApp files are served from a dedicated directory; path traversal is prevented server-side.
 - DApp IDs are validated to only contain safe characters.
+- **CPIP Security Provider**: DApp storage is encrypted at rest with CoffeeCipher v3 (AES-256-GCM). API requests pass through CPIP ITF Defense (probe blocking, IP blacklisting).

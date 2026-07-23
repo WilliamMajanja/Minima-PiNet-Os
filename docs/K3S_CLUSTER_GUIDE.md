@@ -15,7 +15,7 @@ Raspberry Pi 5 cluster and bringing up all services with a single command.
 
 | Service | Preferred Node | Namespace | Port |
 |---------|---------------|-----------|------|
-| Minima Blockchain | All (DaemonSet) | pinet-system | 9001 |
+| Minima Blockchain | All (DaemonSet) | pinet-system | 9001 (P2P), 9005 (RPC) |
 | PiNet Desktop | pinet-alpha | pinet-system | 3000 (NodePort 30300) |
 | InfluxDB | pinet-alpha | zedd-weather | 8086 |
 | Grafana | pinet-alpha | zedd-weather | 3001 |

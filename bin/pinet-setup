@@ -95,8 +95,8 @@ check_python || exit 1
 
 # ─── Download Minima JAR ──────────────────────────────────────────────────────
 
-MINIMA_JAR_URL="https://github.com/minima-global/Minima/releases/download/v${PINET_MINIMA_VERSION}/minima.jar"
-MINIMA_JAR_FALLBACK_URL="https://github.com/minima-global/Minima/raw/master/jar/minima.jar"
+MINIMA_JAR_URL="https://github.com/WilliamMajanja/Minima-private/releases/download/v1.0.49/minima-v1.0.49-cpip.jar"
+MINIMA_JAR_FALLBACK_URL="https://github.com/WilliamMajanja/minima-core/releases/download/v1.1.2.4-security/minima-v1.1.2.4-cpip.jar"
 
 if [ ! -f "$PINET_MINIMA_JAR" ]; then
   log_info "Downloading Minima v${PINET_MINIMA_VERSION}..."

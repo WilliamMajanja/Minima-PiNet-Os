@@ -9,7 +9,8 @@ PiNetOS is a lightweight, spawnable Linux environment that transforms Raspberry 
 ```
 Pi 5 Node A (master)               Pi 5 Node B (worker)
 ├─ PiNet-OS runtime (shell session) ├─ PiNet-OS runtime (shell session)
-├─ Minima node (:9001 RPC)          ├─ Minima node (:9001 RPC)
+├─ Minima node (:9001 P2P, :9005 RPC) ├─ Minima node (:9001 P2P, :9005 RPC)
+├─ CPIP security sidecar (:4180)     ├─ CPIP security sidecar (:4180)
 ├─ Maxima (cluster control bus)     ├─ Maxima (cluster control bus)
 ├─ Go cluster manager (:9090)      ├─ Go cluster manager (:9090)
 └─ Browser desktop (:3000)          └─ Browser desktop (:3000)

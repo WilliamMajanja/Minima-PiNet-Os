@@ -23,7 +23,7 @@ pinet start --role master
 ```
 
 This will:
-1. Start the local Minima node (RPC port 9001)
+1. Start the local Minima node (P2P port 9001, RPC port 9005)
 2. Start the cluster manager (API port 9090)
 3. Start the web desktop (port 3000)
 4. Initialize the cluster state

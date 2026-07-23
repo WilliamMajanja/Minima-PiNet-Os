@@ -299,6 +299,7 @@ Exceeded requests return HTTP `429 Too Many Requests`.
 - **Command Allowlists**: Shell execution uses `execFile` with explicit argument arrays — no shell interpolation
 - **CORS**: Configurable origin restrictions
 - **Authentication**: Session-based authentication via `/api/auth/login`
+- **CPIP Security Provider**: ITF Defense (probe blocking HTTP 418, pentest detection, IP blacklisting), HMAC-SHA256 RPC token auth, ECDSA P-256 node identity, AES-256-GCM encryption. See [Security](Security) for CPIP API endpoints.
 
 ---
 

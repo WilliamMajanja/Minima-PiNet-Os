@@ -3,7 +3,7 @@ set -e
 
 echo "Running chroot setup..."
 
-MINIMA_VERSION="${MINIMA_VERSION:-1.0.49}"
+MINIMA_VERSION="${MINIMA_VERSION:-1.0.49-cpip}"
 
 # Set hostname
 echo "pinetos" > /etc/hostname
