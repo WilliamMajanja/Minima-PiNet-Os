@@ -117,7 +117,12 @@ class LXCQuotaManager:
         """Apply cgroup v2 resource limits for a tenant container."""
         if not _CGROUP_V2:
             return
-        cgroup_path = Path(f"/sys/fs/cgroup/lxc/{quota.container_name}")
+        # Sanitize container_name to prevent path traversal
+        safe_name = "".join(c for c in quota.container_name if c.isalnum() or c in "-_")
+        if not safe_name or safe_name != quota.container_name:
+            logger.warning("Rejected suspicious container name: %s", quota.container_name)
+            return
+        cgroup_path = Path(f"/sys/fs/cgroup/lxc/{safe_name}")
         try:
             cgroup_path.mkdir(parents=True, exist_ok=True)
             # CPU limit: quota/period format (e.g. 50000/100000 = 50%)
@@ -141,7 +146,12 @@ class LXCQuotaManager:
         """Remove cgroup limits for a tenant."""
         if not _CGROUP_V2:
             return
-        cgroup_path = Path(f"/sys/fs/cgroup/lxc/{quota.container_name}")
+        # Sanitize container_name to prevent path traversal
+        safe_name = "".join(c for c in quota.container_name if c.isalnum() or c in "-_")
+        if not safe_name or safe_name != quota.container_name:
+            logger.warning("Rejected suspicious container name: %s", quota.container_name)
+            return
+        cgroup_path = Path(f"/sys/fs/cgroup/lxc/{safe_name}")
         try:
             if cgroup_path.exists():
                 # Move processes to root cgroup first
@@ -156,7 +166,12 @@ class LXCQuotaManager:
 
     def _read_cgroup_usage(self, quota: LXCQuota) -> LXCQuotaUsage:
         """Read current usage from cgroup v2 stats."""
-        cgroup_path = Path(f"/sys/fs/cgroup/lxc/{quota.container_name}")
+        # Sanitize container_name to prevent path traversal
+        safe_name = "".join(c for c in quota.container_name if c.isalnum() or c in "-_")
+        if not safe_name or safe_name != quota.container_name:
+            logger.warning("Rejected suspicious container name: %s", quota.container_name)
+            return LXCQuotaUsage(tenantId=quota.tenant_id, running=False)
+        cgroup_path = Path(f"/sys/fs/cgroup/lxc/{safe_name}")
         usage = LXCQuotaUsage(tenantId=quota.tenant_id, running=False)
 
         if not cgroup_path.exists():

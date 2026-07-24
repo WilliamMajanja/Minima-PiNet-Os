@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import time
 
 from fastapi import APIRouter, Request
@@ -28,6 +29,8 @@ from ..cpip_provider import (
     RpcToken,
     run_fips_self_tests,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -149,7 +152,11 @@ async def cpip_update(body: dict):
     """
     from ..cpip_updater import apply_update
     target = body.get("target_version")
-    return apply_update(target_version=target)
+    try:
+        return apply_update(target_version=target)
+    except Exception:
+        logger.exception("CPIP update failed")
+        return {"success": False, "error": "Update failed. Check logs for details."}
 
 
 @router.get("/cpip/update/status")
@@ -172,30 +179,46 @@ async def cpip_update_status():
 async def cpip_watcher_status():
     """Return the CPIP watcher status."""
     from ..cpip_watcher import get_watcher_state
-    return get_watcher_state()
+    try:
+        return get_watcher_state()
+    except Exception:
+        logger.exception("Failed to get watcher state")
+        return {"running": False, "error": "Watcher unavailable"}
 
 
 @router.post("/cpip/watcher/check")
 async def cpip_watcher_force_check():
     """Force an immediate version check."""
     from ..cpip_watcher import force_check_now
-    return await force_check_now()
+    try:
+        return await force_check_now()
+    except Exception:
+        logger.exception("Force check failed")
+        return {"success": False, "error": "Check failed"}
 
 
 @router.post("/cpip/watcher/start")
 async def cpip_watcher_start():
     """Start the background watcher."""
     from ..cpip_watcher import start_watcher
-    await start_watcher()
-    return {"success": True, "message": "Watcher started"}
+    try:
+        await start_watcher()
+        return {"success": True, "message": "Watcher started"}
+    except Exception:
+        logger.exception("Failed to start watcher")
+        return {"success": False, "error": "Start failed"}
 
 
 @router.post("/cpip/watcher/stop")
 async def cpip_watcher_stop():
     """Stop the background watcher."""
     from ..cpip_watcher import stop_watcher
-    await stop_watcher()
-    return {"success": True, "message": "Watcher stopped"}
+    try:
+        await stop_watcher()
+        return {"success": True, "message": "Watcher stopped"}
+    except Exception:
+        logger.exception("Failed to stop watcher")
+        return {"success": False, "error": "Stop failed"}
 
 
 @router.get("/cpip/watcher/events")
