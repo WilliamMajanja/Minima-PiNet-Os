@@ -1,3 +1,114 @@
+# Minima-PiNet-OS v3.0.0
+
+<!-- Release: v3.0.0 | Tagged: 2026-10-24 -->
+
+> **Version 3.0.0 Release** — Confidential computing enclaves, verifiable compute proofs (zkVM), decentralized edge compute marketplace.
+
+## Highlights
+
+### v3.0.0 Features
+
+- **Confidential Computing Enclaves** — Arm CCA and RISC-V AP-TEE hardware-backed enclaves. Enclave lifecycle management (create, stop, terminate), cryptographic measurement generation, and TEE-signed attestation anchored to the Minima blockchain. API at `/api/enclaves/*`.
+- **Verifiable Compute Proofs (zkVM)** — RISC Zero zkVM integration for generating and verifying zero-knowledge proofs. STARK → SNARK proof compression with on-chain verification. API at `/api/zk/proofs/*`. Build toolchain at `build-system/build-zk-prover.sh`.
+- **Decentralized Edge Compute Marketplace** — Peer-to-peer marketplace for publishing and leasing edge compute resources. Minima escrow for order settlement, attestation binding for trust, five-star reputation system with on-chain anchoring. API at `/api/marketplace/*`. K3s manifests at `k3s/marketplace.yaml`.
+- **SSL/TLS with mkcert** — Production-grade TLS termination via mkcert (local CA) or OpenSSL (self-signed fallback). Certificates auto-generated on first boot with SANs for localhost, 127.0.0.1, and ::1. HSTS headers (max-age=31536000, includeSubDomains, preload) on all HTTPS responses. 11 security headers (CSP, Permissions-Policy, X-Frame-Options, etc.) on every response. API at `/api/ssl/*`. CLI: `pinet ssl`.
+
+## New Desktop Apps
+
+- **Enclaves** (`enclaves`) — Create and manage confidential computing enclaves
+- **ZK Prover** (`zk-prover`) — Generate and verify zero-knowledge proofs
+- **Marketplace** (`marketplace`) — Publish and lease edge compute resources
+- **SSL/TLS Manager** (`ssl-manager`) — Manage certificates, HSTS, and security headers
+
+## New API Endpoints
+
+| Prefix | Count | Description |
+|---|---|---|
+| `/api/enclaves/*` | 8 | Enclave CRUD, measurement, attestation |
+| `/api/zk/proofs/*` | 5 | Proof generation, verification, listing |
+| `/api/marketplace/*` | 12 | Listings, orders, ratings |
+| `/api/ssl/*` | 5 | SSL/TLS cert status, generate, delete, install CA, download |
+
+## New Configuration
+
+See `.env.example` for full reference:
+
+- `PINET_ENCLAVE=1` — Enable confidential computing enclaves
+- `PINET_ENCLAVE_TEE_TYPE=auto` — TEE type (cca, riscv-tee, auto)
+- `PINET_ZK_PROVER=1` — Enable zkVM prover
+- `PINET_MARKETPLACE=1` — Enable decentralized marketplace
+- `PINET_MARKETPLACE_MAX_LISTINGS=100` — Max listings per node
+- `PINET_MARKETPLACE_ESCROW_TOKENS=minima` — Escrow token
+- `PINET_SSL_ENABLED=1` — Enable SSL/TLS on the web server
+- `PINET_SSL_HOSTS=localhost,127.0.0.1,::1` — SAN hosts for server certificate
+- `PINET_HSTS_ENABLED=1` — Enable HSTS headers on HTTPS responses
+- `PINET_HSTS_MAX_AGE=31536000` — HSTS max-age in seconds (1 year)
+
+## How to publish
+
+```bash
+git tag v3.0.0
+git push origin v3.0.0
+```
+
+---
+
+# Minima-PiNet-OS v1.3.0
+
+<!-- Release: v1.3.0 | Tagged: 2026-10-15 -->
+
+> **Version 1.3.0 Release** — On-device LLM gateway, multi-tenant LXC quotas, hardware key-wrap (TPM 2.0), and CPIP post-quantum TLS.
+
+## Highlights
+
+### v1.3.0 Features
+
+- **On-Device LLM Gateway** — Local LLM inference via Ollama (llama.cpp/GGUF) with Hailo-8L NPU acceleration detection. OpenAI-compatible API at `/api/llm/*` with automatic fallback to Gemini cloud when no local model is loaded. Model registry supports pull/delete operations.
+- **Multi-Tenant LXC Quotas** — Per-tenant resource quotas for LXC containers via cgroups v2 (CPU, RAM, disk, IO, processes, network). Up to 16 tenants per node with configurable limits. API at `/api/lxc/*`.
+- **Hardware Key-Wrap (TPM 2.0)** — CPIP master keys sealed against TPM 2.0 PCR values, ensuring keys can only be unsealed on the same hardware with the same boot state. Software fallback for non-TPM hosts. API at `/api/tpm/*`.
+- **CPIP PQ-TLS** — Post-quantum TLS for CPIP RPC transport using hybrid ECDH P-256 + Kyber-768 (ML-KEM-768) key exchange. HKDF-SHA256 session key derivation. Graceful degradation to classical TLS when Kyber library is unavailable. API at `/api/cpip/pq-tls/*`.
+
+### v2.0.0 Features
+
+- **RISC-V Reference Board** — Device tree and kernel config for StarFive VisionFive 2 (JH7110, SiFive U74). Cross-build script at `build-system/build-riscv.sh`. Boot config at `boot/riscv/uEnv.txt`.
+- **Deterministic Image Rebuilds** — Reproducible rootfs builds via `build-system/reproducible-build.sh` with pinned package versions (`build-system/packages.lock`) and `SOURCE_DATE_EPOCH` normalization.
+- **Formal Attestation Spec** — TPM 2.0 PCR-based remote attestation anchored to the Minima blockchain. Full spec at `docs/ATTESTATION_SPEC.md`. API at `/api/attestation/*`.
+
+## New Desktop Apps
+
+- **LLM Gateway** (`llm-gateway`) — Chat with local LLM models
+- **LXC Quotas** (`lxc-quotas`) — Manage tenant resource limits
+- **Attestation** (`attestation`) — Create and verify attestation records
+
+## New API Endpoints
+
+| Prefix | Count | Description |
+|---|---|---|
+| `/api/llm/*` | 5 | LLM gateway (status, models, chat, pull, delete) |
+| `/api/lxc/*` | 8 | LXC tenant quota management |
+| `/api/tpm/*` | 4 | TPM key-wrap (status, seal, unseal, PCRs) |
+| `/api/cpip/pq-tls/*` | 3 | PQ-TLS status, handshake, keypair |
+| `/api/attestation/*` | 6 | Formal attestation CRUD + verify + anchor |
+
+## Configuration
+
+New environment variables (see `.env.example` for full list):
+
+- `PINET_LLM_GATEWAY=1` — Enable on-device LLM gateway
+- `PINET_LXC_QUOTA=1` — Enable multi-tenant LXC quotas
+- `PINET_TPM_KEYWRAP=1` — Enable TPM 2.0 hardware key-wrap
+- `CPIP_PQ_TLS=0` — Enable post-quantum TLS (opt-in)
+- `PINET_ATTESTATION=1` — Enable formal remote attestation
+
+## How to publish
+
+```bash
+git tag v1.3.0
+git push origin v1.3.0
+```
+
+---
+
 # Minima-PiNet-OS v1.2.0
 
 <!-- Release: v1.2.0 | Tagged: 2026-04-23 -->
@@ -149,8 +260,8 @@ All release artifacts are accompanied by `SHA256SUMS.txt`. Verify integrity befo
 sha256sum --check SHA256SUMS.txt
 ```
 
-**CPIP Security Provider (The Coffee Protocol v4.0.2):** This release integrates CPIP as the primary security provider for all Minima nodes. Key additions:
-- CoffeeCipher v3 (AES-256-GCM + HKDF-SHA256) for data at rest and RPC payload encryption
+**CPIP Security Provider (The Coffee Protocol v5.0.5):** This release integrates CPIP as the primary security provider for all Minima nodes. Key additions:
+- CoffeeCipher v5 (AES-256-GCM + HKDF-SHA256) for data at rest and RPC payload encryption
 - ECDSA/ECDH P-256 (FIPS 186-4) for node identity and challenge-response authentication
 - RSA-KEM-2048 (SP 800-56B) for key encapsulation; optional 1nf1D3L Kyber (non-FIPS ML-KEM-768) for PQ hybrid
 - HMAC-SHA256 RPC token authentication replacing Basic Auth

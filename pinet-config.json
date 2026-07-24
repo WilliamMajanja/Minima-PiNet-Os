@@ -14,7 +14,21 @@
   "pxe": {
     "tftp_root": "/var/lib/tftpboot",
     "nfs_root": "/export/pis",
-    "default_image": "pinetos-v1.2.0-aarch64"
+    "default_image": "pinetos-v3.0.0-aarch64"
+  },
+  "sensors": {
+    "enabled": true,
+    "platform_override": "",
+    "default_i2c_bus": 1,
+    "pi_zero_2w": {
+      "max_sensors": 4,
+      "min_poll_interval": 15,
+      "i2c_bus": 1,
+      "supports_spi": true,
+      "supports_gpio": true,
+      "supports_one_wire": true,
+      "supports_adc": true
+    }
   },
   "nodes": [
     {

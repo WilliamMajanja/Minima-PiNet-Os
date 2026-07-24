@@ -7,6 +7,7 @@
 #   - Pi 5 (BCM2712 / ARM64)
 #   - Pi 4 (BCM2711 / ARM64)
 #   - Pi 3 (BCM2837 / ARM64)
+#   - Pi Zero 2 W (BCM2837B0 / ARM64) — 512 MB RAM, single-core turbo
 #   - Pi 2 (BCM2836 / ARM32) — use linux/arm/v7
 #   - Pi 1 / Zero / Zero W (BCM2835 / ARM32) — use linux/arm/v6
 #   - Compute Module 3/4
@@ -15,6 +16,7 @@
 # Build:
 #   docker buildx build --platform linux/arm64 -t zedd-weather:latest .
 #   docker buildx build --platform linux/arm/v7 -t zedd-weather:armv7 .
+#   docker buildx build --platform linux/arm/v6 -t zedd-weather:armv6 .
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Stage 1: build / dependency resolution ───────────────────────────────────

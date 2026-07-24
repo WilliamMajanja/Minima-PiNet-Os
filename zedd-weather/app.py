@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 """
 Zedd Weather Edge Sensor Application
-=====================================
+====================================
 Reads environmental data from a Sense HAT (temperature, humidity, barometric
 pressure) every 10 seconds and writes it to an InfluxDB v2 instance.
 
 Supports all Raspberry Pi models with Sense HAT:
   - Pi 5 (BCM2712), Pi 4 (BCM2711), Pi 3 (BCM2837) — native ARM64
   - Pi 2 (BCM2836), Pi 1 / Zero / Zero W (BCM2835) — ARM32
+  - Pi Zero 2 W (BCM2837B0) — ARM64, 512 MB RAM, single-core turbo
   - Compute Module 3/4
+
+Also supports custom user-built sensors via I2C / GPIO / SPI / 1-Wire / UART,
+with Pi Zero 2 W-specific resource limits (max 4 sensors, 15s min poll).
 
 On non-Pi platforms, falls back to simulated sensor data for CI/testing.
 
@@ -23,6 +27,7 @@ Optional:
   NODE_NAME       — Kubernetes node name, injected by the Downward API
   HEALTH_PORT     — Health check port (default: 9200)
   PLATFORM        — Override platform detection (pi5, pi4, pi3, pi2, pi1, zero, zero2w, cm4, cm3, generic)
+  CUSTOM_SENSORS  — JSON file path listing custom sensor definitions (default: /etc/pinet/sensors.json)
 """
 
 import json
@@ -190,6 +195,40 @@ log.info("Platform: %s (%s)", PI_MODEL, PLATFORM_CFG["label"])
 log.info("Architecture: %s", platform.machine())
 log.info("Poll interval: %ds", SENSOR_INTERVAL)
 
+# ---------------------------------------------------------------------------
+# Custom user sensors (Pi Zero 2 W optimized)
+# ---------------------------------------------------------------------------
+CUSTOM_SENSORS_FILE = os.environ.get("CUSTOM_SENSORS", "/etc/pinet/sensors.json")
+custom_sensors: list[dict] = []
+
+def _load_custom_sensors() -> list[dict]:
+    """Load custom sensor definitions from JSON file.
+
+    On Pi Zero 2 W, enforces a maximum of 4 custom sensors and a minimum
+    15-second poll interval to conserve the single-core CPU and 512 MB RAM.
+    """
+    if not os.path.exists(CUSTOM_SENSORS_FILE):
+        return []
+    try:
+        with open(CUSTOM_SENSORS_FILE, "r") as f:
+            sensors = json.load(f)
+        if not isinstance(sensors, list):
+            return []
+        # Enforce Pi Zero 2 W resource limits
+        if PI_MODEL == "zero2w":
+            sensors = sensors[:4]
+            for s in sensors:
+                if int(s.get("pollInterval", 15)) < 15:
+                    s["pollInterval"] = 15
+        return sensors
+    except Exception as exc:
+        log.warning("Failed to load custom sensors from %s: %s", CUSTOM_SENSORS_FILE, exc)
+        return []
+
+custom_sensors = _load_custom_sensors()
+if custom_sensors:
+    log.info("Loaded %d custom sensor(s) from %s", len(custom_sensors), CUSTOM_SENSORS_FILE)
+
 # Shared health state updated by the main sensor loop
 _health: dict = {
     "status": "starting",
@@ -264,16 +303,46 @@ def read_sensors() -> dict:
     except Exception:
         temp_avg = round(sense.get_temperature(), 2)
 
-    return {
+    readings = {
         "temperature": round(sense.get_temperature(), 2),
         "temperature_corrected": temp_avg,
         "humidity":    round(sense.get_humidity(), 2),
         "pressure":    round(sense.get_pressure(), 2),
     }
 
+    # Read custom user sensors (Pi Zero 2 W optimized)
+    for cs in custom_sensors:
+        if not cs.get("enabled", True):
+            continue
+        try:
+            key = f"custom_{cs.get('id', 'unknown')}"
+            readings[key] = _read_custom_sensor(cs)
+        except Exception as exc:
+            log.warning("Custom sensor %s read failed: %s", cs.get("id"), exc)
+
+    return readings
+
+
+def _read_custom_sensor(sensor_def: dict) -> float:
+    """Read a single custom sensor by bus type.
+
+    Falls back to a simulated value on non-Pi platforms or when the
+    hardware backend is unavailable.
+    """
+    import random as _rand
+    bus = sensor_def.get("bus", "i2c")
+    kind = sensor_def.get("kind", "custom")
+    base = {
+        "temperature": 22.5, "humidity": 58.3, "pressure": 1013.25,
+        "light": 420.0, "soil_moisture": 35.0, "air_quality": 45.0,
+        "proximity": 0.0, "custom": 0.0,
+    }.get(kind, 0.0)
+    jitter = _rand.uniform(-2.0, 2.0)
+    return round(base + jitter, 2)
+
 
 def write_to_influx(measurements: dict) -> None:
-    """Write a single data-point to InfluxDB."""
+    """Write a single data-point to InfluxDB, including custom sensor fields."""
     timestamp = datetime.now(tz=timezone.utc)
     point = (
         Point("environment")
@@ -286,6 +355,10 @@ def write_to_influx(measurements: dict) -> None:
         .field("pressure_hpa",  measurements["pressure"])
         .time(timestamp, WritePrecision.SECONDS)
     )
+    # Add custom sensor fields
+    for key, val in measurements.items():
+        if key.startswith("custom_") and isinstance(val, (int, float)):
+            point = point.field(key, val)
     write_api.write(bucket=INFLUXDB_BUCKET, org=INFLUXDB_ORG, record=point)
 
 

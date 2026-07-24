@@ -97,4 +97,34 @@ const PiNetAPI = {
     filesRead: (path) => PiNetAPI.get(`/api/files/read?path=${encodeURIComponent(path)}`),
     filesWrite: (path, content) => PiNetAPI.post('/api/files/write', { path, content }),
     pinet2Status: () => PiNetAPI.get('/api/pinet2/status'),
+
+    // ─── v3.0.0: Confidential Computing Enclaves ────────────────────────────
+    enclaves: () => PiNetAPI.get('/api/enclaves'),
+    enclaveCreate: (data) => PiNetAPI.post('/api/enclaves', data),
+    enclaveStop: (id) => PiNetAPI.post(`/api/enclaves/${id}/stop`),
+    enclaveDelete: (id) => PiNetAPI.del(`/api/enclaves/${id}`),
+    enclaveAttest: (id) => PiNetAPI.post(`/api/enclaves/${id}/attest`),
+
+    // ─── v3.0.0: Verifiable Compute Proofs ──────────────────────────────────
+    zkProofs: () => PiNetAPI.get('/api/zk/proofs'),
+    zkProofCreate: (data) => PiNetAPI.post('/api/zk/proofs', data),
+    zkProofVerify: (id, data) => PiNetAPI.post(`/api/zk/proofs/${id}/verify`, data),
+    zkProofDelete: (id) => PiNetAPI.del(`/api/zk/proofs/${id}`),
+
+    // ─── v3.0.0: Decentralized Marketplace ──────────────────────────────────
+    marketplaceListings: (params) => PiNetAPI.get(`/api/marketplace/listings${params ? '?' + new URLSearchParams(params) : ''}`),
+    marketplaceListingCreate: (data) => PiNetAPI.post('/api/marketplace/listings', data),
+    marketplaceListingDelete: (id) => PiNetAPI.del(`/api/marketplace/listings/${id}`),
+    marketplaceOrders: (nodeId) => PiNetAPI.get(`/api/marketplace/orders${nodeId ? '?node_id=' + encodeURIComponent(nodeId) : ''}`),
+    marketplaceOrderCreate: (data) => PiNetAPI.post('/api/marketplace/orders', data),
+    marketplaceOrderComplete: (id) => PiNetAPI.post(`/api/marketplace/orders/${id}/complete`),
+    marketplaceOrderCancel: (id) => PiNetAPI.post(`/api/marketplace/orders/${id}/cancel`),
+    marketplaceRatingCreate: (data) => PiNetAPI.post('/api/marketplace/ratings', data),
+
+    // ─── v3.0.0: SSL/TLS Management ────────────────────────────────────────
+    sslStatus: () => PiNetAPI.get('/api/ssl/status'),
+    sslGenerate: (hosts) => PiNetAPI.post('/api/ssl/generate', { hosts }),
+    sslCertsDelete: () => PiNetAPI.del('/api/ssl/certs'),
+    sslInstallCa: () => PiNetAPI.post('/api/ssl/install-ca'),
+    sslCertDownload: () => PiNetAPI.get('/api/ssl/cert'),
 };

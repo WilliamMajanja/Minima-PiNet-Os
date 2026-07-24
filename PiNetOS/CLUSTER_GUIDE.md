@@ -59,7 +59,7 @@ Or open the browser desktop at `http://<any-node-ip>:3000` and navigate to the C
 
 ## Cluster Protocol
 
-All messages are encrypted and sent via Maxima using the `pinet-cluster` application ID. CPIP provides additional CoffeeCipher v3 (AES-256-GCM) payload encryption and ECDSA P-256 node identity via `AUTH_CHALLENGE`/`AUTH_RESPONSE` message types.
+All messages are encrypted and sent via Maxima using the `pinet-cluster` application ID. CPIP provides additional CoffeeCipher v5 (AES-256-GCM) payload encryption and ECDSA P-256 node identity via `AUTH_CHALLENGE`/`AUTH_RESPONSE` message types.
 
 | Message | Direction | Purpose |
 |---------|-----------|---------|

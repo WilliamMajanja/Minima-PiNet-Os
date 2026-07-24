@@ -120,7 +120,7 @@ The RPi 5 **requires active cooling** for sustained workloads. The official **Ac
 | **Password** | `pinet` |
 | **Root password** | Disabled (use `sudo`) |
 | **SSH** | Enabled on port 22 |
-| **Web Dashboard** | `http://<pi-ip>:3000` |
+| **Web Dashboard** | `https://<pi-ip>:3000` (SSL/TLS by default) |
 
 > **Security:** Change the default password immediately:
 > ```bash
@@ -130,6 +130,8 @@ The RPi 5 **requires active cooling** for sustained workloads. The official **Ac
 > **CPIP Security Provider:** CPIP is enabled by default (`CPIP_ENABLED=1`).
 > For FIPS-mode deployments, set `CPIP_FIPS=1` in `.env` before first boot.
 > See [SECURITY.md](../SECURITY.md) for the full CPIP cryptographic architecture.
+>
+> **SSL/TLS:** The web server starts with HTTPS by default. Certificates are auto-generated on first boot via mkcert (local CA) or OpenSSL (self-signed fallback). To disable SSL, set `PINET_SSL_ENABLED=0` in `.env`. Certificates are stored at `~/.local/share/pinet/ssl/`. Use `pinet ssl` to manage certificates.
 
 ---
 
@@ -194,7 +196,7 @@ All tests passed!
 
 ## Step 7 — Access the PiNetOS Dashboard
 
-Open a browser and navigate to `http://<pi-ip>:3000` (or `http://localhost:3000` if on the Pi directly).
+Open a browser and navigate to `https://<pi-ip>:3000` (or `https://localhost:3000` if on the Pi directly). SSL/TLS is enabled by default — your browser will show a lock icon once you trust the local CA (`pinet ssl install`).
 
 The PiNetOS desktop interface provides:
 - **System Monitor** — CPU, RAM, temperature, throttle status

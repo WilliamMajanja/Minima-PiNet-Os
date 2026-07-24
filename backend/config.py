@@ -58,7 +58,7 @@ DAPP_MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 DAPP_ALLOWED_EXTENSIONS = (".zip", ".tar.gz", ".mds.zip")
 
 # Version
-PINET_VERSION = "1.2.0"
+PINET_VERSION = "3.0.0"
 
 # Kernel / Init System
 DEFAULT_RUN_LEVEL = 5
@@ -137,3 +137,67 @@ GITHUB_REPO = os.getenv("GITHUB_REPO", "WilliamMajanja/Minima-PiNet-Os")
 
 # AI
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+
+# ─── v1.3.0: On-Device LLM Gateway ────────────────────────────────────────────
+LLM_GATEWAY_ENABLED = os.getenv("PINET_LLM_GATEWAY", "1") == "1"
+LLM_GATEWAY_URL = os.getenv("PINET_LLM_GATEWAY_URL", "http://127.0.0.1:11434")
+LLM_GATEWAY_TIMEOUT = int(os.getenv("PINET_LLM_GATEWAY_TIMEOUT", "120"))
+LLM_DEFAULT_MODEL = os.getenv("PINET_LLM_DEFAULT_MODEL", "llama3.2:3b")
+LLM_MAX_CONTEXT = int(os.getenv("PINET_LLM_MAX_CONTEXT", "4096"))
+LLM_MODELS_DIR = os.getenv("PINET_LLM_MODELS_DIR", "/opt/pinet/llm-models")
+LLM_FALLBACK_TO_GEMINI = os.getenv("PINET_LLM_FALLBACK_GEMINI", "1") == "1"
+
+# ─── v1.3.0: Multi-Tenant LXC Quotas ─────────────────────────────────────────
+LXC_QUOTA_ENABLED = os.getenv("PINET_LXC_QUOTA", "1") == "1"
+LXC_DEFAULT_CPU_LIMIT = int(os.getenv("PINET_LXC_DEFAULT_CPU", "50"))
+LXC_DEFAULT_RAM_MB = int(os.getenv("PINET_LXC_DEFAULT_RAM_MB", "512"))
+LXC_DEFAULT_DISK_GB = int(os.getenv("PINET_LXC_DEFAULT_DISK_GB", "10"))
+LXC_DEFAULT_IO_IOPS = int(os.getenv("PINET_LXC_DEFAULT_IO_IOPS", "1000"))
+LXC_MAX_TENANTS = int(os.getenv("PINET_LXC_MAX_TENANTS", "16"))
+
+# ─── v1.3.0: Hardware Key-Wrap (TPM 2.0) ─────────────────────────────────────
+TPM_KEYWRAP_ENABLED = os.getenv("PINET_TPM_KEYWRAP", "1") == "1"
+TPM_DEVICE = os.getenv("PINET_TPM_DEVICE", "/dev/tpm0")
+TPM_SRK_HANDLE = int(os.getenv("PINET_TPM_SRK_HANDLE", "0x81000001"), 0)
+TPM_SEALED_KEY_PATH = os.getenv("PINET_TPM_SEALED_KEY", "/opt/pinet/identity/cpip-sealed.key")
+
+# ─── v1.3.0: CPIP PQ-TLS (Post-Quantum TLS) ──────────────────────────────────
+CPIP_PQ_TLS_ENABLED = os.getenv("CPIP_PQ_TLS", "0") == "1"
+CPIP_PQ_KEM = os.getenv("CPIP_PQ_KEM", "kyber768")
+CPIP_PQ_HYBRID = os.getenv("CPIP_PQ_HYBRID", "1") == "1"
+
+# ─── v2.0.0: Formal Attestation ──────────────────────────────────────────────
+ATTESTATION_ENABLED = os.getenv("PINET_ATTESTATION", "1") == "1"
+ATTESTATION_PCR_BANK = os.getenv("PINET_ATTESTATION_PCR_BANK", "sha256")
+ATTESTATION_VERIFY_URL = os.getenv("PINET_ATTESTATION_VERIFY_URL", "")
+
+# ─── v3.0.0: Confidential Computing Enclaves ──────────────────────────────────
+ENCLAVE_ENABLED = os.getenv("PINET_ENCLAVE", "1") == "1"
+ENCLAVE_DEFAULT_MEM_GB = int(os.getenv("PINET_ENCLAVE_DEFAULT_MEM_GB", "1"))
+ENCLAVE_MAX_PER_NODE = int(os.getenv("PINET_ENCLAVE_MAX_PER_NODE", "8"))
+ENCLAVE_TEE_TYPE = os.getenv("PINET_ENCLAVE_TEE_TYPE", "auto")
+
+# ─── v3.0.0: Verifiable Compute Proofs (zkVM) ────────────────────────────────
+ZK_PROVER_ENABLED = os.getenv("PINET_ZK_PROVER", "1") == "1"
+ZK_PROVER_TIMEOUT = int(os.getenv("PINET_ZK_PROVER_TIMEOUT", "300"))
+ZK_PROVER_MEM_MB = int(os.getenv("PINET_ZK_PROVER_MEM_MB", "1024"))
+
+# ─── v3.0.0: Decentralized Compute Marketplace ────────────────────────────────
+MARKETPLACE_ENABLED = os.getenv("PINET_MARKETPLACE", "1") == "1"
+MARKETPLACE_MAX_LISTINGS = int(os.getenv("PINET_MARKETPLACE_MAX_LISTINGS", "100"))
+MARKETPLACE_ESCROW_TOKENS = os.getenv("PINET_MARKETPLACE_ESCROW_TOKENS", "minima")
+MARKETPLACE_CURATION_DEPOSIT = os.getenv("PINET_MARKETPLACE_CURATION_DEPOSIT", "100")
+
+# ─── SSL/TLS & HSTS (CPIP + mkcert) ──────────────────────────────────────────
+SSL_ENABLED = os.getenv("PINET_SSL_ENABLED", "1") == "1"
+SSL_DIR = os.getenv("PINET_SSL_DIR", os.path.expanduser("~/.local/share/pinet/ssl"))
+SSL_CERT_FILE = os.getenv("PINET_SSL_CERT", "")
+SSL_KEY_FILE = os.getenv("PINET_SSL_KEY", "")
+SSL_HOSTS = os.getenv("PINET_SSL_HOSTS", "localhost,127.0.0.1,::1")
+MKCERT_PATH = os.getenv("PINET_MKCERT_PATH", "mkcert")
+
+# HSTS (HTTP Strict Transport Security)
+HSTS_ENABLED = os.getenv("PINET_HSTS_ENABLED", "1") == "1"
+HSTS_MAX_AGE = int(os.getenv("PINET_HSTS_MAX_AGE", "31536000"))
+HSTS_INCLUDE_SUBDOMAINS = os.getenv("PINET_HSTS_INCLUDE_SUBDOMAINS", "1") == "1"
+HSTS_PRELOAD = os.getenv("PINET_HSTS_PRELOAD", "1") == "1"

@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: enclave-controller
+  namespace: pinet-system
+  labels:
+    app: enclave-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: enclave-controller
+  template:
+    metadata:
+      labels:
+        app: enclave-controller
+    spec:
+      nodeSelector:
+        accelerator: "hailo-8l"
+      tolerations:
+        - key: "accelerator"
+          operator: "Exists"
+          effect: "NoSchedule"
+      containers:
+        - name: enclave-controller
+          image: ghcr.io/williammajanja/enclave-controller:latest
+          ports:
+            - containerPort: 4190
+              name: enclave-api
+          env:
+            - name: PINET_ENCLAVE
+              value: "1"
+            - name: PINET_ENCLAVE_MAX_PER_NODE
+              value: "8"
+            - name: PINET_ENCLAVE_TEE_TYPE
+              value: "auto"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4190
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 4190
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: enclave-controller
+  namespace: pinet-system
+spec:
+  selector:
+    app: enclave-controller
+  ports:
+    - port: 4190
+      targetPort: enclave-api
+      name: enclave-api

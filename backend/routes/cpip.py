@@ -1,6 +1,6 @@
 """CPIP Security Provider API routes.
 
-Exposes CPIP (The Coffee Protocol v4.0.2) cryptographic primitives, ITF Defense
+Exposes CPIP (The Coffee Protocol v5.0.5) cryptographic primitives, ITF Defense
 status, emergency mode, health, and metrics endpoints.
 
 Documented in SECURITY.md and DEPLOYMENT.md.
@@ -61,7 +61,7 @@ async def cpip_metrics():
 async def cpip_crypto():
     return {
         "provider": "CPIP",
-        "version": "4.0.2",
+        "version": "5.0.5",
         "enabled": CPIP_ENABLED,
         "fips_mode": CPIP_FIPS_MODE,
         "recipe": CPIP_RECIPE,

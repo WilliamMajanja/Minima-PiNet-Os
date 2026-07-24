@@ -53,3 +53,9 @@ This checklist defines the minimum release bar to ship PiNetOS as a cohesive pro
 - [ ] CPIP FIPS power-on self-tests pass (AES-256-GCM, HMAC-SHA256, HKDF, ECDSA P-256, ECDH P-256).
 - [ ] Release artifacts are ECDSA P-256 signed via CPIP (per POLICY.md §4).
 - [ ] CPIP ITF Defense verified: probe blocking returns HTTP 418, IP blacklisting works.
+- [ ] SSL/TLS certificates generated successfully via mkcert or openssl fallback.
+- [ ] HTTPS server starts with valid TLS certificate (browser shows lock icon).
+- [ ] HSTS header present on all HTTPS responses (`Strict-Transport-Security`).
+- [ ] Security headers present (CSP, Permissions-Policy, X-Frame-Options, X-Content-Type-Options).
+- [ ] `pinet ssl` CLI commands work (status, generate, install, delete).
+- [ ] `/api/ssl/*` endpoints respond correctly (status, generate, certs, install-ca, cert).

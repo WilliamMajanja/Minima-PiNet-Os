@@ -151,7 +151,7 @@ const stats = await PiNet.system.getStats();
 
 // Get OS info
 const info = await PiNet.system.getInfo();
-// { name: "PiNet OS", version: "1.2.0", kernel: "6.1.0-rpi5", arch: "aarch64" }
+// { name: "PiNet OS", version: "1.3.0", kernel: "6.1.0-rpi5", arch: "aarch64" }
 ```
 
 #### Wallet

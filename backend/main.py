@@ -21,7 +21,12 @@ from .config import (
     CPIP_ENABLED,
     CORS_ORIGIN,
     DESKTOP_PORT,
+    HSTS_ENABLED,
+    HSTS_MAX_AGE,
+    HSTS_INCLUDE_SUBDOMAINS,
+    HSTS_PRELOAD,
     PINET_VERSION,
+    SSL_ENABLED,
 )
 from .cpip_provider import CPIPSecurityMiddleware, initialize_cpip
 from .state import get_state, save_state
@@ -49,7 +54,18 @@ from .routes import (
     provenance,
     ai,
     cpip,
+    sensors,
+    llm,
+    quotas,
+    tpm,
+    pq_tls,
+    attestation,
+    enclaves,
+    zk_proofs,
+    marketplace,
+    ssl as ssl_routes,
 )
+from .middleware.hsts import HSTSMiddleware
 from .websocket.terminal import router as ws_router
 from .websocket.cluster import router as ws_cluster_router
 
@@ -125,12 +141,27 @@ def create_app() -> FastAPI:
 
     # --- CORS ---
     origins = [CORS_ORIGIN] if CORS_ORIGIN else [f"http://localhost:{DESKTOP_PORT}"]
+    # Also allow HTTPS origins when SSL is enabled
+    if SSL_ENABLED:
+        https_origins = [o.replace("http://", "https://") for o in origins]
+        origins.extend(https_origins)
+        if "https://localhost:3000" in origins:
+            origins.append("https://localhost")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # --- HSTS & Security Headers Middleware ---
+    if HSTS_ENABLED:
+        app.add_middleware(
+            HSTSMiddleware,
+            hsts_max_age=HSTS_MAX_AGE,
+            hsts_include_subdomains=HSTS_INCLUDE_SUBDOMAINS,
+            hsts_preload=HSTS_PRELOAD,
+        )
 
     # --- CPIP Security Middleware ---
     if CPIP_ENABLED and CPIP_DEFENSE_ENABLED:
@@ -166,6 +197,16 @@ def create_app() -> FastAPI:
     app.include_router(provenance.router, prefix="/api", tags=["provenance"])
     app.include_router(ai.router, prefix="/api", tags=["ai"])
     app.include_router(cpip.router, prefix="/api", tags=["cpip"])
+    app.include_router(sensors.router, prefix="/api", tags=["sensors"])
+    app.include_router(llm.router, prefix="/api", tags=["llm"])
+    app.include_router(quotas.router, prefix="/api", tags=["lxc-quotas"])
+    app.include_router(tpm.router, prefix="/api", tags=["tpm"])
+    app.include_router(pq_tls.router, prefix="/api", tags=["pq-tls"])
+    app.include_router(attestation.router, prefix="/api", tags=["attestation"])
+    app.include_router(enclaves.router, prefix="/api", tags=["enclaves"])
+    app.include_router(zk_proofs.router, prefix="/api", tags=["zk"])
+    app.include_router(marketplace.router, prefix="/api", tags=["marketplace"])
+    app.include_router(ssl_routes.router, prefix="/api", tags=["ssl"])
 
     # --- WebSocket ---
     app.include_router(ws_router)

@@ -1,10 +1,10 @@
 """CPIP Security Provider for PiNet-OS.
 
-Integrates The Coffee Protocol (CPIP v4.0.2) cryptographic primitives
+Integrates The Coffee Protocol (CPIP v5.0.5) cryptographic primitives
 as the security provider for all PiNet-OS nodes and Minima operations.
 
 Provides:
-  - CoffeeCipher v3: AES-256-GCM (FIPS 197) with HKDF-SHA256 key derivation
+  - CoffeeCipher v5: AES-256-GCM (FIPS 197) with HKDF-SHA256 key derivation
   - ECP256: ECDSA/ECDH P-256 (FIPS 186-4) constant-time ECC
   - HybridKEM: ECDH P-256 + ML-KEM-768 post-quantum hybrid key exchange
   - SecureHash: SHA-256 domain-separated hashing + HMAC-SHA256
@@ -83,7 +83,7 @@ _INFO_TOOLS = frozenset({
 })
 
 
-# ─── CoffeeCipher v3 ─────────────────────────────────────────────────────────
+# ─── CoffeeCipher v5 ─────────────────────────────────────────────────────────
 
 class CoffeeCipher:
     """AES-256-GCM (FIPS 197) authenticated encryption with HKDF-SHA256.
@@ -114,7 +114,7 @@ class CoffeeCipher:
     def key_from_recipe(cls, base_key: bytes, recipe: str = CPIP_RECIPE) -> bytes:
         recipe_bytes = recipe.encode()
         salt = hashlib.sha256(b"\xc0\xff\xee" + recipe_bytes).digest()
-        return cls.hkdf(base_key, salt, b"cpip-cipher-v3:" + recipe_bytes, 32)
+        return cls.hkdf(base_key, salt, b"cpip-cipher-v5:" + recipe_bytes, 32)
 
     @classmethod
     def encrypt(cls, plaintext: bytes, base_key: bytes | None = None,
@@ -149,9 +149,9 @@ class CoffeeCipher:
 
     @classmethod
     def hash(cls, data: bytes) -> str:
-        h = hashlib.sha256(b"cpip-hash-v3:" + data).digest()
+        h = hashlib.sha256(b"cpip-hash-v5:" + data).digest()
         for _ in range(4):
-            h = hashlib.sha256(b"cpip-hash-v3:" + h + data).digest()
+            h = hashlib.sha256(b"cpip-hash-v5:" + h + data).digest()
         return h.hex()[:16]
 
 
@@ -615,8 +615,31 @@ class CPIPSecurityMiddleware:
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "no-referrer"
-        response.headers["CPIP-Version"] = "4.0.2"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+            "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
+            "font-src 'self' data:; connect-src 'self' ws: wss: http: https:; "
+            "object-src 'none'; frame-ancestors 'none'"
+        )
+        response.headers["Permissions-Policy"] = (
+            "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+        )
+        response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
+        response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+        response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+        response.headers["CPIP-Version"] = "5.0.5"
         response.headers["CPIP-Provider"] = "active"
+
+        # HSTS — only on HTTPS
+        is_secure = (
+            request.url.scheme == "https"
+            or request.headers.get("x-forwarded-proto") == "https"
+        )
+        if is_secure:
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains; preload"
+            )
 
         return response
 

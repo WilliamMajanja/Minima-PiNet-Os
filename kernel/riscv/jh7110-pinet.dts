@@ -1,0 +1,134 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * PiNet-OS v2.0.0 — RISC-V Reference Board Device Tree
+ *
+ * Target: VisionFive 2 (StarFive JH7110, RISC-V SiFive U74 quad-core)
+ * Also compatible with: MangoPi MQ-Pro (Allwinner D1, single-core RISC-V)
+ *
+ * This DTS provides the minimal device tree for PiNet-OS to boot on a
+ * RISC-V SBC, enabling UART console, SD card, and GPIO for sensor I/O.
+ *
+ * Build:
+ *   dtc -I dts -O dtb -o jh7110-pinet.dtb jh7110-pinet.dts
+ *
+ * Boot:
+ *   Load via U-Boot SPL at 0x40000000, kernel at 0x40200000
+ */
+
+/dts-v1/;
+
+/ {
+    model = "PiNet-OS RISC-V Reference (StarFive JH7110)";
+    compatible = "starfive,jh7110", "pinet,riscv-ref";
+    #address-cells = <2>;
+    #size-cells = <2>;
+
+    chosen {
+        bootargs = "console=ttySIF0,115200n8 root=/dev/mmcblk0p2 rw rootwait earlycon";
+        stdout-path = "serial0:115200n8";
+    };
+
+    cpus {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        timebase-frequency = <4000000>;
+
+        cpu@0 {
+            device_type = "cpu";
+            compatible = "sifive,u74-mc", "riscv";
+            reg = <0>;
+            riscv,isa = "rv64gc";
+            clock-frequency = <1500000000>;
+            status = "okay";
+        };
+
+        cpu@1 {
+            device_type = "cpu";
+            compatible = "sifive,u74-mc", "riscv";
+            reg = <1>;
+            riscv,isa = "rv64gc";
+            clock-frequency = <1500000000>;
+            status = "okay";
+        };
+
+        cpu@2 {
+            device_type = "cpu";
+            compatible = "sifive,u74-mc", "riscv";
+            reg = <2>;
+            riscv,isa = "rv64gc";
+            clock-frequency = <1500000000>;
+            status = "okay";
+        };
+
+        cpu@3 {
+            device_type = "cpu";
+            compatible = "sifive,u74-mc", "riscv";
+            reg = <3>;
+            riscv,isa = "rv64gc";
+            clock-frequency = <1500000000>;
+            status = "okay";
+        };
+    };
+
+    memory@40000000 {
+        device_type = "memory";
+        reg = <0x0 0x40000000 0x0 0x40000000>; /* 1 GB at 0x40000000 */
+    };
+
+    soc {
+        compatible = "simple-bus";
+        #address-cells = <2>;
+        #size-cells = <2>;
+        ranges;
+
+        uart0: serial@10000000 {
+            compatible = "snps,dw-apb-uart";
+            reg = <0x0 0x10000000 0x0 0x10000>;
+            clock-frequency = <100000000>;
+            interrupts = <42>;
+            reg-shift = <2>;
+            reg-io-width = <4>;
+            status = "okay";
+        };
+
+        mmc0: mmc@10010000 {
+            compatible = "starfive,jh7110-mmc";
+            reg = <0x0 0x10010000 0x0 0x10000>;
+            interrupts = <43>;
+            clock-frequency = <50000000>;
+            bus-width = <4>;
+            cap-sd-highspeed;
+            status = "okay";
+        };
+
+        gpio0: gpio@10020000 {
+            compatible = "snps,dw-apb-gpio";
+            reg = <0x0 0x10020000 0x0 0x10000>;
+            interrupts = <44>;
+            #gpio-cells = <2>;
+            gpio-controller;
+            gpio-ranges = <0 0 32>;
+            status = "okay";
+        };
+
+        i2c0: i2c@10030000 {
+            compatible = "snps,designware-i2c";
+            reg = <0x0 0x10030000 0x0 0x10000>;
+            interrupts = <45>;
+            clock-frequency = <100000>;
+            #address-cells = <1>;
+            #size-cells = <0>;
+            status = "okay";
+        };
+
+        spi0: spi@10040000 {
+            compatible = "snps,dw-apb-ssi";
+            reg = <0x0 0x10040000 0x0 0x10000>;
+            interrupts = <46>;
+            clock-frequency = <100000000>;
+            #address-cells = <1>;
+            #size-cells = <0>;
+            status = "okay";
+        };
+    };
+};

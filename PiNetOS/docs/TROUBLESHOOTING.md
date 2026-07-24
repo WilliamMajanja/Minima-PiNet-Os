@@ -60,9 +60,9 @@ Edge nodes are inherently exposed. The default security posture of Debian/Raspbi
 *   **Fail2Ban Deployment:**
     *   `fail2ban` is deployed to monitor `/var/log/auth.log`.
     *   Any IP address attempting to brute-force the SSH daemon is permanently dropped at the `iptables` level (bantime = -1).
-*   **CPIP Security Provider (The Coffee Protocol v4.0.2):**
+*   **CPIP Security Provider (The Coffee Protocol v5.0.5):**
     *   ITF Defense: API-layer probe blocking (HTTP 418), pentest tool fingerprinting, IP blacklisting with exponential ban duration.
-    *   CoffeeCipher v3 (AES-256-GCM, FIPS 197) with HKDF-SHA256 key derivation for data at rest.
+    *   CoffeeCipher v5 (AES-256-GCM, FIPS 197) with HKDF-SHA256 key derivation for data at rest.
     *   ECDSA P-256 (FIPS 186-4) node identity with challenge-response authentication.
     *   HMAC-SHA256 RPC token authentication replaces Basic Auth for Minima RPC calls.
     *   CPIP sidecar runs on port 4180 (`cpip.service` systemd unit). FIPS 140-2/3 self-tests via `CPIP_FIPS=1`.

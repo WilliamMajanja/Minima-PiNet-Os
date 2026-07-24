@@ -68,7 +68,15 @@ Minima-PiNet-Os/
 │   ├── state.py               # In-memory app state
 │   ├── minima_client.py       # Async Minima RPC client (httpx)
 │   ├── rate_limiter.py        # Per-IP rate limiting
-│   ├── routes/                # REST endpoints (cluster, kernel, network, dapps, …)
+│   ├── llm_gateway.py         # v1.3.0: On-device LLM gateway
+│   ├── lxc_manager.py         # v1.3.0: Multi-tenant LXC quota manager
+│   ├── tpm_keystore.py        # v1.3.0: TPM 2.0 hardware key-wrap
+│   ├── pq_tls.py              # v1.3.0: Post-quantum TLS
+│   ├── ssl_manager.py         # v3.0.0: SSL/TLS cert management (mkcert + openssl)
+│   ├── attestation.py         # v2.0.0: Formal remote attestation
+│   ├── sensor_manager.py      # Custom sensor framework (Pi Zero 2 W)
+│   ├── middleware/             # v3.0.0: HSTS + security headers middleware
+│   ├── routes/                # REST endpoints (cluster, kernel, network, dapps, ssl, …)
 │   ├── services/              # Backend service helpers
 │   └── websocket/             # WebSocket handlers (terminal, cluster)
 ├── frontend/                  # Server-rendered desktop
@@ -77,23 +85,29 @@ Minima-PiNet-Os/
 ├── kernel/                    # Linux kernel build inputs
 │   ├── rpi5-bcm2712.config    # ARM64 kernel config fragment
 │   ├── bcm2712-rpi5.dts       # Device tree source
-│   └── build-kernel.sh        # Kernel build script
+│   ├── build-kernel.sh        # Kernel build script
+│   └── riscv/                 # v2.0.0: RISC-V DTS + kernel config
 ├── boot/                      # Boot configuration
 │   ├── config.txt             # RPi firmware config
 │   ├── cmdline.txt            # Kernel command line
-│   └── uboot/                 # U-Boot configuration
+│   ├── uboot/                 # U-Boot configuration
+│   └── riscv/                 # v2.0.0: RISC-V boot config
 ├── system/                    # OS system configuration
 │   ├── services/              # systemd service units
 │   ├── networking/            # Network configuration
 │   ├── ota/                   # OTA update framework
 │   └── package-manager/       # pinet-pkg tool
 ├── build-system/              # Build infrastructure
+│   ├── reproducible-build.sh  # v2.0.0: Deterministic image rebuilds
+│   ├── packages.lock          # v2.0.0: Pinned package versions
+│   └── build-riscv.sh         # v2.0.0: RISC-V cross-build tooling
 ├── tools/                     # Build and flash utilities
 │   ├── build-rpi5.sh          # Full OS build script
 │   └── flash.sh               # Image flashing utility
 ├── tests/                     # Test suites
 │   └── system/run-tests.sh    # System integration tests
 └── docs/                      # Documentation
+    └── ATTESTATION_SPEC.md    # v2.0.0: Formal attestation protocol spec
 ```
 
 ---
@@ -276,6 +290,9 @@ bash tests/system/run-tests.sh --suite security
 # CPIP security provider tests (FIPS self-tests, crypto KATs)
 python3 -c "from backend.cpip_provider import run_fips_self_tests; print('CPIP FIPS:', 'PASS' if run_fips_self_tests() else 'SKIP')"
 
+# SSL/TLS certificate management tests
+python3 -c "from backend.ssl_manager import SSLManager; m = SSLManager(); print('SSL Status:', 'ENABLED' if m.is_enabled() else 'DISABLED')"
+
 # Verbose output
 bash tests/system/run-tests.sh --suite all --verbose
 ```
@@ -322,7 +339,7 @@ vcgencmd get_mem gpu
 
 To publish a new PiNetOS version:
 
-1. Tag the release: `git tag v1.2.3`
+1. Tag the release: `git tag v1.3.0`
 2. GitHub Actions builds and publishes the update manifest and payload.
 3. Devices running `pinet-ota.timer` will pick up the update within 24 hours.
 4. Manual trigger: `sudo systemctl start pinet-ota.service`

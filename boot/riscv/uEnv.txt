@@ -1,0 +1,35 @@
+# PiNet-OS v2.0.0 — RISC-V Boot Configuration
+# Target: VisionFive 2 (StarFive JH7110)
+#
+# U-Boot environment for booting PiNet-OS on RISC-V SBCs.
+# Place this in the first FAT32 partition of the SD card.
+
+# ─── Boot Configuration ───────────────────────────────────────
+# Kernel command line
+bootargs=console=ttySIF0,115200n8 root=/dev/mmcblk0p2 rw rootwait earlycon loglevel=4 ${optargs}
+
+# Load addresses (JH7110 memory map)
+kernel_addr_r=0x40200000
+fdt_addr_r=0x46000000
+ramdisk_addr_r=0x46100000
+
+# ─── Boot Script ──────────────────────────────────────────────
+# Load device tree, kernel, and initramfs from the boot partition
+bootcmd=load mmc 0:1 ${fdt_addr_r} jh7110-pinet.dtb; \
+        load mmc 0:1 ${kernel_addr_r} Image; \
+        load mmc 0:1 ${ramdisk_addr_r} initramfs.cpio.gz; \
+        booti ${kernel_addr_r} ${ramdisk_addr_r}:${ramdisk_size} ${fdt_addr_r}
+
+# ─── Fallback Boot ────────────────────────────────────────────
+# If the primary boot fails, try network boot
+bootdelay=3
+boot_targets=mmc0 dhcp
+
+# ─── Environment Persistence ─────────────────────────────────
+boot_scripts=boot.scr.uimg boot.scr
+boot_script_dhcp=boot.scr.uimg
+
+# ─── PiNet-OS Specific ────────────────────────────────────────
+pinet_board=riscv-visionfive2
+pinet_role=worker
+pinet_version=2.0.0

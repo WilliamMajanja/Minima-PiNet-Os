@@ -19,8 +19,8 @@ Minima PiNet OS is a **zero-bloat Linux distribution** designed for edge computi
 
 ### Using PiNet OS
 - [CLI Reference](CLI-Reference) — `pinet` command-line tool
-- [API Reference](API-Reference) — All 93 REST API endpoints
-- [Desktop Applications](Desktop-Applications) — 19 built-in apps and window management
+- [API Reference](API-Reference) — All 152 REST API endpoints
+- [Desktop Applications](Desktop-Applications) — 27 built-in apps and window management
 - [DApp Development](DApp-Development) — Build and publish decentralized apps
 
 ### Hardware & Networking
@@ -28,7 +28,7 @@ Minima PiNet OS is a **zero-bloat Linux distribution** designed for edge computi
 
 ### Cluster & Infrastructure
 - [Cluster Management](Cluster-Management) — Multi-node clusters, Maxima protocol
-- [Security](Security) — Zero-trust architecture, 15 security controls (including CPIP security provider)
+- [Security](Security) — Zero-trust architecture, 20 security controls (including CPIP, enclaves, zkVM, marketplace)
 
 ### Operations
 - [Release Process](https://github.com/WilliamMajanja/Minima-PiNet-Os/releases) — CI/CD, artifacts, versioning (see RELEASE_NOTES.md)
@@ -41,7 +41,7 @@ Minima PiNet OS is a **zero-bloat Linux distribution** designed for edge computi
 
 | Property | Value |
 |---|---|
-| **Version** | 1.2.0 |
+| **Version** | 3.0.0 |
 | **Platform** | Raspberry Pi 5 (ARM64) |
 | **Blockchain** | Minima L1 |
 | **License** | MIT |

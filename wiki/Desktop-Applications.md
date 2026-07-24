@@ -27,6 +27,10 @@ PiNet OS includes a suite of built-in desktop applications rendered by a Jinja2-
 | Log Viewer | `log-viewer` | Syslog viewer with filtering and search |
 | Device Manager | `device-manager` | Hardware device enumeration and management |
 | Power Manager | `power-manager` | Power state, CPU governor, scheduled actions |
+| Sensors | `sensors` | Custom user-built sensors (I2C/GPIO/SPI/1-Wire/UART), Pi Zero 2 W optimized |
+| LLM Gateway | `llm-gateway` | On-device LLM inference (Ollama + Hailo-8L, Gemini fallback) |
+| LXC Quotas | `lxc-quotas` | Multi-tenant LXC container resource quota management |
+| Attestation | `attestation` | TPM 2.0 PCR-based remote attestation anchored to Minima ledger |
 
 ---
 
@@ -167,7 +171,7 @@ Comprehensive security dashboard:
 - Threat detection alerts
 - Security profile management
 - **CPIP ITF Defense**: probe blocking status (HTTP 418), blacklisted IPs, detected pentest tools
-- **CPIP Crypto Status**: CoffeeCipher v3, ECDSA P-256, RSA-KEM-2048 key material and rotation
+- **CPIP Crypto Status**: CoffeeCipher v5, ECDSA P-256, RSA-KEM-2048 key material and rotation
 - **CPIP Incident Chain**: tamper-evident SHA-256 audit log (`GET /cpip/incident`)
 - **CPIP Emergency Mode**: key rotation, secure wipe, stealth activation (`POST /cpip/emergency`)
 

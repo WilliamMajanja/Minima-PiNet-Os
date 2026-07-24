@@ -25,6 +25,14 @@ const PiNetApps = {
         { id: 'ai-assistant', name: 'PiNet AI', icon: '🤖', color: '#a855f7', category: 'apps' },
         { id: 'depai-executor', name: 'DePAi', icon: '🧠', color: '#ec4899', category: 'apps' },
         { id: 'imager-utility', name: 'Pi Imager', icon: '💿', color: '#10b981', category: 'apps' },
+        { id: 'sensors', name: 'Sensors', icon: '🌡️', color: '#0ea5e9', category: 'system' },
+        { id: 'llm-gateway', name: 'LLM Gateway', icon: '🧠', color: '#8b5cf6', category: 'apps' },
+        { id: 'lxc-quotas', name: 'LXC Quotas', icon: '📦', color: '#f59e0b', category: 'system' },
+        { id: 'attestation', name: 'Attestation', icon: '🔐', color: '#ef4444', category: 'system' },
+        { id: 'enclaves', name: 'Enclaves', icon: '🔲', color: '#06b6d4', category: 'system' },
+        { id: 'zk-prover', name: 'ZK Prover', icon: '🧾', color: '#a855f7', category: 'apps' },
+        { id: 'marketplace', name: 'Marketplace', icon: '🏪', color: '#10b981', category: 'apps' },
+        { id: 'ssl-manager', name: 'SSL/TLS', icon: '🔒', color: '#06b6d4', category: 'system' },
     ],
 
     getApp(id) {
@@ -230,6 +238,152 @@ const AppContent = {
             <button class="btn btn-primary mt-2" onclick="AppActions.buildImage()">Build Image</button>
         </div>
     `,
+
+    'sensors': () => `
+        <div class="app-panel">
+            <h3>🌡️ Custom Sensors</h3>
+            <p class="text-muted text-sm">User-built sensors on I2C / GPIO / SPI / 1-Wire / UART. Pi Zero 2 W optimized (max 4 sensors, 15s min poll).</p>
+            <div id="sensor-platform" class="mb-2"></div>
+            <div id="sensor-list" class="mb-2">Loading sensors...</div>
+            <details class="mt-2">
+                <summary class="text-sm cursor-pointer">Register new sensor</summary>
+                <div class="mt-2" style="display:grid;gap:6px;max-width:360px">
+                    <input id="sensor-id" class="input" placeholder="Sensor ID (e.g. bme280-living)">
+                    <input id="sensor-name" class="input" placeholder="Name (e.g. Living Room Temp)">
+                    <select id="sensor-kind" class="input">
+                        <option value="temperature">Temperature</option>
+                        <option value="humidity">Humidity</option>
+                        <option value="pressure">Pressure</option>
+                        <option value="light">Light</option>
+                        <option value="soil_moisture">Soil Moisture</option>
+                        <option value="air_quality">Air Quality</option>
+                        <option value="proximity">Proximity</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                    <select id="sensor-bus" class="input">
+                        <option value="i2c">I2C</option>
+                        <option value="gpio">GPIO</option>
+                        <option value="spi">SPI</option>
+                        <option value="1-wire">1-Wire</option>
+                        <option value="adc">ADC</option>
+                        <option value="uart">UART</option>
+                    </select>
+                    <input id="sensor-address" class="input" placeholder="I2C address (e.g. 0x76) or 1-Wire ID">
+                    <input id="sensor-pin" class="input" type="number" placeholder="GPIO pin (e.g. 4)">
+                    <input id="sensor-unit" class="input" placeholder="Unit (e.g. °C, %, hPa)">
+                    <input id="sensor-poll" class="input" type="number" value="15" placeholder="Poll interval (seconds)">
+                    <button class="btn btn-primary" onclick="AppActions.addSensor()">Register Sensor</button>
+                </div>
+            </details>
+            <button class="btn btn-secondary mt-2" onclick="AppActions.readAllSensors()">Read All Sensors</button>
+            <div id="sensor-readings" class="mt-2"></div>
+        </div>
+    `,
+
+    'llm-gateway': () => `
+        <div class="app-panel">
+            <h3>🧠 On-Device LLM Gateway</h3>
+            <p class="text-muted text-sm">Local LLM inference via Ollama (llama.cpp/GGUF) with Hailo-8L acceleration. Falls back to Gemini cloud.</p>
+            <div id="llm-status" class="mb-2">Loading status...</div>
+            <div id="llm-models" class="mb-2"></div>
+            <div style="display:grid;gap:6px;max-width:500px">
+                <input id="llm-prompt" class="input" placeholder="Enter your prompt..." style="min-height:60px">
+                <input id="llm-model" class="input" placeholder="Model (default: llama3.2:3b)">
+                <input id="llm-system" class="input" placeholder="System prompt (optional)">
+                <div style="display:flex;gap:8px">
+                    <input id="llm-temp" class="input" type="number" value="0.7" step="0.1" style="max-width:80px" placeholder="Temp">
+                    <input id="llm-max-tokens" class="input" type="number" value="512" style="max-width:100px" placeholder="Max tokens">
+                </div>
+                <button class="btn btn-primary" onclick="AppActions.llmChat()">Generate</button>
+            </div>
+            <div id="llm-output" class="mt-2" style="white-space:pre-wrap;font-family:monospace;font-size:13px;max-height:300px;overflow-y:auto"></div>
+        </div>
+    `,
+
+    'lxc-quotas': () => `
+        <div class="app-panel">
+            <h3>📦 Multi-Tenant LXC Quotas</h3>
+            <p class="text-muted text-sm">Per-tenant resource limits for LXC containers (CPU, RAM, disk, IO, processes).</p>
+            <div id="lxc-status" class="mb-2">Loading status...</div>
+            <div id="lxc-tenants" class="mb-2"></div>
+            <details class="mt-2">
+                <summary class="text-sm cursor-pointer">Create new tenant</summary>
+                <div class="mt-2" style="display:grid;gap:6px;max-width:360px">
+                    <input id="lxc-tenant-id" class="input" placeholder="Tenant ID (e.g. team-alpha)">
+                    <input id="lxc-cpu" class="input" type="number" value="50" placeholder="CPU limit (%)">
+                    <input id="lxc-ram" class="input" type="number" value="512" placeholder="RAM limit (MB)">
+                    <input id="lxc-disk" class="input" type="number" value="10" placeholder="Disk limit (GB)">
+                    <input id="lxc-io" class="input" type="number" value="1000" placeholder="IO IOPS">
+                    <input id="lxc-procs" class="input" type="number" value="512" placeholder="Max processes">
+                    <button class="btn btn-primary" onclick="AppActions.createTenant()">Create Tenant</button>
+                </div>
+            </details>
+            <button class="btn btn-secondary mt-2" onclick="AppActions.loadLXCUsage()">Refresh Usage</button>
+            <div id="lxc-usage" class="mt-2"></div>
+        </div>
+    `,
+
+    'attestation': () => `
+        <div class="app-panel">
+            <h3>🔐 Formal Remote Attestation</h3>
+            <p class="text-muted text-sm">TPM 2.0 PCR-based attestation anchored to the Minima blockchain (v2.0.0).</p>
+            <div id="attestation-status" class="mb-2">Loading status...</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-primary" onclick="AppActions.createAttestation()">Create Attestation</button>
+                <button class="btn btn-secondary" onclick="AppActions.loadAttestations()">Load Records</button>
+            </div>
+            <div id="attestation-records" class="mt-2"></div>
+        </div>
+    `,
+
+    'enclaves': () => `
+        <div class="app-panel">
+            <h3>🔲 Confidential Enclaves</h3>
+            <p class="text-muted text-sm">Arm CCA / RISC-V AP-TEE confidential computing enclaves (v3.0.0).</p>
+            <div id="enclave-list">Loading...</div>
+        </div>
+        <div class="app-panel">
+            <div class="flex gap-2"><input type="text" id="enclave-name" placeholder="Enclave name" style="flex:1"><input type="number" id="enclave-mem" placeholder="MB" value="1024" style="width:80px"><button class="btn btn-primary" onclick="AppActions.createEnclave()">Create</button></div>
+        </div>
+    `,
+
+    'zk-prover': () => `
+        <div class="app-panel">
+            <h3>🧾 ZK Prover</h3>
+            <p class="text-muted text-sm">Generate and verify zero-knowledge proofs (zkVM, v3.0.0).</p>
+            <div id="zk-proof-list">Loading...</div>
+        </div>
+        <div class="app-panel">
+            <div class="flex gap-2"><textarea id="zk-program" placeholder="Program source (e.g. risc0 guest code)..." style="width:100%;height:80px;font-family:monospace;font-size:12px"></textarea></div>
+            <div class="flex gap-2"><button class="btn btn-primary" onclick="AppActions.createProof()">Generate Proof</button><button class="btn btn-secondary" onclick="AppActions.refreshProofs()">Refresh</button></div>
+            <div id="zk-result" class="mt-2 text-sm"></div>
+        </div>
+    `,
+
+    'ssl-manager': () => `
+        <div class="app-panel">
+            <h3>🔒 SSL/TLS Manager</h3>
+            <p class="text-muted text-sm">Manage TLS certificates, HSTS, and security headers (v3.0.0).</p>
+            <div id="ssl-status">Loading...</div>
+        </div>
+        <div class="app-panel">
+            <h3>Certificate Management</h3>
+            <div class="flex gap-2"><input type="text" id="ssl-hosts" placeholder="Hosts (comma-separated)" value="localhost,127.0.0.1,::1" style="flex:1"><button class="btn btn-primary" onclick="AppActions.sslGenerate()">Generate Certificates</button></div>
+            <div class="flex gap-2 mt-2"><button class="btn btn-secondary" onclick="AppActions.sslInstallCa()">Install CA to System</button><button class="btn btn-danger" onclick="AppActions.sslDelete()">Delete Certificates</button><button class="btn btn-secondary" onclick="AppActions.refreshSsl()">Refresh</button></div>
+            <div id="ssl-result" class="mt-2 text-sm"></div>
+        </div>
+    `,
+
+    'marketplace': () => `
+        <div class="app-panel">
+            <h3>🏪 Edge Compute Marketplace</h3>
+            <p class="text-muted text-sm">Publish and lease edge compute resources on the decentralized marketplace (v3.0.0).</p>
+            <div id="marketplace-listings">Loading...</div>
+        </div>
+        <div class="app-panel">
+            <div class="flex gap-2"><input type="text" id="mp-name" placeholder="Listing name" style="flex:1"><input type="text" id="mp-price" placeholder="Price/hr" value="0.01" style="width:80px"><input type="number" id="mp-cpu" placeholder="CPUs" value="4" style="width:60px"><input type="number" id="mp-ram" placeholder="RAM GB" value="8" style="width:70px"><button class="btn btn-primary" onclick="AppActions.createListing()">Publish</button></div>
+        </div>
+    `,
 };
 
 /* ─── App Actions (event handlers) ─────────── */
@@ -276,6 +430,155 @@ const AppActions = {
         const alias = document.getElementById('setting-alias')?.value;
         const wallpaper = document.getElementById('setting-wallpaper')?.value;
         await PiNetAPI.saveSettings({ nodeAlias: alias, wallpaper });
+    },
+
+    async loadSensors() {
+        const platform = await PiNetAPI.get('/api/sensors/platform');
+        const plEl = document.getElementById('sensor-platform');
+        if (plEl && platform) {
+            plEl.innerHTML = `<div class="app-stat"><span class="label">Platform: ${platform.label || platform.platform}</span><span class="value">Max ${platform.maxSensors} sensors · min ${platform.minPollInterval}s poll</span></div>`;
+        }
+        const result = await PiNetAPI.get('/api/sensors');
+        const list = document.getElementById('sensor-list');
+        if (!list) return;
+        if (!result || !result.sensors || result.sensors.length === 0) {
+            list.innerHTML = '<p class="text-muted text-sm">No custom sensors registered.</p>';
+            return;
+        }
+        list.innerHTML = result.sensors.map(s =>
+            `<div class="app-stat" style="cursor:pointer" onclick="AppActions.readSensor('${s.id}')">
+                <span class="label">🌡️ ${s.name} (${s.kind}, ${s.bus})</span>
+                <span class="value">${s.enabled ? '✅' : '⛔'} ${s.pollInterval}s</span>
+            </div>`
+        ).join('');
+    },
+
+    async addSensor() {
+        const payload = {
+            id: document.getElementById('sensor-id')?.value,
+            name: document.getElementById('sensor-name')?.value,
+            kind: document.getElementById('sensor-kind')?.value,
+            bus: document.getElementById('sensor-bus')?.value,
+            address: document.getElementById('sensor-address')?.value || null,
+            pin: parseInt(document.getElementById('sensor-pin')?.value) || null,
+            unit: document.getElementById('sensor-unit')?.value || '',
+            pollInterval: parseInt(document.getElementById('sensor-poll')?.value) || 15,
+        };
+        if (!payload.id || !payload.name) { alert('Sensor ID and name are required'); return; }
+        const result = await PiNetAPI.post('/api/sensors', payload);
+        if (result && result.success) {
+            AppActions.loadSensors();
+        } else {
+            alert('Failed to register sensor: ' + (result?.detail || 'unknown error'));
+        }
+    },
+
+    async readSensor(sensorId) {
+        const reading = await PiNetAPI.get(`/api/sensors/${sensorId}/reading`);
+        const el = document.getElementById('sensor-readings');
+        if (el && reading) {
+            el.innerHTML = `<div class="app-stat"><span class="label">${reading.sensorId}</span><span class="value">${reading.value} ${reading.unit || ''}</span></div>`;
+        }
+    },
+
+    async readAllSensors() {
+        const result = await PiNetAPI.get('/api/sensors/readings/all');
+        const el = document.getElementById('sensor-readings');
+        if (!el || !result) return;
+        if (!result.readings || result.readings.length === 0) {
+            el.innerHTML = '<p class="text-muted text-sm">No enabled sensors to read.</p>';
+            return;
+        }
+        el.innerHTML = result.readings.map(r =>
+            `<div class="app-stat"><span class="label">${r.sensorId}</span><span class="value">${r.value} ${r.unit || ''}${r.error ? ' ⚠️ ' + r.error : ''}</span></div>`
+        ).join('');
+    },
+
+    async llmChat() {
+        const prompt = document.getElementById('llm-prompt')?.value;
+        if (!prompt) return;
+        const output = document.getElementById('llm-output');
+        if (output) output.textContent = 'Generating...';
+        const payload = {
+            prompt,
+            model: document.getElementById('llm-model')?.value || '',
+            system: document.getElementById('llm-system')?.value || '',
+            temperature: parseFloat(document.getElementById('llm-temp')?.value || '0.7'),
+            maxTokens: parseInt(document.getElementById('llm-max-tokens')?.value || '512'),
+        };
+        const result = await PiNetAPI.post('/api/llm/chat', payload);
+        if (output) {
+            if (result && result.text) {
+                output.textContent = result.text;
+            } else {
+                output.textContent = 'Error: ' + (result?.detail || 'No response');
+            }
+        }
+    },
+
+    async createTenant() {
+        const payload = {
+            tenantId: document.getElementById('lxc-tenant-id')?.value,
+            cpuLimit: parseInt(document.getElementById('lxc-cpu')?.value || '50'),
+            ramLimitMb: parseInt(document.getElementById('lxc-ram')?.value || '512'),
+            diskLimitGb: parseInt(document.getElementById('lxc-disk')?.value || '10'),
+            ioIops: parseInt(document.getElementById('lxc-io')?.value || '1000'),
+            processesMax: parseInt(document.getElementById('lxc-procs')?.value || '512'),
+        };
+        if (!payload.tenantId) { alert('Tenant ID is required'); return; }
+        const result = await PiNetAPI.post('/api/lxc/tenants', payload);
+        if (result && result.success) {
+            AppActions.loadLXCTenants();
+        } else {
+            alert('Failed: ' + (result?.detail || 'unknown error'));
+        }
+    },
+
+    async loadLXCTenants() {
+        const result = await PiNetAPI.get('/api/lxc/tenants');
+        const el = document.getElementById('lxc-tenants');
+        if (!el || !result) return;
+        if (!result.tenants || result.tenants.length === 0) {
+            el.innerHTML = '<p class="text-muted text-sm">No LXC tenants created.</p>';
+            return;
+        }
+        el.innerHTML = result.tenants.map(t =>
+            `<div class="app-stat"><span class="label">📦 ${t.tenantId}</span><span class="value">CPU ${t.cpuLimit}% · RAM ${t.ramLimitMb}MB · Disk ${t.diskLimitGb}GB</span></div>`
+        ).join('');
+    },
+
+    async loadLXCUsage() {
+        const result = await PiNetAPI.get('/api/lxc/usage');
+        const el = document.getElementById('lxc-usage');
+        if (!el || !result) return;
+        if (!result.usages || result.usages.length === 0) {
+            el.innerHTML = '<p class="text-muted text-sm">No tenant usage data.</p>';
+            return;
+        }
+        el.innerHTML = result.usages.map(u =>
+            `<div class="app-stat"><span class="label">${u.tenantId}</span><span class="value">CPU ${u.cpuPercent.toFixed(1)}% · RAM ${u.ramUsedMb.toFixed(1)}MB · Procs ${u.processes}</span></div>`
+        ).join('');
+    },
+
+    async createAttestation() {
+        const result = await PiNetAPI.post('/api/attestation/create', { nodeId: 'pinet-alpha' });
+        const el = document.getElementById('attestation-records');
+        if (el && result) {
+            el.innerHTML = `<div class="app-stat"><span class="label">🔐 ${result.attestationId}</span><span class="value">${result.timestamp}</span></div>`;
+        }
+    },
+
+    async loadAttestations() {
+        const result = await PiNetAPI.get('/api/attestation');
+        const el = document.getElementById('attestation-records');
+        if (!el || !result) return;
+        if (!result.attestations || result.attestations.length === 0) {
+            el.innerHTML = '<p class="text-muted text-sm">No attestation records.</p>';
+            return;
+        }
+        el.innerHTML = result.attestations.map(a =>
+            `<div class="app-stat"><span class="label">🔐 ${a.attestationId}</span><span class="value">${a.verified ? '✅' : '⏳'} ${a.timestamp}</span></div>`
+        ).join('');
     },
 
     async installDapp() {
@@ -366,6 +669,134 @@ const AppActions = {
         out.textContent = 'Submitting…';
         const data = await PiNetAPI.post('/api/cluster/exec', { targetNodeId, command });
         out.textContent = data ? JSON.stringify(data, null, 2) : 'Failed to submit workload.';
+    },
+
+    // ─── v3.0.0: Enclaves ─────────────────────────────────────────────────
+    async createEnclave() {
+        const name = document.getElementById('enclave-name')?.value;
+        const mem = parseInt(document.getElementById('enclave-mem')?.value) || 1024;
+        if (!name) { alert('Enclave name required'); return; }
+        const result = await PiNetAPI.enclaveCreate({ name, memoryMb: mem, teeType: 'cca' });
+        if (result) { AppActions.refreshEnclaves(); }
+    },
+
+    async refreshEnclaves() {
+        const data = await PiNetAPI.enclaves();
+        const el = document.getElementById('enclave-list');
+        if (!el) return;
+        if (!data || !data.enclaves || !data.enclaves.length) {
+            el.innerHTML = '<p class="text-muted text-sm">No enclaves. Create one above.</p>';
+            return;
+        }
+        el.innerHTML = data.enclaves.map(e =>
+            `<div class="app-stat"><span class="label">🔲 ${e.name} (${e.enclaveId.slice(0,16)}...)</span><span class="value" style="color:${e.status === 'running' || e.status === 'attested' ? '#22c55e' : '#ef4444'}">${e.status}</span></div>`
+        ).join('');
+    },
+
+    async attestEnclave(enclaveId) {
+        const result = await PiNetAPI.enclaveAttest(enclaveId);
+        if (result) AppActions.refreshEnclaves();
+    },
+
+    async stopEnclave(enclaveId) {
+        await PiNetAPI.enclaveStop(enclaveId);
+        AppActions.refreshEnclaves();
+    },
+
+    // ─── v3.0.0: ZK Proofs ──────────────────────────────────────────────────
+    async createProof() {
+        const program = document.getElementById('zk-program')?.value;
+        if (!program) { alert('Program source required'); return; }
+        const result = await PiNetAPI.zkProofCreate({ programSource: program, proverBackend: 'risc0' });
+        const el = document.getElementById('zk-result');
+        if (el && result) {
+            el.innerHTML = `<div class="text-xs mono">Proof: ${result.proofId}<br>Hash: ${result.programHash.slice(0,32)}...</div>`;
+        }
+        AppActions.refreshProofs();
+    },
+
+    async refreshProofs() {
+        const data = await PiNetAPI.zkProofs();
+        const el = document.getElementById('zk-proof-list');
+        if (!el) return;
+        if (!data || !data.proofs || !data.proofs.length) {
+            el.innerHTML = '<p class="text-muted text-sm">No proofs generated.</p>';
+            return;
+        }
+        el.innerHTML = data.proofs.map(p =>
+            `<div class="app-stat"><span class="label">🧾 ${p.proofId.slice(0,24)}...</span><span class="value">${p.verified ? '✅ Verified' : '⏳ Pending'}</span></div>`
+        ).join('');
+    },
+
+    // ─── v3.0.0: Marketplace ────────────────────────────────────────────────
+    async createListing() {
+        const name = document.getElementById('mp-name')?.value;
+        const price = document.getElementById('mp-price')?.value || '0.01';
+        const cpu = parseInt(document.getElementById('mp-cpu')?.value) || 4;
+        const ram = parseInt(document.getElementById('mp-ram')?.value) || 8;
+        if (!name) { alert('Listing name required'); return; }
+        await PiNetAPI.marketplaceListingCreate({ name, pricePerHour: price, cpuCores: cpu, ramGb: ram, nodeId: 'localhost' });
+        AppActions.refreshListings();
+    },
+
+    // ─── v3.0.0: SSL/TLS Manager ─────────────────────────────────────────────
+    async sslGenerate() {
+        const hosts = document.getElementById('ssl-hosts')?.value || 'localhost,127.0.0.1,::1';
+        const el = document.getElementById('ssl-result');
+        if (el) el.textContent = 'Generating certificates...';
+        const data = await PiNetAPI.sslGenerate(hosts.split(',').map(h => h.trim()));
+        if (el) el.textContent = data ? `Certificates generated: ${data.cert_path || 'success'}` : 'Generation failed';
+        AppActions.refreshSsl();
+    },
+
+    async sslInstallCa() {
+        const el = document.getElementById('ssl-result');
+        if (el) el.textContent = 'Installing CA to system trust store...';
+        const data = await PiNetAPI.sslInstallCa();
+        if (el) el.textContent = data ? (data.message || 'CA installed') : 'Install failed';
+    },
+
+    async sslDelete() {
+        if (!confirm('Delete all SSL certificates? This will disable HTTPS.')) return;
+        const data = await PiNetAPI.sslCertsDelete();
+        const el = document.getElementById('ssl-result');
+        if (el) el.textContent = data ? 'Certificates deleted' : 'Delete failed';
+        AppActions.refreshSsl();
+    },
+
+    async refreshSsl() {
+        const data = await PiNetAPI.sslStatus();
+        const el = document.getElementById('ssl-status');
+        if (!el) return;
+        if (!data) {
+            el.innerHTML = '<p class="text-muted text-sm">Could not load SSL status.</p>';
+            return;
+        }
+        const hsts = data.hsts || {};
+        const cert = data.certificate || {};
+        el.innerHTML = `
+            <div class="app-stat"><span class="label">SSL/TLS</span><span class="value">${data.ssl_enabled ? '✅ Enabled' : '❌ Disabled'}</span></div>
+            <div class="app-stat"><span class="label">HSTS</span><span class="value">${hsts.enabled ? '✅ Enabled' : '❌ Disabled'}</span></div>
+            <div class="app-stat"><span class="label">HSTS Max-Age</span><span class="value mono">${hsts.max_age || 31536000}s</span></div>
+            <div class="app-stat"><span class="label">Provider</span><span class="value">${data.provider || 'none'}</span></div>
+            <div class="app-stat"><span class="label">Certificate</span><span class="value mono">${cert.subject || 'Not generated'}</span></div>
+            <div class="app-stat"><span class="label">Issuer</span><span class="value">${cert.issuer || 'N/A'}</span></div>
+            <div class="app-stat"><span class="label">Valid Until</span><span class="value">${cert.not_after || 'N/A'}</span></div>
+            <div class="app-stat"><span class="label">SANs</span><span class="value mono text-sm">${(cert.subject_alt_names || []).join(', ') || 'N/A'}</span></div>
+        `;
+    },
+
+    async refreshListings() {
+        const data = await PiNetAPI.marketplaceListings();
+        const el = document.getElementById('marketplace-listings');
+        if (!el) return;
+        if (!data || !data.listings || !data.listings.length) {
+            el.innerHTML = '<p class="text-muted text-sm">No listings. Publish your compute above.</p>';
+            return;
+        }
+        el.innerHTML = data.listings.map(l =>
+            `<div class="app-stat"><span class="label">🏪 ${l.name} (${l.cpuCores} CPU / ${l.ramGb} GB RAM)</span><span class="value">${l.pricePerHour}/hr · ${l.status}</span></div>`
+        ).join('');
     },
 };
 
@@ -567,6 +998,11 @@ const AppInitializers = {
             sel.appendChild(opt);
         }
     },
+
+    'enclaves': async () => { AppActions.refreshEnclaves(); },
+    'zk-prover': async () => { AppActions.refreshProofs(); },
+    'marketplace': async () => { AppActions.refreshListings(); },
+    'ssl-manager': async () => { AppActions.refreshSsl(); },
 };
 
 /* ─── Desktop Icon Rendering ───────────────── */

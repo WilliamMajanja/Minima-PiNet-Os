@@ -1,0 +1,71 @@
+# PiNet-OS v2.0.0 — Pinned Package Versions for Reproducible Builds
+#
+# This file locks all Debian package versions used in the rootfs build.
+# Combined with SOURCE_DATE_EPOCH, this ensures bit-for-bit reproducible
+# OS images across different build hosts and timestamps.
+#
+# Format: package_name=version
+#
+# To regenerate:
+#   dpkg -l | awk '/^ii/ {print $2"="$3}' > build-system/packages.lock
+
+base-files=12.4+deb12u6
+bash=5.2.15-2+b7
+coreutils=9.1-1
+dash=0.5.12-2
+dpkg=1.21.22
+e2fsprogs=1.46.6-1
+findutils=4.9.0-4
+grep=3.8-5
+gzip=1.12-1
+hostname=3.23+nmu1
+init-system-helpers=1.65.2
+libc6=2.36-9+deb12u9
+libssl3=3.0.17-1~deb12u1
+login=1:4.13+dfsg1-1+b1
+mount=2.38.1-5+deb12u1
+ncurses-base=6.4-4
+ncurses-bin=6.4-4
+passwd=1:4.13+dfsg1-1+b1
+perl-base=5.36.0-7+deb12u1
+sed=4.9-1
+tar=1.34+dfsg-1.2+deb12u1
+util-linux=2.38.1-5+deb12u1
+zlib1g=1:1.2.13.dfsg-1
+
+# ─── Python 3.11 (PiNet-OS backend) ───────────────────────────
+python3=3.11.2-1+b1
+python3-minimal=3.11.2-1+b1
+python3-pip=23.0+dfsg-1
+python3-venv=3.11.2-1+b1
+python3-cryptography=38.0.4-3
+python3-fastapi=0.92.0-1
+python3-uvicorn=0.17.6-1
+python3-httpx=0.23.0-2
+python3-psutil=5.9.4-1
+python3-pydantic=1.10.4-1
+
+# ─── Java 17 (Minima node) ────────────────────────────────────
+openjdk-17-jre-headless=17.0.13+11-1~deb12u1
+
+# ─── Network & Security ───────────────────────────────────────
+wireguard-tools=1.0.20210914-1
+nftables=1.0.6-2+deb12u1
+fail2ban=0.11.2-7
+openssh-server=1:9.2p1-2+deb12u3
+ufw=0.36.1-4
+
+# ─── Container & LXC ──────────────────────────────────────────
+lxc-tools=5.0.2-1+deb12u1
+cgroup-tools=2.0.2-2
+
+# ─── TPM 2.0 ─────────────────────────────────────────────────
+tpm2-tools=5.5-1
+
+# ─── Build Tools (for reproducible rebuilds) ──────────────────
+debootstrap=1.0.128+nmu1
+device-tree-compiler=2023.07-2
+
+# ─── K3s (pinned via download) ────────────────────────────────
+# k3s version is pinned in build-system/k3s-version.txt
+k3s=1.30.0+k3s1

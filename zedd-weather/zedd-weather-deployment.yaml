@@ -3,8 +3,13 @@
 # Runs on any Raspberry Pi node with a Sense HAT attached.
 # Supports: Pi 5, Pi 4, Pi 3, Pi 2, Pi 1, Pi Zero 2 W, Compute Module 3/4
 #
+# Pi Zero 2 W (BCM2837B0, 512 MB RAM, single-core turbo) is the primary
+# low-power target for custom user-built sensors. The deployment mounts
+# /etc/pinet/sensors.json for custom sensor definitions and all relevant
+# device nodes (I2C, SPI, GPIO, 1-Wire, serial).
+#
 # The nodeSelector uses a generic 'sensor: sense-hat' label that should be
-# applied to whichever Pi node has the Sense HAT physically attached.
+# applied to whichever Pi node has the Sense HAT attached.
 # For Pi Zero / Pi 1, reduce resource limits accordingly.
 apiVersion: apps/v1
 kind: Deployment
@@ -27,23 +32,25 @@ spec:
         app: zedd-weather
         component: edge-sensor
     spec:
-      # Pin to the Sense HAT node
+      # Pin to the Sense HAT node (or any sensor node)
       nodeSelector:
         sensor: sense-hat
 
-      # Allow reading /dev/i2c-* on the host
+      # Allow reading /dev/i2c-*, /dev/spidev*, /dev/gpiomem, 1-Wire, serial
       # Group 998 = i2c on Raspberry Pi OS Bookworm
       # Group 108 = i2c on some Debian-based distros
+      # Group 20 = gpio on Pi OS
       securityContext:
         supplementalGroups:
           - 998
           - 108
+          - 20
         runAsNonRoot: true
         runAsUser: 1001
 
       containers:
         - name: zedd-weather
-          # Multi-arch image: builds for linux/arm64 (Pi 5/4/3) and linux/arm/v7 (Pi 2/1/Zero)
+          # Multi-arch image: linux/arm64 (Pi 5/4/3/Zero2W) and linux/arm/v7 (Pi 2/1/Zero)
           image: ghcr.io/williammajanja/zedd-weather:latest
           imagePullPolicy: Always
 
@@ -70,15 +77,17 @@ spec:
               value: "10"
             # Override PLATFORM detection if needed (pi5, pi4, pi3, pi2, pi1, zero, zero2w, cm4, cm3, generic)
             # - name: PLATFORM
-            #   value: "pi5"
+            #   value: "zero2w"
+            # Custom sensors definition file (Pi Zero 2 W optimized: max 4, 15s min poll)
+            - name: CUSTOM_SENSORS
+              value: "/etc/pinet/sensors.json"
             # Kubernetes Downward API — injects the node name for tagging
             - name: NODE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
 
-          # Mount /dev/i2c-* from the host so the container can reach the
-          # physical Sense HAT over I2C bus 1 (and bus 0 on Pi 5).
+          # Mount device nodes and custom sensor config from the host
           volumeMounts:
             - name: i2c-bus
               mountPath: /dev/i2c-1
@@ -86,8 +95,18 @@ spec:
               mountPath: /dev/i2c-0
             - name: dev-gpiomem
               mountPath: /dev/gpiomem
+            - name: spi-dev
+              mountPath: /dev/spidev0.0
+            - name: w1-bus
+              mountPath: /sys/bus/w1
+              readOnly: true
+            - name: serial0
+              mountPath: /dev/serial0
+            - name: sensor-config
+              mountPath: /etc/pinet/sensors.json
+              readOnly: true
 
-          # Resource limits: adjusted for Pi Zero/1 (lower) vs Pi 4/5 (higher)
+          # Resource limits: Pi Zero 2 W gets lower limits via nodeSelector
           resources:
             requests:
               cpu: 50m
@@ -116,6 +135,148 @@ spec:
           hostPath:
             path: /dev/i2c-1
             type: CharDevice
+        - name: i2c-bus-0
+          hostPath:
+            path: /dev/i2c-0
+            type: CharDevice
+        - name: dev-gpiomem
+          hostPath:
+            path: /dev/gpiomem
+            type: CharDevice
+        - name: spi-dev
+          hostPath:
+            path: /dev/spidev0.0
+            type: CharDevice
+        - name: w1-bus
+          hostPath:
+            path: /sys/bus/w1
+            type: Directory
+        - name: serial0
+          hostPath:
+            path: /dev/serial0
+            type: CharDevice
+        - name: sensor-config
+          hostPath:
+            path: /etc/pinet/sensors.json
+            type: File
+---
+# Pi Zero 2 W specific — lower resource limits for single-core turbo nodes
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zedd-weather-zero2w
+  namespace: zedd-weather
+  labels:
+    app: zedd-weather
+    component: edge-sensor
+    platform: zero2w
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zedd-weather-zero2w
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: zedd-weather-zero2w
+        component: edge-sensor
+        platform: zero2w
+    spec:
+      nodeSelector:
+        sensor: sense-hat
+        platform: zero2w
+      securityContext:
+        supplementalGroups: [998, 108, 20]
+        runAsNonRoot: true
+        runAsUser: 1001
+      containers:
+        - name: zedd-weather
+          image: ghcr.io/williammajanja/zedd-weather:latest
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: [ALL]
+          env:
+            - name: INFLUXDB_URL
+              value: "http://influxdb.zedd-weather.svc.cluster.local:8086"
+            - name: INFLUXDB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: influxdb-secret
+                  key: admin-token
+            - name: INFLUXDB_ORG
+              value: "zedd-weather"
+            - name: INFLUXDB_BUCKET
+              value: "sensor-data"
+            - name: SENSOR_INTERVAL
+              value: "15"
+            - name: PLATFORM
+              value: "zero2w"
+            - name: CUSTOM_SENSORS
+              value: "/etc/pinet/sensors.json"
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: i2c-bus
+              mountPath: /dev/i2c-1
+            - name: dev-gpiomem
+              mountPath: /dev/gpiomem
+            - name: spi-dev
+              mountPath: /dev/spidev0.0
+            - name: w1-bus
+              mountPath: /sys/bus/w1
+              readOnly: true
+            - name: sensor-config
+              mountPath: /etc/pinet/sensors.json
+              readOnly: true
+          # Pi Zero 2 W: single-core turbo, 512 MB RAM — conservative limits
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 9200
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 9200
+            initialDelaySeconds: 20
+            periodSeconds: 30
+      volumes:
+        - name: i2c-bus
+          hostPath:
+            path: /dev/i2c-1
+            type: CharDevice
+        - name: dev-gpiomem
+          hostPath:
+            path: /dev/gpiomem
+            type: CharDevice
+        - name: spi-dev
+          hostPath:
+            path: /dev/spidev0.0
+            type: CharDevice
+        - name: w1-bus
+          hostPath:
+            path: /sys/bus/w1
+            type: Directory
+        - name: sensor-config
+          hostPath:
+            path: /etc/pinet/sensors.json
+            type: File
         - name: i2c-bus-0
           hostPath:
             path: /dev/i2c-0

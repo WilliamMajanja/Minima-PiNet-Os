@@ -24,7 +24,7 @@ Each runtime provenance event contains:
   "schemaVersion": "RMPE-2",
   "type": "pinet-provenance-event",
   "eventType": "NODE_JOIN",
-  "pinetVersion": "1.2.0",
+  "pinetVersion": "1.3.0",
   "source": "cluster",
   "clusterId": "cluster-1711461600000-xyz789",
   "nodeId": "pinet-pi-alpha",
@@ -56,7 +56,7 @@ Stable release jobs generate:
 Generate locally after building release artifacts:
 
 ```bash
-npm run release:provenance -- 1.2.0
+npm run release:provenance -- 1.3.0
 ```
 
 ## Event Types

@@ -46,6 +46,7 @@ Workloads execute in lightweight LXC containers with:
 - cgroups v2 resource limits (CPU, memory, I/O)
 - No host filesystem access by default
 - Dropped Linux capabilities
+- **v1.3.0:** Multi-tenant LXC quotas — per-container CPU, RAM, disk, IO, and process limits via cgroups v2 (up to 16 tenants per node)
 
 ### 2. Hardware Attestation
 
@@ -53,6 +54,7 @@ Boot integrity verification:
 - Measured boot chain validates firmware → bootloader → kernel → init
 - Remote attestation protocol for cluster node verification
 - TPM 2.0 integration where hardware supports it
+- **v2.0.0:** Formal TPM PCR-based attestation anchored to Minima blockchain; attestation reports signed with CPIP ECDSA P-256 node identity
 
 ### 3. WireGuard Mesh VPN
 
@@ -120,7 +122,29 @@ Automated brute-force protection:
 - API: Rate limiting per IP (varies by endpoint)
 - Configurable ban duration and thresholds
 
-### 10. LUKS Full Disk Encryption
+### 9. fail2ban Intrusion Prevention
+
+Automated brute-force protection:
+- SSH: 5 failed attempts → 10 minute ban
+- API: Rate limiting per IP (varies by endpoint)
+- Configurable ban duration and thresholds
+
+### 10. CPIP PQ-TLS (v1.3.0)
+
+Post-quantum TLS for CPIP RPC transport:
+- Hybrid ECDH P-256 + Kyber-768 (ML-KEM-768) key exchange
+- Forward secrecy against quantum cryptanalytic adversaries
+- Enabled via `CPIP_PQ_TLS=1` and `CPIP_PQ_HYBRID=1`
+
+### 11. CPIP TPM Key-Wrap (v1.3.0)
+
+Hardware-bound CPIP master keys:
+- PCR-sealed to TPM 2.0 measured boot state
+- Unseal requires current PCR values to match
+- Prevents key extraction on tampered systems
+- Enabled via `PINET_TPM_KEYWRAP=1`
+
+### 12. LUKS Full Disk Encryption
 
 Optional full disk encryption:
 - LUKS2 with AES-256-XTS
@@ -151,7 +175,41 @@ Per-IP rate limiting on sensitive endpoints:
 - DApp management: 5 req/min
 - OS switching: 3 req/min
 
-### 14. Audit Logging
+### 14. SSL/TLS with mkcert (v3.0.0)
+
+Production-grade TLS termination for the web server:
+- **mkcert** generates a local CA and server certificates (preferred)
+- **OpenSSL** self-signed fallback when mkcert is unavailable
+- Certificates auto-generated on first boot at `~/.local/share/pinet/ssl/certs/`
+- Includes SANs for localhost, 127.0.0.1, and ::1
+- Server starts with `ssl_certfile` and `ssl_keyfile` for HTTPS by default
+- `pinet ssl` CLI for certificate lifecycle (generate, install, delete, status)
+- API: `GET /api/ssl/status`, `POST /api/ssl/generate`, `DELETE /api/ssl/certs`, `POST /api/ssl/install-ca`, `GET /api/ssl/cert`
+- Config: `PINET_SSL_ENABLED=1`, `PINET_SSL_HOSTS=localhost,127.0.0.1,::1`
+
+### 15. HTTP Strict Transport Security (v3.0.0)
+
+HSTS middleware enforces HTTPS-only browser behavior:
+- `Strict-Transport-Security` header on all HTTPS responses
+- Default `max-age=31536000` (1 year), `includeSubDomains`, `preload`
+- Only applied to HTTPS responses (or when behind reverse proxy via `x-forwarded-proto`)
+- Config: `PINET_HSTS_ENABLED=1`, `PINET_HSTS_MAX_AGE=31536000`
+
+### 16. Security Response Headers (v3.0.0)
+
+11 security headers injected on every HTTP response:
+- `Content-Security-Policy`: default-src 'self', frame-ancestors 'none', base-uri 'self', form-action 'self'
+- `Permissions-Policy`: camera, microphone, geolocation, payment, USB all denied
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `X-XSS-Protection: 1; mode=block`
+- `Referrer-Policy: no-referrer`
+- `X-Permitted-Cross-Domain-Policies: none`
+- `Cross-Origin-Embedder-Policy: require-corp`
+- `Cross-Origin-Opener-Policy: same-origin`
+- `Cross-Origin-Resource-Policy: same-origin`
+
+### 17. Audit Logging
 
 Comprehensive security audit trail:
 - All authentication attempts logged
@@ -182,6 +240,11 @@ Comprehensive security audit trail:
 | GET | `/cpip/anti-surveillance` | Anti-Surveillance defense status/toggle |
 | GET | `/cpip/net-neutrality` | Net-Neutrality countermeasure status/toggle |
 | GET | `/cpip/signal` | Signal awareness (bandwidth, jamming detection) |
+| GET | `/api/ssl/status` | SSL/TLS and HSTS status with certificate details |
+| POST | `/api/ssl/generate` | Generate CA + server certificate (mkcert or openssl) |
+| DELETE | `/api/ssl/certs` | Delete all certificates |
+| POST | `/api/ssl/install-ca` | Install local CA into system trust store |
+| GET | `/api/ssl/cert` | Download public server certificate (PEM) |
 
 ---
 
@@ -224,10 +287,10 @@ See [SECURITY.md](https://github.com/WilliamMajanja/Minima-PiNet-Os/blob/main/SE
 ## Supported Versions
 
 | Version | Security Updates |
-|---|---|
-| 3.x (current) | ✅ Active support |
-| 2.x | ⚠️ Critical fixes only |
-| 1.x | ❌ End of life |
+|---|---|---|
+| 3.0.x (current) | ✅ Active support |
+| 1.3.x (LTS) | ⚠️ Critical fixes only |
+| 1.2.x | ❌ End of life |
 
 ---
 

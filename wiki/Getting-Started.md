@@ -94,7 +94,7 @@ chmod +x pinet
 ## What's Next?
 
 - [Architecture](Architecture) — Understand the system design
-- [Desktop Applications](Desktop-Applications) — Explore the 20 built-in apps
+- [Desktop Applications](Desktop-Applications) — Explore the 27 built-in apps
 - [Cluster Management](Cluster-Management) — Set up multi-node clusters
 - [DApp Development](DApp-Development) — Build decentralized applications
 - [Hardware Guide](Hardware-Guide) — Connect sensors and peripherals

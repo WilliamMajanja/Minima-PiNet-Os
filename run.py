@@ -24,6 +24,7 @@ load_dotenv()
 def main() -> None:
     """Start the PiNet-OS server."""
     from backend.main import create_app
+    from backend.ssl_manager import ensure_certs, SSL_ENABLED
 
     app = create_app()
 
@@ -31,17 +32,41 @@ def main() -> None:
     host = os.getenv("PINET_HOST", "0.0.0.0")
     reload_enabled = os.getenv("PINET_RELOAD", "").lower() in ("1", "true", "yes")
 
-    print(f"🚀 PiNet-OS starting on http://{host}:{port}")
+    # SSL/TLS configuration
+    ssl_certfile = None
+    ssl_keyfile = None
+    scheme = "http"
+
+    if SSL_ENABLED:
+        cert_path, key_path = ensure_certs()
+        if cert_path and key_path:
+            ssl_certfile = cert_path
+            ssl_keyfile = key_path
+            scheme = "https"
+            print(f"🔒 SSL/TLS enabled")
+            print(f"   Certificate: {cert_path}")
+            print(f"   Key:         {key_path}")
+        else:
+            print("⚠️  SSL enabled but no certificates available — falling back to HTTP")
+            print("   Generate certs with: pinet ssl generate")
+
+    print(f"🚀 PiNet-OS starting on {scheme}://{host}:{port}")
     print(f"   Python {sys.version}")
     print(f"   Reload: {'enabled' if reload_enabled else 'disabled'}")
 
-    uvicorn.run(
-        app,
-        host=host,
-        port=port,
-        reload=reload_enabled,
-        log_level="info",
-    )
+    uvicorn_kwargs = {
+        "app": app,
+        "host": host,
+        "port": port,
+        "reload": reload_enabled,
+        "log_level": "info",
+    }
+
+    if ssl_certfile and ssl_keyfile:
+        uvicorn_kwargs["ssl_certfile"] = ssl_certfile
+        uvicorn_kwargs["ssl_keyfile"] = ssl_keyfile
+
+    uvicorn.run(**uvicorn_kwargs)
 
 
 if __name__ == "__main__":

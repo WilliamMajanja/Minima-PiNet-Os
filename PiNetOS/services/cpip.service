@@ -1,5 +1,5 @@
 [Unit]
-Description=CPIP Security Provider — The Coffee Protocol v4.0.2
+Description=CPIP Security Provider — The Coffee Protocol v5.0.5
 After=network-online.target
 Wants=network-online.target
 Documentation=https://github.com/WilliamMajanja/CPIP-

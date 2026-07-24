@@ -745,6 +745,16 @@ cmd_help() {
   printf "  ${CYAN}config${NC} [show|edit|reset]      Manage PiNet-OS configuration\n"
   printf "\n${WHITE}Applications:${NC}\n"
   printf "  ${CYAN}open${NC} [app_id]                 Launch a desktop application\n"
+  printf "\n${WHITE}Tips & Tricks (from Command Line Kung Fu):${NC}\n"
+  printf "  ${CYAN}tips${NC} list                     Show all command line tips\n"
+  printf "  ${CYAN}tips${NC} search <keyword>          Search tips by keyword\n"
+  printf "  ${CYAN}tips${NC} random                    Get a random tip\n"
+  printf "  ${CYAN}tips${NC} show <cat> <num>          Show specific tip details\n"
+  printf "\n${WHITE}SSL/TLS & Security:${NC}\n"
+  printf "  ${CYAN}ssl${NC} status                     Show SSL/TLS and HSTS status\n"
+  printf "  ${CYAN}ssl${NC} generate                   Generate SSL certificates\n"
+  printf "  ${CYAN}ssl${NC} install                    Install CA into trust store\n"
+  printf "  ${CYAN}ssl${NC} delete                     Delete all certificates\n"
   printf "\n${WHITE}System:${NC}\n"
   printf "  ${CYAN}version${NC}                       Show version information\n"
   printf "  ${CYAN}help${NC}                          Show this help message\n"
@@ -762,7 +772,536 @@ cmd_help() {
   printf "  pinet imager flash image.img /dev/sdX         # Flash SD card\n"
   printf "  pinet pi-config                               # Launch raspi-config\n"
   printf "  pinet gpio info                                # Show GPIO status\n"
+  printf "  pinet tips list                                 # Show all tips\n"
+  printf "  pinet tips search ssh                           # Search for SSH tips\n"
+  printf "  pinet tips random                               # Get a random tip\n"
+  printf "  pinet ssl status                                # Check SSL status\n"
+  printf "  pinet ssl generate                              # Generate certificates\n"
   printf "\n"
+}
+
+# ─── Command Line Tips (from Command Line Kung Fu) ─────────────────────────────
+
+TIPS_FILE="$PROJECT_DIR/share/pinet-tips.sh"
+if [ ! -f "$TIPS_FILE" ] && [ -n "$PINET_SYSTEM_ROOT" ]; then
+  TIPS_FILE="$(resolve_system_path /opt/pinet/share/pinet-tips.sh)"
+fi
+
+cmd_tips() {
+  _action="${1:-list}"
+
+  if [ ! -f "$TIPS_FILE" ]; then
+    log_error "Tips database not found at $TIPS_FILE"
+    log_info "Ensure pinet is properly installed."
+    return 1
+  fi
+
+  # shellcheck source=/dev/null
+  . "$TIPS_FILE"
+
+  case "$_action" in
+    list|all)
+      shift 2>/dev/null || true
+      printf "\n${WHITE}Command Line Kung Fu — Tips Database${NC}\n"
+      printf "  Based on the book by Jason Cannon\n"
+      printf "  ${CYAN}%s${NC} tips available\n\n" "$TIPS_TOTAL"
+
+      printf "${WHITE}Shell History:${NC}\n"
+      _i=1
+      while [ "$_i" -le "$TIPS_SHELL_HISTORY_COUNT" ]; do
+        eval "_title=\"\$TIPS_SHELL_HISTORY_${_i}_TITLE\""
+        eval "_cmd=\"\$TIPS_SHELL_HISTORY_${_i}_CMD\""
+        printf "  ${GREEN}%-4s${NC} %-35s ${CYAN}%s${NC}\n" "$_i." "$_title" "$_cmd"
+        _i=$((_i + 1))
+      done
+      printf "\n"
+
+      printf "${WHITE}Text Processing:${NC}\n"
+      _i=1
+      while [ "$_i" -le "$TIPS_TEXT_PROCESSING_COUNT" ]; do
+        eval "_title=\"\$TIPS_TEXT_PROCESSING_${_i}_TITLE\""
+        eval "_cmd=\"\$TIPS_TEXT_PROCESSING_${_i}_CMD\""
+        printf "  ${GREEN}%-4s${NC} %-35s ${CYAN}%s${NC}\n" "$_i." "$_title" "$_cmd"
+        _i=$((_i + 1))
+      done
+      printf "\n"
+
+      printf "${WHITE}Networking & SSH:${NC}\n"
+      _i=1
+      while [ "$_i" -le "$TIPS_NETWORKING_COUNT" ]; do
+        eval "_title=\"\$TIPS_NETWORKING_${_i}_TITLE\""
+        eval "_cmd=\"\$TIPS_NETWORKING_${_i}_CMD\""
+        printf "  ${GREEN}%-4s${NC} %-35s ${CYAN}%s${NC}\n" "$_i." "$_title" "$_cmd"
+        _i=$((_i + 1))
+      done
+      printf "\n"
+
+      printf "${WHITE}Shell Scripting:${NC}\n"
+      _i=1
+      while [ "$_i" -le "$TIPS_SCRIPTING_COUNT" ]; do
+        eval "_title=\"\$TIPS_SCRIPTING_${_i}_TITLE\""
+        eval "_cmd=\"\$TIPS_SCRIPTING_${_i}_CMD\""
+        printf "  ${GREEN}%-4s${NC} %-35s ${CYAN}%s${NC}\n" "$_i." "$_title" "$_cmd"
+        _i=$((_i + 1))
+      done
+      printf "\n"
+
+      printf "${WHITE}System Administration:${NC}\n"
+      _i=1
+      while [ "$_i" -le "$TIPS_SYSTEM_ADMIN_COUNT" ]; do
+        eval "_title=\"\$TIPS_SYSTEM_ADMIN_${_i}_TITLE\""
+        eval "_cmd=\"\$TIPS_SYSTEM_ADMIN_${_i}_CMD\""
+        printf "  ${GREEN}%-4s${NC} %-35s ${CYAN}%s${NC}\n" "$_i." "$_title" "$_cmd"
+        _i=$((_i + 1))
+      done
+      printf "\n"
+
+      printf "${WHITE}Files & Directories:${NC}\n"
+      _i=1
+      while [ "$_i" -le "$TIPS_FILES_COUNT" ]; do
+        eval "_title=\"\$TIPS_FILES_${_i}_TITLE\""
+        eval "_cmd=\"\$TIPS_FILES_${_i}_CMD\""
+        printf "  ${GREEN}%-4s${NC} %-35s ${CYAN}%s${NC}\n" "$_i." "$_title" "$_cmd"
+        _i=$((_i + 1))
+      done
+      printf "\n"
+
+      printf "${WHITE}Miscellaneous:${NC}\n"
+      _i=1
+      while [ "$_i" -le "$TIPS_MISC_COUNT" ]; do
+        eval "_title=\"\$TIPS_MISC_${_i}_TITLE\""
+        eval "_cmd=\"\$TIPS_MISC_${_i}_CMD\""
+        printf "  ${GREEN}%-4s${NC} %-35s ${CYAN}%s${NC}\n" "$_i." "$_title" "$_cmd"
+        _i=$((_i + 1))
+      done
+      printf "\n"
+      ;;
+
+    show)
+      shift 2>/dev/null || true
+      _category="${1:-}"
+      _num="${2:-}"
+      if [ -z "$_category" ] || [ -z "$_num" ]; then
+        log_error "Usage: pinet tips show <category> <number>"
+        log_info "Categories: shell-history, text-processing, networking, scripting, system-admin, files, misc"
+        return 1
+      fi
+
+      case "$_category" in
+        shell-history|history)    _prefix="SHELL_HISTORY" ;;
+        text-processing|text)     _prefix="TEXT_PROCESSING" ;;
+        networking|ssh)           _prefix="NETWORKING" ;;
+        scripting|script)         _prefix="SCRIPTING" ;;
+        system-admin|sysadmin)    _prefix="SYSTEM_ADMIN" ;;
+        files|dirs)               _prefix="FILES" ;;
+        misc|miscellaneous)       _prefix="MISC" ;;
+        *)
+          log_error "Unknown category: $_category"
+          log_info "Categories: shell-history, text-processing, networking, scripting, system-admin, files, misc"
+          return 1
+          ;;
+      esac
+
+      eval "_title=\"\$TIPS_${_prefix}_${_num}_TITLE\""
+      eval "_cmd=\"\$TIPS_${_prefix}_${_num}_CMD\""
+      eval "_desc=\"\$TIPS_${_prefix}_${_num}_DESC\""
+
+      if [ -z "$_title" ]; then
+        log_error "Tip #$_num not found in category $_category"
+        return 1
+      fi
+
+      printf "\n${WHITE}%s${NC}\n" "$_title"
+      printf "${CYAN}Command:${NC}  %s\n" "$_cmd"
+      printf "${WHITE}Description:${NC} %s\n\n" "$_desc"
+      ;;
+
+    search|grep)
+      shift 2>/dev/null || true
+      _query="${1:-}"
+      if [ -z "$_query" ]; then
+        log_error "Usage: pinet tips search <keyword>"
+        return 1
+      fi
+
+      printf "\n${WHITE}Searching tips for:${NC} ${CYAN}%s${NC}\n\n" "$_query"
+
+      _found=0
+      for _cat in SHELL_HISTORY TEXT_PROCESSING NETWORKING SCRIPTING SYSTEM_ADMIN FILES MISC; do
+        eval "_count_val=\"\$TIPS_${_cat}_COUNT\""
+        _i=1
+        while [ "$_i" -le "$_count_val" ]; do
+          eval "_title=\"\$TIPS_${_cat}_${_i}_TITLE\""
+          eval "_cmd=\"\$TIPS_${_cat}_${_i}_CMD\""
+          eval "_desc=\"\$TIPS_${_cat}_${_i}_DESC\""
+
+          if echo "$_title $_cmd $_desc" | grep -qi "$_query"; then
+            printf "  ${GREEN}[%s]${NC} %s\n" "$_cat" "$_title"
+            printf "    ${CYAN}%s${NC}\n" "$_cmd"
+            printf "    %s\n\n" "$_desc"
+            _found=$((_found + 1))
+          fi
+          _i=$((_i + 1))
+        done
+      done
+
+      if [ "$_found" -eq 0 ]; then
+        log_warn "No tips found matching '$_query'"
+        log_info "Try: pinet tips list  to see all available tips"
+      else
+        printf "${WHITE}Found %s tip(s) matching '%s'${NC}\n\n" "$_found" "$_query"
+      fi
+      ;;
+
+    random|roll)
+      _categories="shell-history text-processing networking scripting system-admin files misc"
+      _cat_count=7
+
+      # Pick random category
+      _rand_cat=$(( ($(date +%s) % $_cat_count) + 1 ))
+      _cat_name=$(echo "$_categories" | cut -d' ' -f"$_rand_cat")
+
+      case "$_cat_name" in
+        shell-history)    _prefix="SHELL_HISTORY"; eval "_max=\$TIPS_SHELL_HISTORY_COUNT" ;;
+        text-processing)  _prefix="TEXT_PROCESSING"; eval "_max=\$TIPS_TEXT_PROCESSING_COUNT" ;;
+        networking)       _prefix="NETWORKING"; eval "_max=\$TIPS_NETWORKING_COUNT" ;;
+        scripting)        _prefix="SCRIPTING"; eval "_max=\$TIPS_SCRIPTING_COUNT" ;;
+        system-admin)     _prefix="SYSTEM_ADMIN"; eval "_max=\$TIPS_SYSTEM_ADMIN_COUNT" ;;
+        files)            _prefix="FILES"; eval "_max=\$TIPS_FILES_COUNT" ;;
+        misc)             _prefix="MISC"; eval "_max=\$TIPS_MISC_COUNT" ;;
+      esac
+
+      _rand_tip=$(( ($(date +%N | cut -b1-6) % $_max) + 1 ))
+
+      eval "_title=\"\$TIPS_${_prefix}_${_rand_tip}_TITLE\""
+      eval "_cmd=\"\$TIPS_${_prefix}_${_rand_tip}_CMD\""
+      eval "_desc=\"\$TIPS_${_prefix}_${_rand_tip}_DESC\""
+
+      printf "\n${MAGENTA}Random Tip — %s${NC}\n" "$_cat_name"
+      printf "${WHITE}%s${NC}\n" "$_title"
+      printf "${CYAN}Command:${NC}  %s\n" "$_cmd"
+      printf "${WHITE}Description:${NC} %s\n\n" "$_desc"
+      ;;
+
+    categories|cats)
+      printf "\n${WHITE}Tip Categories:${NC}\n\n"
+      printf "  ${CYAN}shell-history${NC}     %s tips — History shortcuts, event designators\n" "$TIPS_SHELL_HISTORY_COUNT"
+      printf "  ${CYAN}text-processing${NC}   %s tips — awk, sed, grep, tr, column\n" "$TIPS_TEXT_PROCESSING_COUNT"
+      printf "  ${CYAN}networking${NC}        %s tips — SSH, curl, lsof, tunnels\n" "$TIPS_NETWORKING_COUNT"
+      printf "  ${CYAN}scripting${NC}         %s tips — Loops, substitution, input\n" "$TIPS_SCRIPTING_COUNT"
+      printf "  ${CYAN}system-admin${NC}      %s tips — Processes, disk, passwords\n" "$TIPS_SYSTEM_ADMIN_COUNT"
+      printf "  ${CYAN}files${NC}             %s tips — Backup, tree, find, tar\n" "$TIPS_FILES_COUNT"
+      printf "  ${CYAN}misc${NC}              %s tips — Calendar, timezone, wiki\n" "$TIPS_MISC_COUNT"
+      printf "\n  ${WHITE}Total:${NC} %s tips\n\n" "$TIPS_TOTAL"
+      ;;
+
+    help|--help|-h)
+      printf "\n${WHITE}Command Line Kung Fu Tips — Help${NC}\n\n"
+      printf "Usage: ${CYAN}pinet tips${NC} <command> [options]\n\n"
+      printf "${WHITE}Commands:${NC}\n"
+      printf "  ${CYAN}list${NC}                    Show all tips by category\n"
+      printf "  ${CYAN}show${NC} <category> <num>   Show details of a specific tip\n"
+      printf "  ${CYAN}search${NC} <keyword>        Search tips by keyword\n"
+      printf "  ${CYAN}random${NC}                  Get a random tip\n"
+      printf "  ${CYAN}categories${NC}              List all tip categories\n"
+      printf "  ${CYAN}help${NC}                    Show this help message\n"
+      printf "\n${WHITE}Categories:${NC}\n"
+      printf "  shell-history, text-processing, networking, scripting,\n"
+      printf "  system-admin, files, misc\n"
+      printf "\n${WHITE}Examples:${NC}\n"
+      printf "  pinet tips list                     # Show all tips\n"
+      printf "  pinet tips show networking 3        # Show SSH tip #3\n"
+      printf "  pinet tips search ssh               # Search for SSH tips\n"
+      printf "  pinet tips random                   # Get a random tip\n"
+      printf "  pinet tips categories               # List categories\n"
+      printf "\nBased on 'Command Line Kung Fu' by Jason Cannon\n\n"
+      ;;
+
+    *)
+      log_error "Unknown tips action: $_action (use: list, show, search, random, categories, help)"
+      return 1
+      ;;
+  esac
+}
+
+# ─── SSL/TLS Certificate Management ───────────────────────────────────────────
+
+SSL_DIR="${PINET_SSL_DIR:-$HOME/.local/share/pinet/ssl}"
+
+cmd_ssl() {
+  _action="${1:-status}"
+
+  case "$_action" in
+    status)
+      printf "\n${WHITE}╔══════════════════════════════════════════════╗${NC}\n"
+      printf "${WHITE}║     SSL/TLS Certificate Status                ║${NC}\n"
+      printf "${WHITE}╚══════════════════════════════════════════════╝${NC}\n\n"
+
+      # Check SSL enabled
+      _ssl_enabled="${PINET_SSL_ENABLED:-1}"
+      if [ "$_ssl_enabled" = "1" ]; then
+        printf "  ${GREEN}SSL:${NC}          Enabled\n"
+      else
+        printf "  ${YELLOW}SSL:${NC}          Disabled (set PINET_SSL_ENABLED=1)\n"
+      fi
+
+      # Check mkcert
+      if command -v mkcert >/dev/null 2>&1; then
+        printf "  ${GREEN}mkcert:${NC}       $(mkcert --version 2>&1 | head -1)\n"
+      elif command -v openssl >/dev/null 2>&1; then
+        printf "  ${CYAN}mkcert:${NC}       Not found (openssl fallback active)\n"
+        printf "  ${CYAN}openssl:${NC}      $(openssl version 2>&1)\n"
+      else
+        printf "  ${RED}mkcert:${NC}       Not found\n"
+        printf "  ${RED}openssl:${NC}      Not found\n"
+        printf "  ${RED}Install mkcert:  ${NC}https://github.com/FiloSottile/mkcert\n"
+      fi
+
+      # Check certificates
+      _cert_dir="$SSL_DIR/certs"
+      _ca_dir="$SSL_DIR/ca"
+      _latest_cert="$_cert_dir/server.pem"
+      _latest_key="$_cert_dir/server-key.pem"
+
+      if [ -f "$_latest_cert" ] && [ -f "$_latest_key" ]; then
+        printf "\n  ${GREEN}Certificate:${NC}  Found\n"
+        printf "  ${CYAN}Cert path:${NC}    $_latest_cert\n"
+        printf "  ${CYAN}Key path:${NC}     $_latest_key\n"
+
+        # Parse cert info
+        if command -v openssl >/dev/null 2>&1; then
+          _issuer=$(openssl x509 -in "$_latest_cert" -noout -issuer 2>/dev/null | sed 's/issuer=//')
+          _subject=$(openssl x509 -in "$_latest_cert" -noout -subject 2>/dev/null | sed 's/subject=//')
+          _enddate=$(openssl x509 -in "$_latest_cert" -noout -enddate 2>/dev/null | sed 's/notAfter=//')
+
+          if [ -n "$_issuer" ]; then
+            printf "  ${CYAN}Issuer:${NC}       $_issuer\n"
+          fi
+          if [ -n "$_subject" ]; then
+            printf "  ${CYAN}Subject:${NC}      $_subject\n"
+          fi
+          if [ -n "$_enddate" ]; then
+            printf "  ${CYAN}Expires:${NC}      $_enddate\n"
+          fi
+
+          # Check if mkcert
+          if echo "$_issuer" | grep -qi "mkcert"; then
+            printf "  ${GREEN}Type:${NC}         mkcert (locally trusted)\n"
+          else
+            printf "  ${YELLOW}Type:${NC}         self-signed (openssl)\n"
+          fi
+        fi
+      else
+        printf "\n  ${YELLOW}Certificate:${NC}  Not generated\n"
+        printf "  ${CYAN}Generate with:${NC} pinet ssl generate\n"
+      fi
+
+      # Check CA
+      if [ -d "$_ca_dir" ] && [ -f "$_ca_dir/rootCA.pem" ]; then
+        printf "\n  ${GREEN}CA:${NC}           Local CA found at $_ca_dir/rootCA.pem\n"
+      fi
+
+      # HSTS status
+      _hsts_enabled="${PINET_HSTS_ENABLED:-1}"
+      _hsts_max_age="${PINET_HSTS_MAX_AGE:-31536000}"
+      printf "\n  ${WHITE}HSTS:${NC}\n"
+      if [ "$_hsts_enabled" = "1" ]; then
+        printf "  ${GREEN}HSTS:${NC}         Enabled\n"
+        printf "  ${CYAN}Max-Age:${NC}      ${_hsts_max_age}s\n"
+        printf "  ${CYAN}SubDomains:${NC}   ${PINET_HSTS_INCLUDE_SUBDOMAINS:-1}\n"
+        printf "  ${CYAN}Preload:${NC}      ${PINET_HSTS_PRELOAD:-1}\n"
+      else
+        printf "  ${YELLOW}HSTS:${NC}         Disabled\n"
+      fi
+      printf "\n"
+      ;;
+
+    generate)
+      log_info "Generating SSL certificates..."
+
+      # Check for mkcert or openssl
+      if command -v mkcert >/dev/null 2>&1; then
+        log_info "Using mkcert for certificate generation"
+
+        # Create directories
+        mkdir -p "$SSL_DIR/ca" "$SSL_DIR/certs"
+        _cert_dir="$SSL_DIR/certs"
+        _ca_dir="$SSL_DIR/ca"
+
+        # Generate CA if needed
+        if [ ! -f "$_ca_dir/rootCA.pem" ]; then
+          log_info "Generating local CA..."
+          mkcert -cert-file "$SSL_DIR/ca/rootCA.pem" -key-file "$SSL_DIR/ca/rootCA-key.pem" pinet-ca 2>/dev/null
+          if [ $? -ne 0 ]; then
+            log_error "Failed to generate CA with mkcert"
+            return 1
+          fi
+          log_ok "Local CA generated"
+        else
+          log_info "Local CA already exists"
+        fi
+
+        # Generate server cert
+        _hosts="${PINET_SSL_HOSTS:-localhost,127.0.0.1,::1}"
+        _timestamp=$(date +%Y%m%d-%H%M%S)
+        _cert="$_cert_dir/pinet-server-$_timestamp.pem"
+        _key="$_cert_dir/pinet-server-$_timestamp-key.pem"
+
+        log_info "Generating server certificate for: $_hosts"
+        # Build host list for mkcert (handle IPv6 properly)
+        _mkcert_hosts=""
+        _OLDIFS="$IFS"
+        IFS=','
+        for h in $_hosts; do
+          _mkcert_hosts="$_mkcert_hosts $h"
+        done
+        IFS="$_OLDIFS"
+        mkcert -cert-file "$_cert" -key-file "$_key" $_mkcert_hosts 2>/dev/null
+        if [ $? -ne 0 ]; then
+          log_error "Failed to generate server certificate"
+          return 1
+        fi
+
+        # Create symlinks
+        ln -sf "$_cert" "$_cert_dir/server.pem"
+        ln -sf "$_key" "$_cert_dir/server-key.pem"
+
+        log_ok "Server certificate generated"
+        log_info "Install CA into system trust store: pinet ssl install"
+
+      elif command -v openssl >/dev/null 2>&1; then
+        log_info "mkcert not found, using openssl (self-signed)"
+
+        mkdir -p "$SSL_DIR/ca" "$SSL_DIR/certs"
+        _cert_dir="$SSL_DIR/certs"
+        _ca_dir="$SSL_DIR/ca"
+
+        # Generate CA if needed
+        if [ ! -f "$_ca_dir/rootCA.pem" ]; then
+          log_info "Generating self-signed CA..."
+          openssl req -x509 -newkey rsa:4096 \
+            -keyout "$_ca_dir/rootCA-key.pem" \
+            -out "$_ca_dir/rootCA.pem" \
+            -days 3650 -nodes \
+            -subj "/C=GB/ST=London/L=London/O=PiNet-OS/CN=PiNet-OS Local CA" 2>/dev/null
+          chmod 600 "$_ca_dir/rootCA-key.pem"
+          log_ok "Self-signed CA generated"
+        fi
+
+        # Generate server cert
+        _hosts="${PINET_SSL_HOSTS:-localhost,127.0.0.1,::1}"
+        _timestamp=$(date +%Y%m%d-%H%M%S)
+        _cert="$_cert_dir/pinet-server-$_timestamp.pem"
+        _key="$_cert_dir/pinet-server-$_timestamp-key.pem"
+        _csr="$_cert_dir/pinet-server-$_timestamp.csr"
+        _ext="$_cert_dir/pinet-server-$_timestamp.ext"
+
+        # Build SAN extension
+        _san="[req_ext]\nsubjectAltName = @alt_names\n\n[alt_names]\n"
+        _i=1
+        for h in $(echo "$_hosts" | tr ',' ' '); do
+          if echo "$h" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+            _san="${_san}IP.${_i} = ${h}\n"
+          else
+            _san="${_san}DNS.${_i} = ${h}\n"
+          fi
+          _i=$((_i + 1))
+        done
+        printf "$_san" > "$_ext"
+
+        openssl req -newkey rsa:2048 -keyout "$_key" -out "$_csr" -nodes \
+          -subj "/C=GB/ST=London/L=London/O=PiNet-OS/CN=PiNet-OS Server" 2>/dev/null
+        openssl x509 -req -in "$_csr" \
+          -CA "$_ca_dir/rootCA.pem" -CAkey "$_ca_dir/rootCA-key.pem" \
+          -CAcreateserial -out "$_cert" -days 825 \
+          -extfile "$_ext" -extensions req_ext 2>/dev/null
+
+        rm -f "$_csr" "$_ext"
+        chmod 600 "$_key"
+
+        # Create symlinks
+        ln -sf "$_cert" "$_cert_dir/server.pem"
+        ln -sf "$_key" "$_cert_dir/server-key.pem"
+
+        log_ok "Self-signed server certificate generated"
+        log_warn "Self-signed certs won't be trusted by browsers. Install mkcert for trusted certs."
+
+      else
+        log_error "Neither mkcert nor openssl found. Install one:"
+        log_info "  mkcert:   https://github.com/FiloSottile/mkcert"
+        log_info "  openssl:  sudo apt install openssl"
+        return 1
+      fi
+
+      log_ok "Certificates saved to $SSL_DIR/certs/"
+      log_info "Restart the server to apply: pinet restart"
+      ;;
+
+    install)
+      if command -v mkcert >/dev/null 2>&1; then
+        log_info "Installing mkcert CA into system trust store..."
+        mkcert -install
+        if [ $? -eq 0 ]; then
+          log_ok "CA installed into system trust store"
+        else
+          log_error "Failed to install CA (try: sudo mkcert -install)"
+          return 1
+        fi
+      elif [ -f "$SSL_DIR/ca/rootCA.pem" ]; then
+        _trust_dir="/usr/local/share/ca-certificates"
+        if [ -d "$_trust_dir" ]; then
+          sudo cp "$SSL_DIR/ca/rootCA.pem" "$_trust_dir/pinet-os-ca.crt"
+          sudo update-ca-certificates 2>/dev/null
+          log_ok "CA installed to $_trust_dir/pinet-os-ca.crt"
+        else
+          log_error "Could not find system trust store directory"
+          return 1
+        fi
+      else
+        log_error "No CA certificate found. Generate one first: pinet ssl generate"
+        return 1
+      fi
+      ;;
+
+    delete)
+      log_warn "This will delete all generated SSL certificates."
+      printf "Continue? [y/N] "
+      read -r _confirm
+      if [ "$_confirm" = "y" ] || [ "$_confirm" = "Y" ]; then
+        rm -rf "$SSL_DIR/certs"/* "$SSL_DIR/ca"/*
+        log_ok "All certificates deleted"
+        log_info "Restart the server to apply: pinet restart"
+      else
+        log_info "Deletion cancelled"
+      fi
+      ;;
+
+    help|--help|-h)
+      printf "\n${WHITE}SSL/TLS Certificate Management — Help${NC}\n\n"
+      printf "Usage: ${CYAN}pinet ssl${NC} <command> [options]\n\n"
+      printf "${WHITE}Commands:${NC}\n"
+      printf "  ${CYAN}status${NC}              Show SSL/TLS and HSTS status\n"
+      printf "  ${CYAN}generate${NC}            Generate SSL certificates (CA + server)\n"
+      printf "  ${CYAN}install${NC}             Install CA into system trust store\n"
+      printf "  ${CYAN}delete${NC}              Delete all generated certificates\n"
+      printf "  ${CYAN}help${NC}                Show this help message\n"
+      printf "\n${WHITE}Details:${NC}\n"
+      printf "  Uses mkcert (preferred) or openssl (fallback) for certificate generation.\n"
+      printf "  mkcert generates locally-trusted certificates; openssl generates self-signed.\n"
+      printf "  Certificates are stored in: %s\n" "$SSL_DIR"
+      printf "\n${WHITE}Examples:${NC}\n"
+      printf "  pinet ssl status                # Check SSL status\n"
+      printf "  pinet ssl generate              # Generate certificates\n"
+      printf "  pinet ssl install               # Install CA into trust store\n"
+      printf "  pinet ssl delete                # Remove all certificates\n"
+      printf "\n"
+      ;;
+
+    *)
+      log_error "Unknown ssl action: $_action (use: status, generate, install, delete, help)"
+      return 1
+      ;;
+  esac
 }
 
 # ─── Main Dispatch ────────────────────────────────────────────────────────────
@@ -785,6 +1324,8 @@ case "${1:-help}" in
   imager)      shift; cmd_imager "$@" ;;
   pi-apps)     shift; cmd_pi_apps "$@" ;;
   gpio)        shift; cmd_gpio "$@" ;;
+  tips)        shift; cmd_tips "$@" ;;
+  ssl)         shift; cmd_ssl "$@" ;;
   version|info) cmd_version ;;
   help|--help|-h) cmd_help ;;
   *)

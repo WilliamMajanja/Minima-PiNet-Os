@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zk-prover
+  namespace: pinet-system
+  labels:
+    app: zk-prover
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zk-prover
+  template:
+    metadata:
+      labels:
+        app: zk-prover
+    spec:
+      containers:
+        - name: zk-prover
+          image: ghcr.io/williammajanja/zk-prover:latest
+          ports:
+            - containerPort: 4191
+              name: zk-api
+          env:
+            - name: PINET_ZK_PROVER
+              value: "1"
+            - name: PINET_ZK_PROVER_MEM_MB
+              value: "1024"
+            - name: RISC0_DEV_MODE
+              value: "1"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "200m"
+            limits:
+              memory: "2Gi"
+              cpu: "1"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4191
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 4191
+            initialDelaySeconds: 10
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zk-prover
+  namespace: pinet-system
+spec:
+  selector:
+    app: zk-prover
+  ports:
+    - port: 4191
+      targetPort: zk-api
+      name: zk-api

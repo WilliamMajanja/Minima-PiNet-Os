@@ -153,7 +153,7 @@ Open a browser and navigate to:
 http://<pi-ip>:3000
 ```
 
-You'll see the PiNet OS desktop with the taskbar and 20 built-in applications.
+You'll see the PiNet OS desktop with the taskbar and 27 built-in applications.
 
 ---
 
