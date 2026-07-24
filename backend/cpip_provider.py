@@ -564,8 +564,8 @@ class CPIPSecurityMiddleware:
     - Request size limiting
     """
 
-    RATE_LIMIT = int(os.getenv("CPIP_HTTP_RATE_LIMIT", "100"))
-    RATE_WINDOW = int(os.getenv("CPIP_HTTP_RATE_WINDOW", "60"))
+    RATE_LIMIT = int(os.getenv("CPIP_HTTP_RATE_LIMIT", "500"))
+    RATE_WINDOW = int(os.getenv("CPIP_HTTP_RATE_WINDOW", "120"))
     MAX_REQUEST_SIZE = int(os.getenv("CPIP_MAX_REQUEST_SIZE", "65536"))
 
     _rate_counts: dict[str, list[float]] = {}

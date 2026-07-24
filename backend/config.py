@@ -121,6 +121,8 @@ CPIP_COVERT_KEY = os.getenv("CPIP_COVERT_KEY", "")
 CPIP_RECIPE = os.getenv("CPIP_RECIPE", "minima")
 CPIP_TOKEN_TTL = int(os.getenv("CPIP_TOKEN_TTL", "300"))
 CPIP_RPC_AUTH = os.getenv("CPIP_RPC_AUTH", "1") == "1"
+CPIP_HTTP_RATE_LIMIT = int(os.getenv("CPIP_HTTP_RATE_LIMIT", "500"))
+CPIP_HTTP_RATE_WINDOW = int(os.getenv("CPIP_HTTP_RATE_WINDOW", "120"))
 CPIP_MTLS_CERT = os.getenv("CPIP_MTLS_CERT", "")
 CPIP_MTLS_KEY = os.getenv("CPIP_MTLS_KEY", "")
 CPIP_MTLS_CA = os.getenv("CPIP_MTLS_CA", "")
