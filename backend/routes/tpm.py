@@ -23,7 +23,7 @@ async def tpm_status() -> dict[str, Any]:
     try:
         return tpm_keystore.status()
     except Exception:
-        logger.exception("TPM status failed")
+        logger.error("TPM status failed")
         raise HTTPException(500, "Failed to get TPM status")
 
 
@@ -37,7 +37,7 @@ async def seal_key(body: dict | None = None) -> dict[str, Any]:
         result = tpm_keystore.seal_key(key_id)
         return result.model_dump(by_alias=True)
     except Exception:
-        logger.exception("TPM seal failed")
+        logger.error("TPM seal failed")
         raise HTTPException(500, "Seal operation failed")
 
 
@@ -49,7 +49,7 @@ async def unseal_key() -> dict[str, Any]:
     try:
         return tpm_keystore.unseal_key()
     except Exception:
-        logger.exception("TPM unseal failed")
+        logger.error("TPM unseal failed")
         raise HTTPException(500, "Unseal operation failed")
 
 
@@ -64,5 +64,5 @@ async def get_pcrs() -> dict[str, Any]:
             "tpmAvailable": tpm_keystore.tpm_available,
         }
     except Exception:
-        logger.exception("Failed to read PCRs")
+        logger.error("Failed to read PCRs")
         raise HTTPException(500, "Failed to read PCR values")

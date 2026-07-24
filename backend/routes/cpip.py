@@ -155,7 +155,7 @@ async def cpip_update(body: dict):
     try:
         return apply_update(target_version=target)
     except Exception:
-        logger.exception("CPIP update failed")
+        logger.error("CPIP update failed")
         raise HTTPException(500, "Update failed")
 
 
@@ -172,7 +172,7 @@ async def cpip_update_status():
             "latest_known": state.get("latest_version", CPIP_VERSION),
         }
     except Exception:
-        logger.exception("Failed to load update state")
+        logger.error("Failed to load update state")
         raise HTTPException(500, "Failed to get update status")
 
 
@@ -186,7 +186,7 @@ async def cpip_watcher_status():
     try:
         return get_watcher_state()
     except Exception:
-        logger.exception("Failed to get watcher state")
+        logger.error("Failed to get watcher state")
         raise HTTPException(500, "Watcher unavailable")
 
 
@@ -197,7 +197,7 @@ async def cpip_watcher_force_check():
     try:
         return await force_check_now()
     except Exception:
-        logger.exception("Force check failed")
+        logger.error("Force check failed")
         raise HTTPException(500, "Check failed")
 
 
@@ -209,7 +209,7 @@ async def cpip_watcher_start():
         await start_watcher()
         return {"success": True, "message": "Watcher started"}
     except Exception:
-        logger.exception("Failed to start watcher")
+        logger.error("Failed to start watcher")
         raise HTTPException(500, "Failed to start watcher")
 
 
@@ -221,7 +221,7 @@ async def cpip_watcher_stop():
         await stop_watcher()
         return {"success": True, "message": "Watcher stopped"}
     except Exception:
-        logger.exception("Failed to stop watcher")
+        logger.error("Failed to stop watcher")
         raise HTTPException(500, "Failed to stop watcher")
 
 
@@ -252,7 +252,7 @@ async def cpip_watcher_sse():
             try:
                 state = get_watcher_state()
             except Exception:
-                logger.exception("Failed to get initial watcher state")
+                logger.error("Failed to get initial watcher state")
                 state = {"running": False, "error": "Watcher unavailable"}
             yield f"event: state\ndata: {json.dumps(state)}\n\n"
 

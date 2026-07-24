@@ -117,30 +117,20 @@ class LXCQuotaManager:
         """Apply cgroup v2 resource limits for a tenant container."""
         if not _CGROUP_V2:
             return
-        # Validate and sanitize container_name to prevent path traversal
         safe_name = self._validate_container_name(quota.container_name)
         if safe_name is None:
             logger.warning("Rejected suspicious container name: %s", quota.container_name)
             return
-        cgroup_path = Path("/sys/fs/cgroup/lxc") / safe_name
-        # Additional safety: ensure path is within expected directory
-        try:
-            cgroup_path.resolve().relative_to(Path("/sys/fs/cgroup/lxc").resolve())
-        except (ValueError, OSError):
-            logger.warning("Invalid cgroup path for tenant %s", quota.tenant_id)
+        cgroup_dir = Path("/sys/fs/cgroup/lxc")
+        cgroup_path = cgroup_dir / safe_name
+        if not str(cgroup_path).startswith(str(cgroup_dir.resolve())):
+            logger.warning("Path traversal attempt for tenant %s", quota.tenant_id)
             return
         try:
             cgroup_path.mkdir(parents=True, exist_ok=True)
-            # CPU limit: quota/period format (e.g. 50000/100000 = 50%)
-            cpu_quota = quota.cpu_limit * 1000
-            (cgroup_path / "cpu.max").write_text(f"{cpu_quota} 100000")
-            # RAM limit in bytes
-            ram_bytes = quota.ram_limit_mb * 1024 * 1024
-            (cgroup_path / "memory.max").write_text(str(ram_bytes))
-            # IO limit: rbps/wbps
-            io_line = f"rbps max={quota.io_iops * 1024} wbps max={quota.io_iops * 1024}"
-            (cgroup_path / "io.max").write_text(io_line)
-            # Process limit
+            (cgroup_path / "cpu.max").write_text(f"{quota.cpu_limit * 1000} 100000")
+            (cgroup_path / "memory.max").write_text(str(quota.ram_limit_mb * 1024 * 1024))
+            (cgroup_path / "io.max").write_text(f"rbps max={quota.io_iops * 1024} wbps max={quota.io_iops * 1024}")
             (cgroup_path / "pids.max").write_text(str(quota.processes_max))
             logger.info("Applied cgroup limits for tenant %s", quota.tenant_id)
         except PermissionError:
@@ -150,16 +140,11 @@ class LXCQuotaManager:
 
     @staticmethod
     def _validate_container_name(name: str) -> str | None:
-        """Validate container name contains only safe characters.
-        
-        Returns sanitized name if valid, None if invalid.
-        """
+        """Validate container name contains only safe characters."""
         if not name or len(name) > 64:
             return None
-        # Only allow alphanumeric, hyphen, underscore
         if not all(c.isalnum() or c in "-_" for c in name):
             return None
-        # Prevent reserved names
         if name in (".", "..", "lxc", "cgroup"):
             return None
         return name
@@ -172,10 +157,13 @@ class LXCQuotaManager:
         if safe_name is None:
             logger.warning("Rejected suspicious container name: %s", quota.container_name)
             return
-        cgroup_path = Path("/sys/fs/cgroup/lxc") / safe_name
+        cgroup_dir = Path("/sys/fs/cgroup/lxc")
+        cgroup_path = cgroup_dir / safe_name
+        if not str(cgroup_path).startswith(str(cgroup_dir.resolve())):
+            logger.warning("Path traversal attempt for tenant %s", quota.tenant_id)
+            return
         try:
             if cgroup_path.exists():
-                # Move processes to root cgroup first
                 procs_file = cgroup_path / "cgroup.procs"
                 if procs_file.exists():
                     procs = procs_file.read_text().strip()
@@ -191,31 +179,27 @@ class LXCQuotaManager:
         if safe_name is None:
             logger.warning("Rejected suspicious container name: %s", quota.container_name)
             return LXCQuotaUsage(tenantId=quota.tenant_id, running=False)
-        cgroup_path = Path("/sys/fs/cgroup/lxc") / safe_name
+        cgroup_dir = Path("/sys/fs/cgroup/lxc")
+        cgroup_path = cgroup_dir / safe_name
+        if not str(cgroup_path).startswith(str(cgroup_dir.resolve())):
+            logger.warning("Path traversal attempt for tenant %s", quota.tenant_id)
+            return LXCQuotaUsage(tenantId=quota.tenant_id, running=False)
         usage = LXCQuotaUsage(tenantId=quota.tenant_id, running=False)
-
         if not cgroup_path.exists():
             return usage
-
         try:
-            # CPU usage
             cpu_stat = (cgroup_path / "cpu.stat").read_text()
             for line in cpu_stat.splitlines():
                 if line.startswith("usage_usec"):
                     usage.cpu_percent = float(line.split()[1]) / 1_000_000
                     usage.running = True
-
-            # RAM usage
             memory_current = (cgroup_path / "memory.current").read_text().strip()
             usage.ram_used_mb = float(memory_current) / (1024 * 1024)
-
-            # Process count
             procs = (cgroup_path / "cgroup.procs").read_text().strip().splitlines()
             usage.processes = len(procs)
             usage.running = usage.processes > 0
         except (OSError, ValueError) as exc:
             logger.debug("Failed to read cgroup usage for %s: %s", quota.tenant_id, exc)
-
         return usage
 
     def to_state(self) -> list[dict[str, Any]]:
