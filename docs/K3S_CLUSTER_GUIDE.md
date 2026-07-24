@@ -96,7 +96,7 @@ sudo bash PiNetOS/scripts/k3s-security-hardening.sh agent    # on pinet-beta and
 
 ### CPIP Security Sidecar
 
-The Minima DaemonSet (`k3s/minima.yaml`) includes a CPIP sidecar container (`cpip:5.0.5`, port 4180) that provides:
+The Minima DaemonSet (`k3s/minima.yaml`) includes a CPIP sidecar container (`cpip:5.1.1`, port 4180) that provides:
 
 - **ITF Defense**: probe blocking, pentest tool detection, IP blacklisting
 - **Crypto API**: CoffeeCipher v5 (AES-256-GCM), ECDSA P-256, RSA-KEM-2048

@@ -21,7 +21,7 @@ Edge computing faces a fundamental trust problem. Traditional IoT platforms dele
 PiNet-OS addresses these challenges through a layered architecture:
 
 1. **A local Minima blockchain node** provides cryptographic identity, a P2P message bus (Maxima), and an immutable ledger for attestation records.
-2. **A CPIP security provider** (The Coffee Protocol v5.0.5) delivers FIPS-grade cryptography, ITF active defense, and optional post-quantum key exchange.
+2. **A CPIP security provider** (The Coffee Protocol v5.1.1) delivers FIPS-grade cryptography, ITF active defense, and optional post-quantum key exchange.
 3. **A browser-based desktop** (FastAPI + Jinja2), served locally, provides visual cluster management, file management, terminal access, and a DApp runtime with zero-trust sandboxing.
 4. **A hardware abstraction layer** automatically detects and accelerates AI inference (Hailo-8L NPU), manages LXC containers with cgroups v2 quotas, seals keys via TPM 2.0, runs confidential workloads in hardware-backed enclaves (Arm CCA / RISC-V AP-TEE), generates and verifies zero-knowledge proofs, and hosts a peer-to-peer edge compute marketplace.
 

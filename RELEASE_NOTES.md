@@ -260,7 +260,7 @@ All release artifacts are accompanied by `SHA256SUMS.txt`. Verify integrity befo
 sha256sum --check SHA256SUMS.txt
 ```
 
-**CPIP Security Provider (The Coffee Protocol v5.0.5):** This release integrates CPIP as the primary security provider for all Minima nodes. Key additions:
+**CPIP Security Provider (The Coffee Protocol v5.1.1):** This release integrates CPIP as the primary security provider for all Minima nodes. Key additions:
 - CoffeeCipher v5 (AES-256-GCM + HKDF-SHA256) for data at rest and RPC payload encryption
 - ECDSA/ECDH P-256 (FIPS 186-4) for node identity and challenge-response authentication
 - RSA-KEM-2048 (SP 800-56B) for key encapsulation; optional 1nf1D3L Kyber (non-FIPS ML-KEM-768) for PQ hybrid

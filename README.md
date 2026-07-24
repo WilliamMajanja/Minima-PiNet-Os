@@ -6,7 +6,7 @@
 [![Platform: Raspberry Pi 5](https://img.shields.io/badge/Platform-Raspberry%20Pi%205-c11d33.svg)](#hardware)
 [![Stack: Python · FastAPI](https://img.shields.io/badge/Stack-Python%20·%20FastAPI-3776ab.svg)](#technology-stack)
 [![Blockchain: Minima L1](https://img.shields.io/badge/Blockchain-Minima%20L1-8b5cf6.svg)](https://www.minima.global/)
-[![CPIP](https://img.shields.io/badge/CPIP_Security_Provider-v5.0.5%20%7C%20AES--256--GCM%20%7C%20ECDSA%20P--256%20%7C%20Kyber-success)](https://github.com/WilliamMajanja/CPIP-)
+[![CPIP](https://img.shields.io/badge/CPIP_Security_Provider-v5.1.1%20%7C%20AES--256--GCM%20%7C%20ECDSA%20P--256%20%7C%20Kyber-success)](https://github.com/WilliamMajanja/CPIP-)
 [![Version](https://img.shields.io/badge/Version-3.0.0-ec4899.svg)](RELEASE_NOTES.md)
 [![Build](https://github.com/WilliamMajanja/Minima-PiNet-Os/actions/workflows/arm64-build.yml/badge.svg)](https://github.com/WilliamMajanja/Minima-PiNet-Os/actions/workflows/arm64-build.yml)
 
@@ -113,7 +113,7 @@ A more detailed view lives in **[wiki/Architecture.md](wiki/Architecture.md)** a
 | Blockchain | **Minima** L1 (Java) — full node in <500 MB |
 | P2P bus | **Maxima** — Minima's end‑to‑end encrypted message protocol |
 | State verification | **RMP + RNPE-2** — compressed state proofs and peer exchange for missing block validation |
-| Security provider | **CPIP** (The Coffee Protocol v5.0.5) — AES‑256‑GCM (FIPS 197), ECDSA/ECDH P‑256 (FIPS 186‑4), RSA‑KEM‑2048, HMAC‑SHA256, optional 1nf1D3L Kyber PQ KEM, ITF Defense, FIPS 140‑2/3 self‑tests |
+| Security provider | **CPIP** (The Coffee Protocol v5.1.1) — AES‑256‑GCM (FIPS 197), ECDSA/ECDH P‑256 (FIPS 186‑4), RSA‑KEM‑2048, HMAC‑SHA256, optional 1nf1D3L Kyber PQ KEM, ITF Defense, FIPS 140‑2/3 self‑tests |
 | PQ‑TLS (v1.3.0) | **Hybrid ECDH P‑256 + Kyber‑768** (ML‑KEM‑768) post‑quantum TLS for CPIP RPC transport |
 | Hardware key‑wrap (v1.3.0) | **TPM 2.0** PCR‑sealed CPIP master keys with measured boot binding |
 | Cluster orchestration | **k3s** (lightweight Kubernetes) + Go cluster manager |

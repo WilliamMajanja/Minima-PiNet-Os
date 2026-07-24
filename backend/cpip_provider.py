@@ -1,6 +1,6 @@
 """CPIP Security Provider for PiNet-OS.
 
-Integrates The Coffee Protocol (CPIP v5.0.5) cryptographic primitives
+Integrates The Coffee Protocol (CPIP v5.1.1) cryptographic primitives
 as the security provider for all PiNet-OS nodes and Minima operations.
 
 Provides:

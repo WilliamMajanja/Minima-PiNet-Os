@@ -50,7 +50,7 @@ A visual control plane served locally from the Pi:
 | AI Runtime | TensorFlow Lite / ONNX / GGUF (Ollama) |
 | LLM Gateway (v1.3.0) | Ollama (llama.cpp/GGUF) + Hailo-8L NPU + Gemini fallback |
 | Sensor Bus (v1.3.0) | Pi Zero 2 W (I2C, GPIO, SPI, 1-Wire, ADC, UART) |
-| Security Provider | CPIP v5.0.5 (AES-256-GCM, ECDSA P-256, Kyber, ITF Defense) |
+| Security Provider | CPIP v5.1.1 (AES-256-GCM, ECDSA P-256, Kyber, ITF Defense) |
 | PQ-TLS (v1.3.0) | Hybrid ECDH P-256 + Kyber-768 for CPIP RPC |
 | Key Management (v1.3.0) | TPM 2.0 PCR-sealed CPIP master keys |
 | Remote Attestation (v2.0.0) | TPM PCR + Minima blockchain anchored |

@@ -159,7 +159,7 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 15
         - name: cpip-sidecar
-          image: cpip:5.0.5
+          image: cpip:5.1.1
           imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false

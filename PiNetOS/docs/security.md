@@ -10,7 +10,7 @@ Nodes joining the PiNet cluster must authenticate using public key cryptography.
 All internal cluster communication is routed through a WireGuard mesh VPN, ensuring end-to-end encryption and preventing eavesdropping on the local network. CPIP CoffeeCipher v5 (AES-256-GCM + HKDF-SHA256) provides application-layer encryption for data at rest and RPC payload encryption.
 
 ## CPIP Security Provider
-The Coffee Protocol (CPIP v5.0.5) provides:
+The Coffee Protocol (CPIP v5.1.1) provides:
 - AES-256-GCM (FIPS 197) with HKDF-SHA256 key derivation
 - ECDSA/ECDH P-256 (FIPS 186-4) for node identity and key exchange
 - RSA-KEM-2048 (SP 800-56B) for key encapsulation

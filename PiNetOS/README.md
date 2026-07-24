@@ -24,7 +24,7 @@ Pi 5 Node A (master)               Pi 5 Node B (worker)
 - **Container orchestration** — k3s for edge workloads
 - **Distributed storage** — IPFS for resilient, verifiable data
 - **Blockchain layer** — Minima node for trust, auditability, identity
-- **CPIP security provider** — The Coffee Protocol v5.0.5: AES-256-GCM (FIPS 197), ECDSA P-256 (FIPS 186-4), RSA-KEM-2048, HMAC-SHA256, ITF Defense, FIPS self-tests
+- **CPIP security provider** — The Coffee Protocol v5.1.1: AES-256-GCM (FIPS 197), ECDSA P-256 (FIPS 186-4), RSA-KEM-2048, HMAC-SHA256, ITF Defense, FIPS self-tests
 - **Secure networking** — WireGuard mesh for encrypted node-to-node communication
 - **Multi-layer connectivity** — 2G → 4G → 5G → mesh fallback
 
