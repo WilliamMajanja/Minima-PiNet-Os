@@ -31,11 +31,12 @@ class HSTSMiddleware(BaseHTTPMiddleware):
 
     def __init__(
         self,
+        app,
         hsts_max_age: int = 31536000,
         hsts_include_subdomains: bool = True,
         hsts_preload: bool = True,
     ):
-        super().__init__(None)
+        super().__init__(app)
         self.hsts_max_age = hsts_max_age
         self.hsts_include_subdomains = hsts_include_subdomains
         self.hsts_preload = hsts_preload

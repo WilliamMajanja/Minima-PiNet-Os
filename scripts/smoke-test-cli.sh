@@ -63,6 +63,7 @@ export PINET_HOME
 export PINET_DESKTOP_PORT="$(pick_port)"
 export PINET_MINIMA_RPC_PORT="$(pick_port)"
 export PINET_CLUSTER_API_PORT="$(pick_port)"
+export PINET_SSL_ENABLED=0
 
 "${PINET_BIN}" help >/dev/null
 
