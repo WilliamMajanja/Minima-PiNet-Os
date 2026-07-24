@@ -25,8 +25,8 @@ from typing import Any
 
 from .config import (
     CPIP_ENABLED,
+    CPIP_GITHUB_REPO,
     CPIP_VERSION,
-    GITHUB_REPO,
     GITHUB_TOKEN,
 )
 
@@ -133,10 +133,10 @@ def _check_version_file_changed() -> str | None:
 
 
 def _github_get_latest_release() -> dict[str, Any] | None:
-    """Fetch the latest release from GitHub API."""
+    """Fetch the latest tag from GitHub API (not releases/latest)."""
     import urllib.request
 
-    url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+    url = f"https://api.github.com/repos/{CPIP_GITHUB_REPO}/tags"
     headers: dict[str, str] = {
         "Accept": "application/vnd.github+json",
         "User-Agent": "PiNet-OS-CPIP-Watcher",
@@ -144,10 +144,14 @@ def _github_get_latest_release() -> dict[str, Any] | None:
     if GITHUB_TOKEN:
         headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
 
-    req = urllib.request.Request(url, headers=headers)
+    req = urllib.request.Request(url, headers=headers)  # noqa: S310
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            return json.loads(resp.read().decode())
+        with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310
+            data = json.loads(resp.read().decode())
+            # /tags returns a list; first entry is the most recent
+            if isinstance(data, list) and len(data) > 0:
+                return data[0]
+            return None
     except Exception as exc:
         logger.error("GitHub API request failed: %s", exc)
         return None
@@ -267,7 +271,7 @@ async def _watch_iteration() -> None:
     if release is None:
         return
 
-    tag = release.get("tag_name", "")
+    tag = release.get("name", "")
     if not tag:
         return
 
@@ -295,14 +299,14 @@ async def _watch_iteration() -> None:
     _broadcast_event("update_available", {
         "current": current,
         "latest": latest,
-        "release_url": release.get("html_url", ""),
-        "release_notes": release.get("body", "")[:1000],
+        "release_url": f"https://github.com/{CPIP_GITHUB_REPO}/releases/tag/{tag}",
+        "release_notes": "",
     })
 
     _send_webhook_notification("update_available", {
         "current": current,
         "latest": latest,
-        "release_url": release.get("html_url", ""),
+        "release_url": f"https://github.com/{CPIP_GITHUB_REPO}/releases/tag/{tag}",
     })
 
     # 3. Auto-update if enabled

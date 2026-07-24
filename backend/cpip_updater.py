@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 from urllib.request import Request, urlopen
 
-from .config import CPIP_ENABLED, GITHUB_REPO, GITHUB_TOKEN
+from .config import CPIP_ENABLED, CPIP_GITHUB_REPO, GITHUB_TOKEN
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 CPIP_UPDATE_CHECK_URL = os.getenv(
     "CPIP_UPDATE_CHECK_URL",
-    "https://api.github.com/repos/{repo}/releases/latest",
+    "https://api.github.com/repos/{repo}/tags",
 )
 CPIP_UPDATE_INTERVAL = int(os.getenv("CPIP_UPDATE_INTERVAL", "86400"))  # 24h
 CPIP_UPDATE_AUTO = os.getenv("CPIP_UPDATE_AUTO", "1") == "1"
@@ -87,7 +87,7 @@ def _github_request(url: str) -> dict[str, Any] | None:
     if GITHUB_TOKEN:
         headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
 
-    full_url = url.format(repo=GITHUB_REPO) if "{repo}" in url else url
+    full_url = url.format(repo=CPIP_GITHUB_REPO) if "{repo}" in url else url
     req = Request(full_url, headers=headers)
 
     try:
@@ -118,7 +118,10 @@ class CPIPUpdateInfo:
 
 
 def check_for_update(current_version: str | None = None) -> CPIPUpdateInfo:
-    """Check GitHub for the latest CPIP release.
+    """Check GitHub for the latest CPIP tag.
+
+    Uses the /tags API (not /releases/latest) because CPIP may have
+    tags without formal releases.
 
     Args:
         current_version: Override the current version (reads from config if None).
@@ -138,25 +141,31 @@ def check_for_update(current_version: str | None = None) -> CPIPUpdateInfo:
         auto_update_enabled=CPIP_UPDATE_AUTO,
     )
 
-    release = _github_request(CPIP_UPDATE_CHECK_URL)
-    if release is None:
+    tags = _github_request(CPIP_UPDATE_CHECK_URL)
+    if tags is None:
         info.error = "Failed to reach GitHub API"
         info.last_checked = time.time()
         _save_update_state(_info_to_dict(info))
         return info
 
-    tag = release.get("tag_name", "")
-    if not tag:
-        info.error = "No tag_name in release response"
+    # /tags returns a list; first entry is the most recent
+    if isinstance(tags, list) and len(tags) > 0:
+        tag_name = tags[0].get("name", "")
+    elif isinstance(tags, dict):
+        # Fallback if someone switches back to /releases/latest
+        tag_name = tags.get("tag_name", "")
+    else:
+        tag_name = ""
+
+    if not tag_name:
+        info.error = "No tags found in GitHub response"
         info.last_checked = time.time()
         _save_update_state(_info_to_dict(info))
         return info
 
-    latest = tag.lstrip("v")
+    latest = tag_name.lstrip("v")
     info.latest_version = latest
-    info.release_url = release.get("html_url", "")
-    info.release_notes = release.get("body", "")[:2000]
-    info.published_at = release.get("published_at", "")
+    info.release_url = f"https://github.com/{CPIP_GITHUB_REPO}/releases/tag/{tag_name}"
     info.last_checked = time.time()
 
     try:
