@@ -117,12 +117,18 @@ class LXCQuotaManager:
         """Apply cgroup v2 resource limits for a tenant container."""
         if not _CGROUP_V2:
             return
-        # Sanitize container_name to prevent path traversal
-        safe_name = "".join(c for c in quota.container_name if c.isalnum() or c in "-_")
-        if not safe_name or safe_name != quota.container_name:
+        # Validate and sanitize container_name to prevent path traversal
+        safe_name = self._validate_container_name(quota.container_name)
+        if safe_name is None:
             logger.warning("Rejected suspicious container name: %s", quota.container_name)
             return
-        cgroup_path = Path(f"/sys/fs/cgroup/lxc/{safe_name}")
+        cgroup_path = Path("/sys/fs/cgroup/lxc") / safe_name
+        # Additional safety: ensure path is within expected directory
+        try:
+            cgroup_path.resolve().relative_to(Path("/sys/fs/cgroup/lxc").resolve())
+        except (ValueError, OSError):
+            logger.warning("Invalid cgroup path for tenant %s", quota.tenant_id)
+            return
         try:
             cgroup_path.mkdir(parents=True, exist_ok=True)
             # CPU limit: quota/period format (e.g. 50000/100000 = 50%)
@@ -142,16 +148,31 @@ class LXCQuotaManager:
         except OSError as exc:
             logger.warning("Failed to apply cgroup limits for %s: %s", quota.tenant_id, exc)
 
+    @staticmethod
+    def _validate_container_name(name: str) -> str | None:
+        """Validate container name contains only safe characters.
+        
+        Returns sanitized name if valid, None if invalid.
+        """
+        if not name or len(name) > 64:
+            return None
+        # Only allow alphanumeric, hyphen, underscore
+        if not all(c.isalnum() or c in "-_" for c in name):
+            return None
+        # Prevent reserved names
+        if name in (".", "..", "lxc", "cgroup"):
+            return None
+        return name
+
     def _remove_cgroup_limits(self, quota: LXCQuota) -> None:
         """Remove cgroup limits for a tenant."""
         if not _CGROUP_V2:
             return
-        # Sanitize container_name to prevent path traversal
-        safe_name = "".join(c for c in quota.container_name if c.isalnum() or c in "-_")
-        if not safe_name or safe_name != quota.container_name:
+        safe_name = self._validate_container_name(quota.container_name)
+        if safe_name is None:
             logger.warning("Rejected suspicious container name: %s", quota.container_name)
             return
-        cgroup_path = Path(f"/sys/fs/cgroup/lxc/{safe_name}")
+        cgroup_path = Path("/sys/fs/cgroup/lxc") / safe_name
         try:
             if cgroup_path.exists():
                 # Move processes to root cgroup first
@@ -166,12 +187,11 @@ class LXCQuotaManager:
 
     def _read_cgroup_usage(self, quota: LXCQuota) -> LXCQuotaUsage:
         """Read current usage from cgroup v2 stats."""
-        # Sanitize container_name to prevent path traversal
-        safe_name = "".join(c for c in quota.container_name if c.isalnum() or c in "-_")
-        if not safe_name or safe_name != quota.container_name:
+        safe_name = self._validate_container_name(quota.container_name)
+        if safe_name is None:
             logger.warning("Rejected suspicious container name: %s", quota.container_name)
             return LXCQuotaUsage(tenantId=quota.tenant_id, running=False)
-        cgroup_path = Path(f"/sys/fs/cgroup/lxc/{safe_name}")
+        cgroup_path = Path("/sys/fs/cgroup/lxc") / safe_name
         usage = LXCQuotaUsage(tenantId=quota.tenant_id, running=False)
 
         if not cgroup_path.exists():
