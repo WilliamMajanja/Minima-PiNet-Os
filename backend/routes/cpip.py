@@ -163,13 +163,17 @@ async def cpip_update(body: dict):
 async def cpip_update_status():
     """Return the last update check/result status."""
     from ..cpip_updater import _load_update_state
-    state = _load_update_state()
-    return {
-        "installed_version": CPIP_VERSION,
-        "last_checked": state.get("last_checked", 0),
-        "last_updated": state.get("last_updated", 0),
-        "latest_known": state.get("latest_version", CPIP_VERSION),
-    }
+    try:
+        state = _load_update_state()
+        return {
+            "installed_version": CPIP_VERSION,
+            "last_checked": state.get("last_checked", 0),
+            "last_updated": state.get("last_updated", 0),
+            "latest_known": state.get("latest_version", CPIP_VERSION),
+        }
+    except Exception:
+        logger.exception("Failed to load update state")
+        raise HTTPException(500, "Failed to get update status")
 
 
 # ─── CPIP Version Watcher Endpoints ──────────────────────────────────────────
