@@ -4,13 +4,18 @@ from __future__ import annotations
 import base64
 import json
 import re
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..minima_client import minima_client, MinimaRpcError
+from ..minima_client import minima_client
 from ..rate_limiter import exec_rate_limiter, rate_limit_dependency
-from ..rmp import build_rmp_proof, create_rnpe2_request, verify_rmp_proof, verify_rnpe2_consensus
+from ..rmp import (
+    build_rmp_proof,
+    create_rnpe2_request,
+    verify_rmp_proof,
+    verify_rnpe2_consensus,
+)
 from ..state import get_state
 
 router = APIRouter()
@@ -100,7 +105,7 @@ async def minima_balance():
     data = await minima_client.balance()
     if data and data.get("status"):
         parsed = minima_client.parse_balance(data)
-        native = parsed.get("0x00", Decimal("0"))
+        native = parsed.get("0x00", Decimal(0))
         state = get_state()
         state.minima.balance = native
         return {"status": True, "response": data.get("response", []), "nativeBalance": str(native)}

@@ -1,7 +1,11 @@
 from fastapi import APIRouter, HTTPException
+
 from ..zk_prover import (
-    generate_proof, get_proof, list_proofs,
-    verify_proof, delete_proof,
+    delete_proof,
+    generate_proof,
+    get_proof,
+    list_proofs,
+    verify_proof,
 )
 
 router = APIRouter()

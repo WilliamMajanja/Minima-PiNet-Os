@@ -1,17 +1,20 @@
 """Kernel & process management endpoints."""
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import platform
 import re
 import signal
 import subprocess
-import time
 
 import psutil
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..rate_limiter import sys_exec_limiter, rate_limit_dependency
+from ..rate_limiter import rate_limit_dependency, sys_exec_limiter
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -60,7 +63,7 @@ async def signal_process(pid: int, body: dict):
         raise HTTPException(404, f"Process {pid} not found")
     except psutil.AccessDenied:
         raise HTTPException(403, f"Permission denied to signal process {pid}")
-    except Exception as exc:
+    except (psutil.Error, OSError) as exc:
         raise HTTPException(500, str(exc))
 
 
@@ -107,9 +110,10 @@ async def list_services():
     """List systemd services using systemctl."""
     services = []
     try:
-        result = subprocess.run(
+        result = await asyncio.to_thread(
+            subprocess.run,
             ["systemctl", "list-units", "--type=service", "--all", "--no-pager", "--output=json"],
-            capture_output=True, text=True, timeout=10, shell=False
+            capture_output=True, text=True, timeout=10, shell=False, check=False,
         )
         if result.returncode == 0 and result.stdout.strip():
             for unit in json.loads(result.stdout):
@@ -123,9 +127,10 @@ async def list_services():
     except json.JSONDecodeError:
         # Fall back to plain text output
         try:
-            result = subprocess.run(
+            result = await asyncio.to_thread(
+                subprocess.run,
                 ["systemctl", "list-units", "--type=service", "--all", "--no-pager"],
-                capture_output=True, text=True, timeout=10, shell=False
+                capture_output=True, text=True, timeout=10, shell=False, check=False,
             )
             for line in result.stdout.splitlines():
                 parts = line.split(None, 4)
@@ -137,10 +142,10 @@ async def list_services():
                         "sub": parts[3] if len(parts) > 3 else "",
                         "description": parts[4] if len(parts) > 4 else "",
                     })
-        except Exception:
-            pass
-    except Exception:
-        pass
+        except (subprocess.SubprocessError, OSError):
+            logger.debug("Failed to parse systemctl JSON output", exc_info=True)
+    except (subprocess.SubprocessError, OSError):
+        logger.debug("Failed to list systemd services", exc_info=True)
     return {"services": services}
 
 
@@ -152,16 +157,17 @@ async def control_service(name: str, action: str):
     if action not in ("start", "stop", "restart", "reload", "enable", "disable"):
         raise HTTPException(400, f"Invalid action: {action}")
     try:
-        result = subprocess.run(
+        result = await asyncio.to_thread(
+            subprocess.run,
             ["systemctl", action, name],
-            capture_output=True, text=True, timeout=30, shell=False
+            capture_output=True, text=True, timeout=30, shell=False, check=False,
         )
         if result.returncode != 0:
             return {"success": False, "name": name, "action": action, "error": result.stderr or result.stdout}
         return {"success": True, "name": name, "action": action}
     except FileNotFoundError:
         raise HTTPException(503, "systemctl not available")
-    except Exception as exc:
+    except (subprocess.SubprocessError, OSError) as exc:
         raise HTTPException(500, str(exc))
 
 
@@ -170,9 +176,10 @@ async def list_cron_jobs():
     """Read crontab entries for the current user."""
     jobs = []
     try:
-        result = subprocess.run(
+        result = await asyncio.to_thread(
+            subprocess.run,
             ["crontab", "-l"],
-            capture_output=True, text=True, timeout=5, shell=False
+            capture_output=True, text=True, timeout=5, shell=False, check=False,
         )
         if result.returncode == 0:
             for idx, line in enumerate(result.stdout.splitlines()):
@@ -188,8 +195,8 @@ async def list_cron_jobs():
                         "enabled": True,
                         "raw": line,
                     })
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, OSError):
+        logger.debug("Failed to read crontab", exc_info=True)
     return {"jobs": jobs}
 
 
@@ -203,8 +210,8 @@ async def cgroups():
             for entry in list(cg_root.iterdir())[:50]:
                 if entry.is_dir():
                     cgroup_data.append({"name": entry.name, "path": str(entry)})
-    except Exception:
-        pass
+    except OSError:
+        logger.debug("Failed to read cgroups", exc_info=True)
     return {"cgroups": cgroup_data}
 
 
@@ -238,7 +245,7 @@ async def filesystem_info():
                 "free": usage.free,
                 "percent": usage.percent,
             })
-        except Exception:
+        except (psutil.Error, OSError):
             continue
     return {"partitions": partitions}
 
@@ -260,9 +267,10 @@ async def kernel_env():
 async def system_targets():
     targets = []
     try:
-        result = subprocess.run(
+        result = await asyncio.to_thread(
+            subprocess.run,
             ["systemctl", "list-units", "--type=target", "--all", "--no-pager"],
-            capture_output=True, text=True, timeout=10, shell=False
+            capture_output=True, text=True, timeout=10, shell=False, check=False,
         )
         current_run_level = 5
         for line in result.stdout.splitlines():
@@ -275,7 +283,7 @@ async def system_targets():
                     "sub": parts[3],
                     "description": parts[4] if len(parts) > 4 else "",
                 })
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         current_run_level = 5
     return {"targets": targets, "currentRunLevel": current_run_level}
 
@@ -285,14 +293,15 @@ async def services_log(limit: int = 100):
     limit = min(limit, 500)
     logs = []
     try:
-        result = subprocess.run(
+        result = await asyncio.to_thread(
+            subprocess.run,
             ["journalctl", "-n", str(limit), "--no-pager", "--output=short-iso"],
-            capture_output=True, text=True, timeout=10, shell=False
+            capture_output=True, text=True, timeout=10, shell=False, check=False,
         )
         if result.returncode == 0:
             logs = result.stdout.splitlines()
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, OSError):
+        logger.debug("Failed to read journalctl", exc_info=True)
     return {"logs": logs}
 
 

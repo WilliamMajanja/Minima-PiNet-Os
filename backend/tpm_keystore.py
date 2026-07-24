@@ -14,15 +14,12 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import os
 import secrets
 import subprocess
-import time
 from pathlib import Path
 from typing import Any
 
 from .config import (
-    CPIP_COVERT_KEY,
     TPM_DEVICE,
     TPM_KEYWRAP_ENABLED,
     TPM_SEALED_KEY_PATH,
@@ -32,9 +29,13 @@ from .models import TPMSealedKey
 
 logger = logging.getLogger(__name__)
 
-_TPM_AVAILABLE = Path(TPM_DEVICE).exists() and _has_tpm2_tools()
 _PCR_BANK = "sha256"
 _PCR_SELECTION = [0, 1, 2, 3, 4, 5, 6, 7]
+
+
+def shutil_which(cmd: str) -> bool:
+    import shutil
+    return shutil.which(cmd) is not None
 
 
 def _has_tpm2_tools() -> bool:
@@ -45,9 +46,7 @@ def _has_tpm2_tools() -> bool:
     return True
 
 
-def shutil_which(cmd: str) -> bool:
-    import shutil
-    return shutil.which(cmd) is not None
+_TPM_AVAILABLE = Path(TPM_DEVICE).exists() and _has_tpm2_tools()
 
 
 class TPMKeystore:
@@ -138,7 +137,7 @@ class TPMKeystore:
         try:
             result = subprocess.run(
                 ["tpm2_pcrread", f"{self._pcr_bank}:all", "-o", "/dev/stdout"],
-                capture_output=True, timeout=5,
+                capture_output=True, timeout=5, check=False,
             )
             if result.returncode != 0:
                 return {}
@@ -152,7 +151,7 @@ class TPMKeystore:
                         idx = parts[0].strip()
                         pcrs[idx] = parts[1].strip()
             return pcrs
-        except Exception as exc:
+        except (subprocess.SubprocessError, OSError) as exc:
             logger.warning("Failed to read PCRs: %s", exc)
             return {}
 
@@ -185,7 +184,7 @@ class TPMKeystore:
                 Path(p).unlink(missing_ok=True)
             logger.info("CPIP master key sealed with TPM 2.0 (PCRs: %s)", pcr_policy)
             return True
-        except Exception as exc:
+        except (subprocess.SubprocessError, OSError) as exc:
             logger.error("TPM seal failed: %s", exc)
             return False
 
@@ -204,7 +203,7 @@ class TPMKeystore:
             self._sealed_path.write_bytes(sealed)
             logger.info("CPIP master key software-sealed (non-TPM fallback)")
             return True
-        except Exception as exc:
+        except OSError as exc:
             logger.error("Software seal failed: %s", exc)
             return False
 
@@ -225,7 +224,7 @@ class TPMKeystore:
             # Unseal
             result = subprocess.run(
                 ["tpm2_unseal", "-c", "sealed.ctx", "-o", "/tmp/cpip-unsealed.dat"],
-                capture_output=True, timeout=10,
+                capture_output=True, timeout=10, check=False,
             )
             if result.returncode == 0:
                 key = Path("/tmp/cpip-unsealed.dat").read_bytes()
@@ -233,7 +232,7 @@ class TPMKeystore:
                 Path("/tmp/cpip-unsealed.dat").unlink(missing_ok=True)
                 return {"success": True, "keyId": "cpip-master", "keyLength": len(key)}
             return {"success": False, "error": "TPM unseal failed (PCR mismatch?)"}
-        except Exception as exc:
+        except (subprocess.SubprocessError, OSError) as exc:
             return {"success": False, "error": str(exc)}
 
     def _unseal_software(self) -> dict[str, Any]:
@@ -246,7 +245,7 @@ class TPMKeystore:
             sealed = self._sealed_path.read_bytes()
             master_key = bytes(a ^ b for a, b in zip(sealed, wrapping_key))
             return {"success": True, "keyId": "cpip-master", "keyLength": len(master_key)}
-        except Exception as exc:
+        except OSError as exc:
             return {"success": False, "error": str(exc)}
 
 

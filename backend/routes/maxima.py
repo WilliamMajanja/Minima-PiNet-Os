@@ -5,7 +5,6 @@ import base64
 import json
 import re
 import time
-from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
 

@@ -1,10 +1,11 @@
 from __future__ import annotations
+
 import hashlib
 import json
 import struct
 import time
-from typing import Optional
-from .config import ENCLAVE_DEFAULT_MEM_GB, ENCLAVE_MAX_PER_NODE
+
+from .config import ENCLAVE_MAX_PER_NODE
 
 ENCLAVES: dict[str, dict] = {}
 _ENCLAVE_MEASUREMENTS: dict[str, dict] = {}
@@ -48,7 +49,7 @@ async def create_enclave(
     enclave["status"] = "running"
     return enclave
 
-async def get_enclave(enclave_id: str) -> Optional[dict]:
+async def get_enclave(enclave_id: str) -> dict | None:
     return ENCLAVES.get(enclave_id)
 
 async def list_enclaves(node_id: str = "") -> list[dict]:
@@ -70,7 +71,7 @@ async def terminate_enclave(enclave_id: str) -> dict:
     e["status"] = "terminated"
     return e
 
-async def get_measurement(enclave_id: str) -> Optional[dict]:
+async def get_measurement(enclave_id: str) -> dict | None:
     return _ENCLAVE_MEASUREMENTS.get(enclave_id)
 
 async def record_measurement(enclave_id: str, pcr_values: dict, runtime_hash: str = "", config_hash: str = "") -> dict:

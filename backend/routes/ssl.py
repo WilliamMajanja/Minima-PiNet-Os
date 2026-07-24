@@ -6,22 +6,18 @@ and TLS status for the PiNet-OS web server.
 from __future__ import annotations
 
 import os
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from ..ssl_manager import (
-    get_status,
-    get_cert_info,
+    SSL_ENABLED,
+    delete_certs,
     generate_ca,
     generate_cert,
-    delete_certs,
-    install_ca_system,
     get_cert_paths,
-    SSL_ENABLED,
-    HSTS_ENABLED,
-    HSTS_MAX_AGE,
-    HSTS_INCLUDE_SUBDOMAINS,
-    HSTS_PRELOAD,
+    get_status,
+    install_ca_system,
 )
 
 router = APIRouter()

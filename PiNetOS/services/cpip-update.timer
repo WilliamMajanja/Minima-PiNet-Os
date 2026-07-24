@@ -1,0 +1,11 @@
+[Unit]
+Description=CPIP Auto-Update Timer (every 6 hours)
+Requires=cpip-update.service
+
+[Timer]
+OnBootSec=120
+OnUnitActiveSec=21600
+Persistent=true
+
+[Install]
+WantedBy=timers.target

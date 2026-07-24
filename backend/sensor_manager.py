@@ -123,8 +123,8 @@ def detect_pi_model() -> str:
                 return "pi1"
             if "raspberry pi" in model:
                 return "pi"
-    except Exception:
-        pass
+    except OSError:
+        logger.debug("Failed to detect Pi model from device tree", exc_info=True)
 
     try:
         cpuinfo = Path("/proc/cpuinfo").read_text().lower()
@@ -138,8 +138,8 @@ def detect_pi_model() -> str:
             return "pi2"
         if "bcm2835" in cpuinfo:
             return "pi1"
-    except Exception:
-        pass
+    except OSError:
+        logger.debug("Failed to detect Pi model from cpuinfo", exc_info=True)
 
     return "generic"
 
@@ -185,7 +185,7 @@ def _read_i2c(sensor: CustomSensorDef) -> float:
         bus.close()
         raw = (data[0] << 8 | data[1]) / 100.0
         return round(raw * sensor.calibration_scale + sensor.calibration_offset, 2)
-    except Exception as exc:
+    except OSError as exc:
         logger.debug("I2C read failed for %s: %s", sensor.id, exc)
         return _simulate(sensor)
 
@@ -199,7 +199,7 @@ def _read_gpio(sensor: CustomSensorDef) -> float:
         humidity, _temp = Adafruit_DHT.read_retry(Adafruit_DHT.DHT22, sensor.pin)
         if humidity is not None:
             return round(humidity * sensor.calibration_scale + sensor.calibration_offset, 2)
-    except Exception as exc:
+    except OSError as exc:
         logger.debug("GPIO read failed for %s: %s", sensor.id, exc)
     return _simulate(sensor)
 
@@ -219,7 +219,7 @@ def _read_spi(sensor: CustomSensorDef) -> float:
         raw = ((reply[1] & 0x03) << 8) | reply[2]
         voltage = (raw * 3.3) / 1023.0
         return round(voltage * sensor.calibration_scale + sensor.calibration_offset, 2)
-    except Exception as exc:
+    except OSError as exc:
         logger.debug("SPI read failed for %s: %s", sensor.id, exc)
     return _simulate(sensor)
 
@@ -246,7 +246,7 @@ def _read_one_wire(sensor: CustomSensorDef) -> float:
         if temp_line:
             raw = float(temp_line[0].split("t=")[1]) / 1000.0
             return round(raw * sensor.calibration_scale + sensor.calibration_offset, 2)
-    except Exception as exc:
+    except OSError as exc:
         logger.debug("1-Wire read failed for %s: %s", sensor.id, exc)
     return _simulate(sensor)
 
@@ -271,7 +271,7 @@ def _read_uart(sensor: CustomSensorDef) -> float:
             if len(resp) >= 9:
                 co2 = resp[2] * 256 + resp[3]
                 return round(float(co2) * sensor.calibration_scale + sensor.calibration_offset, 2)
-    except Exception as exc:
+    except OSError as exc:
         logger.debug("UART read failed for %s: %s", sensor.id, exc)
     return _simulate(sensor)
 
@@ -301,7 +301,7 @@ def read_sensor(sensor: CustomSensorDef) -> SensorReading:
             sensorId=sensor.id, value=value, unit=sensor.unit,
             timestamp=ts, raw=value,
         )
-    except Exception as exc:
+    except OSError as exc:
         logger.warning("Sensor %s read error: %s", sensor.id, exc)
         return SensorReading(
             sensorId=sensor.id, value=0.0, unit=sensor.unit,
@@ -344,8 +344,7 @@ class SensorManager:
                 f"{self._caps.max_sensors} custom sensors "
                 f"(Pi Zero 2 W limit: 4)"
             )
-        if sensor.poll_interval < self._caps.min_poll_interval:
-            sensor.poll_interval = self._caps.min_poll_interval
+        sensor.poll_interval = max(sensor.poll_interval, self._caps.min_poll_interval)
         self._sensors[sensor.id] = sensor
         return sensor
 
@@ -356,8 +355,7 @@ class SensorManager:
         for key, val in updates.items():
             if hasattr(sensor, key):
                 setattr(sensor, key, val)
-        if sensor.poll_interval < self._caps.min_poll_interval:
-            sensor.poll_interval = self._caps.min_poll_interval
+        sensor.poll_interval = max(sensor.poll_interval, self._caps.min_poll_interval)
         return sensor
 
     def remove_sensor(self, sensor_id: str) -> bool:
@@ -383,7 +381,7 @@ class SensorManager:
             try:
                 sensor = CustomSensorDef(**item)
                 self._sensors[sensor.id] = sensor
-            except Exception as exc:
+            except (ValueError, TypeError) as exc:
                 logger.warning("Skipping invalid sensor in state: %s", exc)
 
 

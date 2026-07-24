@@ -2,19 +2,26 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 
 from ..config import DAPP_INSTALL_DIR
-from ..rate_limiter import dapp_install_limiter, dapp_serve_limiter, rate_limit_dependency
+from ..rate_limiter import (
+    dapp_install_limiter,
+    dapp_serve_limiter,
+    rate_limit_dependency,
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -63,8 +70,8 @@ def _load_registry() -> list[dict]:
     if DAPP_REGISTRY_FILE.exists():
         try:
             return json.loads(DAPP_REGISTRY_FILE.read_text())
-        except Exception:
-            pass
+        except (OSError, json.JSONDecodeError):
+            logger.debug("Failed to load DApp registry", exc_info=True)
     return []
 
 
@@ -137,8 +144,8 @@ async def install_dapp(body: dict):
                 "minPinetVersion": manifest.get("minPinetVersion"),
             },
             "installPath": str(dapp_dir),
-            "installedAt": datetime.utcnow().isoformat(),
-            "updatedAt": datetime.utcnow().isoformat(),
+            "installedAt": datetime.now(tz=timezone.utc).isoformat(),
+            "updatedAt": datetime.now(tz=timezone.utc).isoformat(),
             "status": "installed",
         }
         registry.append(record)
@@ -148,7 +155,7 @@ async def install_dapp(body: dict):
     if isinstance(url, str) and url.strip():
         try:
             parsed = urlparse(url)
-        except Exception:
+        except ValueError:
             raise HTTPException(400, "Invalid URL")
         if parsed.scheme not in ("http", "https"):
             raise HTTPException(400, "Only http(s) URLs are allowed")
@@ -189,8 +196,8 @@ async def install_dapp(body: dict):
                 "permissions": [],
             },
             "installPath": str(dapp_dir),
-            "installedAt": datetime.utcnow().isoformat(),
-            "updatedAt": datetime.utcnow().isoformat(),
+            "installedAt": datetime.now(tz=timezone.utc).isoformat(),
+            "updatedAt": datetime.now(tz=timezone.utc).isoformat(),
             "status": "installed",
         }
         registry.append(record)

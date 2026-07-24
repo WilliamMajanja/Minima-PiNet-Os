@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import platform
 import re
@@ -13,13 +14,13 @@ from typing import Any
 import psutil
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from ..config import DESKTOP_PORT, PINET_VERSION
 from ..rate_limiter import (
     os_info_limiter,
     rate_limit_dependency,
     sys_exec_limiter,
 )
-from ..state import get_state, save_state
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -29,7 +30,7 @@ async def system_stats():
     """Return CPU, RAM, temperature, disk, and uptime."""
     try:
         cpu = psutil.cpu_percent(interval=0.5)
-    except Exception:
+    except (psutil.Error, OSError):
         cpu = 0.0
 
     mem = psutil.virtual_memory()
@@ -42,15 +43,15 @@ async def system_stats():
             first_sensor = next(iter(temps.values()))
             if first_sensor:
                 temp = first_sensor[0].current
-    except Exception:
-        pass
+    except (psutil.Error, OSError):
+        logger.debug("Failed to read temperature sensors", exc_info=True)
 
     disk = 0.0
     try:
         disk_usage = psutil.disk_usage("/")
         disk = disk_usage.percent
-    except Exception:
-        pass
+    except (psutil.Error, OSError):
+        logger.debug("Failed to read disk usage", exc_info=True)
 
     uptime = time.time() - psutil.boot_time()
 
@@ -131,8 +132,8 @@ async def os_info():
             or Path("/opt/venv/bin/python3").exists()
             or Path(os.getcwd(), "pinet-config.json").exists()
         )
-    except Exception:
-        pass
+    except (OSError, ValueError):
+        logger.debug("Failed to detect OS info", exc_info=True)
 
     default_context = os_name if (is_raspbian or is_ubuntu or is_debian) else "pinet"
 
@@ -178,14 +179,16 @@ async def switch_os(body: dict):
                 if target_os == "pinet"
                 else "sudo -n systemctl isolate graphical.target"
             )
-            result = subprocess.run(
+            result = await asyncio.to_thread(
+                subprocess.run,
                 ["rpi-connect", "shell", node_id, remote_cmd],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True, text=True, timeout=30, check=False,
             )
         else:
-            result = subprocess.run(
+            result = await asyncio.to_thread(
+                subprocess.run,
                 ["sudo", "-n", "systemctl", action, unit],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True, text=True, timeout=30, check=False,
             )
 
         if result.returncode != 0:
@@ -233,7 +236,7 @@ async def switch_os(body: dict):
             "stdout": "",
             "stderr": "",
         }
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         return {
             "success": False,
             "error": "An unexpected error occurred during OS switch.",
@@ -293,7 +296,7 @@ async def scan_subnet(subnet: str = Query(...)):
             )
             code = await proc.wait()
             return code == 0
-        except Exception:
+        except (OSError, subprocess.SubprocessError):
             return False
 
     for node in known:
@@ -340,25 +343,25 @@ async def system_health():
     iops = 0.0
     try:
         cpu = psutil.cpu_percent(interval=0.1)
-    except Exception:
-        pass
+    except (psutil.Error, OSError):
+        logger.debug("Failed to read CPU percent for health", exc_info=True)
     try:
         mem = psutil.virtual_memory()
         ram = mem.percent
-    except Exception:
-        pass
+    except (psutil.Error, OSError):
+        logger.debug("Failed to read memory for health", exc_info=True)
     try:
         temps = psutil.sensors_temperatures()
         if temps:
             first_sensor = next(iter(temps.values()))
             if first_sensor:
                 temp = first_sensor[0].current
-    except Exception:
-        pass
+    except (psutil.Error, OSError):
+        logger.debug("Failed to read temperature for health", exc_info=True)
     try:
         io = psutil.disk_io_counters()
         if io:
             iops = float(io.read_count + io.write_count)
-    except Exception:
-        pass
+    except (psutil.Error, OSError):
+        logger.debug("Failed to read disk I/O for health", exc_info=True)
     return {"status": "ok", "cpu": cpu, "ram": ram, "temp": temp, "iops": iops}

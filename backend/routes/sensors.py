@@ -9,7 +9,7 @@ simulated readings on non-Pi hosts for CI/testability.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 
 from ..models import CustomSensorDef, SensorBus, SensorKind
 from ..sensor_manager import sensor_manager

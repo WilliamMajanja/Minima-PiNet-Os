@@ -1,7 +1,9 @@
 """Security endpoints — dashboard, policies, audit, integrity, threats."""
 from __future__ import annotations
 
+import asyncio
 import hashlib
+import logging
 import os
 import subprocess
 import time
@@ -10,7 +12,9 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 
-from ..rate_limiter import security_check_limiter, rate_limit_dependency
+from ..rate_limiter import rate_limit_dependency, security_check_limiter
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -45,20 +49,20 @@ def _get_firewall_status() -> dict[str, Any]:
     try:
         result = subprocess.run(
             ["nft", "list", "ruleset"],
-            capture_output=True, text=True, timeout=3, shell=False
+            capture_output=True, text=True, timeout=3, shell=False, check=False,
         )
         if result.returncode == 0 and result.stdout.strip():
             active = True
             rules_count = result.stdout.count("rule")
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, OSError):
+        logger.debug("Failed to check nftables", exc_info=True)
 
     # Try iptables if nft not available
     if not active:
         try:
             result = subprocess.run(
                 ["iptables", "-L", "-n", "--line-numbers"],
-                capture_output=True, text=True, timeout=3, shell=False
+                capture_output=True, text=True, timeout=3, shell=False, check=False,
             )
             if result.returncode == 0:
                 active = True
@@ -68,20 +72,20 @@ def _get_firewall_status() -> dict[str, Any]:
                     policy = "deny"
                 elif "policy ACCEPT" in result.stdout:
                     policy = "accept"
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError):
+            logger.debug("Failed to check iptables", exc_info=True)
 
     # Try ufw
     if not active:
         try:
             result = subprocess.run(
                 ["ufw", "status"],
-                capture_output=True, text=True, timeout=3, shell=False
+                capture_output=True, text=True, timeout=3, shell=False, check=False,
             )
             if result.returncode == 0:
                 active = "active" in result.stdout.lower()
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError):
+            logger.debug("Failed to check ufw", exc_info=True)
 
     return {"active": active, "policy": policy, "rulesCount": rules_count}
 
@@ -94,7 +98,7 @@ def _hash_file(path: str) -> str | None:
             for chunk in iter(lambda: f.read(65536), b""):
                 h.update(chunk)
         return h.hexdigest()
-    except Exception:
+    except OSError:
         return None
 
 
@@ -178,10 +182,10 @@ async def security_dashboard():
 def _get_selinux_mode() -> str:
     try:
         result = subprocess.run(
-            ["getenforce"], capture_output=True, text=True, timeout=2, shell=False
+            ["getenforce"], capture_output=True, text=True, timeout=2, shell=False, check=False,
         )
         return result.stdout.strip().lower() if result.returncode == 0 else "unknown"
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         return "unknown"
 
 
@@ -230,7 +234,7 @@ def _sshd_hardened() -> bool:
     try:
         cfg = Path("/etc/ssh/sshd_config").read_text(errors="replace")
         return "PermitRootLogin no" in cfg or "PasswordAuthentication no" in cfg
-    except Exception:
+    except OSError:
         return False
 
 
@@ -250,9 +254,10 @@ async def security_profiles():
     """Return running processes with notable capability/privilege info."""
     profiles = []
     try:
-        result = subprocess.run(
+        result = await asyncio.to_thread(
+            subprocess.run,
             ["ps", "-eo", "pid,user,comm,args", "--no-headers"],
-            capture_output=True, text=True, timeout=5, shell=False
+            capture_output=True, text=True, timeout=5, shell=False, check=False,
         )
         for line in result.stdout.splitlines()[:50]:
             parts = line.split(None, 3)
@@ -265,8 +270,8 @@ async def security_profiles():
                     "seccompFilter": "system",
                     "noNewPrivileges": False,
                 })
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, OSError):
+        logger.debug("Failed to list security profiles", exc_info=True)
     return {"profiles": profiles}
 
 
@@ -328,7 +333,8 @@ async def get_threats():
     # fail2ban-derived bans
     if shutil.which("fail2ban-client"):
         try:
-            jails_proc = subprocess.run(
+            jails_proc = await asyncio.to_thread(
+                subprocess.run,
                 ["fail2ban-client", "status"],
                 capture_output=True, text=True, timeout=3, shell=False, check=False,
             )
@@ -340,7 +346,8 @@ async def get_threats():
                         jails = [j.strip() for j in names.split(",") if j.strip()]
                         break
             for jail in jails:
-                jproc = subprocess.run(
+                jproc = await asyncio.to_thread(
+                    subprocess.run,
                     ["fail2ban-client", "status", jail],
                     capture_output=True, text=True, timeout=3, shell=False, check=False,
                 )
@@ -369,7 +376,8 @@ async def get_threats():
     # Recent failed SSH auth from the journal
     if shutil.which("journalctl"):
         try:
-            jproc = subprocess.run(
+            jproc = await asyncio.to_thread(
+                subprocess.run,
                 [
                     "journalctl", "-u", "ssh.service", "-u", "sshd.service",
                     "--since", "-1h", "-g", "Failed password",

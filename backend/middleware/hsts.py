@@ -5,8 +5,6 @@ to all responses. Integrates with CPIP security provider.
 """
 from __future__ import annotations
 
-import os
-import time
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response

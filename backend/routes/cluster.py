@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import platform
 import re
@@ -19,6 +20,8 @@ from ..minima_client import minima_client
 from ..provenance_store import get_provenance_events, record_provenance_event
 from ..rate_limiter import exec_rate_limiter, rate_limit_dependency
 from ..state import get_state, save_state
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -94,7 +97,7 @@ async def discover_cluster():
             )
             await asyncio.wait_for(proc.wait(), timeout=3.0)
             reachable = proc.returncode == 0
-        except Exception:
+        except (OSError, asyncio.TimeoutError):
             reachable = False
 
         if reachable:
@@ -109,8 +112,8 @@ async def discover_cluster():
                             "temp": data.get("temp", 0),
                             "iops": data.get("iops", 0),
                         }
-            except Exception:
-                pass
+            except (httpx.HTTPError, OSError):
+                logger.debug("Failed to fetch health from node %s", ip, exc_info=True)
 
         node.status = "online" if reachable else "offline"
         if hasattr(node.metrics, 'cpu'):
@@ -218,10 +221,11 @@ async def cluster_exec_local(body: dict):
     start = time.time()
     try:
         command_argv = [executable]
-        result = subprocess.run(
+        result = await asyncio.to_thread(
+            subprocess.run,
             command_argv,
             capture_output=True, text=True, timeout=cmd_timeout,
-            shell=False,
+            shell=False, check=False,
         )
         return {
             "workloadId": workload_id,
@@ -238,7 +242,7 @@ async def cluster_exec_local(body: dict):
             "stderr": "Command timed out",
             "durationMs": int((time.time() - start) * 1000),
         }
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         return {
             "workloadId": workload_id,
             "exitCode": -1,
@@ -284,11 +288,12 @@ async def provision_node(body: dict):
 
     install_script = "curl -sSL https://raw.githubusercontent.com/WilliamMajanja/Minima-PiNet-Os/main/bin/pinet-setup | sh"
     try:
-        subprocess.Popen(
+        await asyncio.to_thread(
+            subprocess.Popen,
             ["rpi-connect", "shell", node.ip, install_script],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         node.status = "offline"
         save_state()
 

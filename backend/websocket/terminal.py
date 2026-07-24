@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import fcntl
+import logging
 import os
 import pty
 import select
@@ -11,6 +12,8 @@ import struct
 import termios
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -54,7 +57,7 @@ async def websocket_terminal(websocket: WebSocket):
 
     async def read_pty():
         """Read from PTY and send to WebSocket."""
-        loop = asyncio.get_event_loop()
+        asyncio.get_event_loop()
         try:
             while True:
                 await asyncio.sleep(0.01)
@@ -68,7 +71,7 @@ async def websocket_terminal(websocket: WebSocket):
                 except OSError:
                     break
         except (WebSocketDisconnect, Exception):
-            pass
+            logger.debug("PTY read loop ended", exc_info=True)
 
     read_task = asyncio.create_task(read_pty())
 
@@ -96,5 +99,5 @@ async def websocket_terminal(websocket: WebSocket):
             os.kill(pid, signal.SIGTERM)
             os.waitpid(pid, 0)
         except Exception:
-            pass
+            logger.debug("Failed to clean up terminal child process", exc_info=True)
         print("Terminal client disconnected")

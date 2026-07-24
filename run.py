@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """PiNet-OS — Application entry point.
 
 Start the Python backend + frontend server:
@@ -24,7 +23,7 @@ load_dotenv()
 def main() -> None:
     """Start the PiNet-OS server."""
     from backend.main import create_app
-    from backend.ssl_manager import ensure_certs, SSL_ENABLED
+    from backend.ssl_manager import SSL_ENABLED, ensure_certs
 
     app = create_app()
 
@@ -43,7 +42,7 @@ def main() -> None:
             ssl_certfile = cert_path
             ssl_keyfile = key_path
             scheme = "https"
-            print(f"🔒 SSL/TLS enabled")
+            print("🔒 SSL/TLS enabled")
             print(f"   Certificate: {cert_path}")
             print(f"   Key:         {key_path}")
         else:

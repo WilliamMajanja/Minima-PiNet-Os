@@ -66,7 +66,7 @@ class AttestationManager:
         except PermissionError:
             logger.warning("Permission denied hashing %s", path)
             return ""
-        except Exception as exc:
+        except OSError as exc:
             logger.warning("Failed to hash %s: %s", path, exc)
             return ""
         return h.hexdigest()
@@ -167,7 +167,7 @@ class AttestationManager:
             try:
                 record = AttestationRecord(**item)
                 self._records[record.attestation_id] = record
-            except Exception as exc:
+            except (ValueError, TypeError) as exc:
                 logger.warning("Skipping invalid attestation in state: %s", exc)
 
 

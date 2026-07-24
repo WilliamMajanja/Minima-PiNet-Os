@@ -1,8 +1,12 @@
 """PiNet-OS Application State Manager."""
 import json
+import logging
 import os
 from pathlib import Path
+
 from .models import PiNetState
+
+logger = logging.getLogger(__name__)
 
 STATE_FILE = Path(os.getcwd()) / "pinet-state.json"
 
@@ -32,5 +36,5 @@ def _load_state() -> PiNetState:
             data = json.loads(STATE_FILE.read_text())
             return PiNetState(**data)
         except Exception:
-            pass
+            logger.debug("Failed to load state from disk, using defaults", exc_info=True)
     return PiNetState()

@@ -9,13 +9,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from ..config import LLM_GATEWAY_ENABLED
 from ..llm_gateway import llm_gateway
 from ..models import LLMChatRequest
 from ..rate_limiter import RateLimiter, rate_limit_dependency
-from fastapi import Depends
 
 router = APIRouter()
 

@@ -1,6 +1,7 @@
 """Power management endpoints."""
 from __future__ import annotations
 
+import asyncio
 import subprocess
 import time
 
@@ -43,7 +44,7 @@ async def change_power_state(body: dict):
         "hibernate": ["systemctl", "hibernate"],
     }
     try:
-        subprocess.run(cmd_map[state], capture_output=True, timeout=5, shell=False, check=True)
+        await asyncio.to_thread(subprocess.run, cmd_map[state], capture_output=True, timeout=5, shell=False, check=True)
         return {"success": True, "state": state}
     except subprocess.CalledProcessError as exc:
         stderr_output = exc.stderr.decode(errors="replace").strip() if isinstance(exc.stderr, bytes) else str(exc.stderr or "").strip()

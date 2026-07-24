@@ -6,6 +6,7 @@ explicit ``available: false`` payload — never invents data.
 """
 from __future__ import annotations
 
+import asyncio
 import shutil
 import subprocess
 from typing import Any
@@ -66,7 +67,8 @@ async def ipc_services() -> dict[str, Any]:
         }
 
     try:
-        proc = subprocess.run(
+        proc = await asyncio.to_thread(
+            subprocess.run,
             ["busctl", "list", "--no-pager", "--no-legend"],
             capture_output=True, text=True, timeout=_BUSCTL_TIMEOUT,
             shell=False, check=False,
@@ -104,7 +106,8 @@ async def ipc_messages(limit: int = Query(default=50, ge=1, le=200)) -> dict[str
         return {"messages": [], "available": False, "reason": "journalctl not available"}
 
     try:
-        proc = subprocess.run(
+        proc = await asyncio.to_thread(
+            subprocess.run,
             [
                 "journalctl",
                 "-u", "dbus.service",

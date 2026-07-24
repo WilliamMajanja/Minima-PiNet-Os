@@ -7,7 +7,6 @@ from fastapi import APIRouter, HTTPException
 
 from ..provenance_store import (
     RMPE_SCHEMA_VERSION,
-    get_provenance_events,
     record_provenance_event,
 )
 

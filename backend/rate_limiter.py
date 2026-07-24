@@ -1,9 +1,11 @@
 """In-memory per-IP rate limiter with bounded memory — ported from server.ts."""
 from __future__ import annotations
+
 import time
 from collections import defaultdict
-from typing import Callable
-from fastapi import Request, HTTPException
+from collections.abc import Callable
+
+from fastapi import HTTPException, Request
 
 
 class RateLimiter:

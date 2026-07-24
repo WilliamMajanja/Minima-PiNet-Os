@@ -1,9 +1,9 @@
 from __future__ import annotations
+
 import hashlib
-import json
 import struct
 import time
-from typing import Optional
+
 from .config import MARKETPLACE_MAX_LISTINGS
 
 LISTINGS: dict[str, dict] = {}
@@ -57,7 +57,7 @@ async def create_listing(
     LISTINGS[lid] = listing
     return listing
 
-async def get_listing(listing_id: str) -> Optional[dict]:
+async def get_listing(listing_id: str) -> dict | None:
     return LISTINGS.get(listing_id)
 
 async def list_listings(
@@ -118,7 +118,7 @@ async def create_order(
     ORDERS[oid] = order
     return order
 
-async def get_order(order_id: str) -> Optional[dict]:
+async def get_order(order_id: str) -> dict | None:
     return ORDERS.get(order_id)
 
 async def list_orders(node_id: str = "") -> list[dict]:

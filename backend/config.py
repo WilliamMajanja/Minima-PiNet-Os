@@ -110,6 +110,7 @@ MAX_FAILED_LOGINS = 5
 LOCKOUT_DURATION = 300000
 
 # CPIP Security Provider (The Coffee Protocol)
+CPIP_VERSION = "5.0.5"
 CPIP_ENABLED = os.getenv("CPIP_ENABLED", "1") == "1"
 CPIP_FIPS_MODE = os.getenv("CPIP_FIPS", "0") == "1"
 CPIP_PROVIDER_URL = os.getenv("CPIP_PROVIDER_URL", "http://127.0.0.1:4180")
@@ -129,6 +130,10 @@ CPIP_MTLS_CA = os.getenv("CPIP_MTLS_CA", "")
 
 # CORS
 CORS_ORIGIN = os.getenv("PINET_CORS_ORIGIN", "")
+
+# CPIP Auto-Update
+CPIP_UPDATE_AUTO = os.getenv("CPIP_UPDATE_AUTO", "1") == "1"
+CPIP_UPDATE_INTERVAL = int(os.getenv("CPIP_UPDATE_INTERVAL", "86400"))  # 24h
 
 # Files Root
 FILES_ROOT = os.path.realpath(os.getenv("PINET_FILES_ROOT", os.getcwd()))

@@ -22,7 +22,7 @@ async def pq_tls_status() -> dict[str, Any]:
 
 
 @router.post("/cpip/pq-tls/handshake")
-async def pq_tls_handshake(body: dict = None) -> dict[str, Any]:
+async def pq_tls_handshake(body: dict | None = None) -> dict[str, Any]:
     """Perform a hybrid PQ-TLS handshake test.
 
     Accepts optional peer public keys for a real handshake, or runs a

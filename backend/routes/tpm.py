@@ -22,7 +22,7 @@ async def tpm_status() -> dict[str, Any]:
 
 
 @router.post("/tpm/seal")
-async def seal_key(body: dict = None) -> dict[str, Any]:
+async def seal_key(body: dict | None = None) -> dict[str, Any]:
     """Seal the CPIP master key using TPM 2.0."""
     if not TPM_KEYWRAP_ENABLED:
         raise HTTPException(503, "TPM key-wrap is disabled")

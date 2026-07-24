@@ -776,8 +776,14 @@ cmd_help() {
   printf "  pinet tips search ssh                           # Search for SSH tips\n"
   printf "  pinet tips random                               # Get a random tip\n"
   printf "  pinet ssl status                                # Check SSL status\n"
-  printf "  pinet ssl generate                              # Generate certificates\n"
-  printf "\n"
+      printf "  pinet ssl generate                              # Generate certificates\n"
+      printf "\n${WHITE}CPIP (The Coffee Protocol):${NC}\n"
+      printf "  ${CYAN}cpip${NC} status                     Show CPIP version and status\n"
+      printf "  ${CYAN}cpip${NC} check                      Check for CPIP updates\n"
+      printf "  ${CYAN}cpip${NC} update                     Update CPIP to latest version\n"
+      printf "  ${CYAN}cpip${NC} watch                      Show watcher status\n"
+      printf "  ${CYAN}cpip${NC} watch check                Force immediate version check\n"
+      printf "\n"
 }
 
 # ─── Command Line Tips (from Command Line Kung Fu) ─────────────────────────────
@@ -1304,6 +1310,161 @@ cmd_ssl() {
   esac
 }
 
+# ─── CPIP (The Coffee Protocol) Management ─────────────────────────────────────
+
+cmd_cpip() {
+  _action="${1:-status}"
+
+  case "$_action" in
+    status)
+      _api_url="http://127.0.0.1:${PINET_DESKTOP_PORT:-3000}"
+      _resp=$(curl -sf "${_api_url}/api/cpip/version" 2>/dev/null) || {
+        log_error "Cannot reach PiNet-OS desktop API"
+        return 1
+      }
+      _version=$(echo "$_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('version','unknown'))" 2>/dev/null)
+      _enabled=$(echo "$_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('enabled',False))" 2>/dev/null)
+
+      printf "\n${WHITE}CPIP (The Coffee Protocol)${NC}\n"
+      printf "  Version:    ${CYAN}%s${NC}\n" "${_version}"
+      printf "  Enabled:    %s\n" "${_enabled}"
+      printf "\n"
+      ;;
+
+    check)
+      log_info "Checking for CPIP updates..."
+      _api_url="http://127.0.0.1:${PINET_DESKTOP_PORT:-3000}"
+      _resp=$(curl -sf "${_api_url}/api/cpip/update/check" 2>/dev/null) || {
+        log_error "Cannot reach PiNet-OS desktop API"
+        return 1
+      }
+
+      _current=$(echo "$_resp" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('current_version','?'))" 2>/dev/null)
+      _latest=$(echo "$_resp" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('latest_version','?'))" 2>/dev/null)
+      _available=$(echo "$_resp" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('update_available',False))" 2>/dev/null)
+      _url=$(echo "$_resp" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('release_url',''))" 2>/dev/null)
+
+      printf "\n${WHITE}CPIP Update Check${NC}\n"
+      printf "  Current:  ${CYAN}%s${NC}\n" "${_current}"
+      printf "  Latest:   ${CYAN}%s${NC}\n" "${_latest}"
+
+      if [ "$_available" = "True" ] || [ "$_available" = "true" ]; then
+        printf "  Status:   ${GREEN}Update available${NC}\n"
+        if [ -n "$_url" ]; then
+          printf "  Release:  %s\n" "$_url"
+        fi
+        printf "\n  Run ${CYAN}pinet cpip update${NC} to install the update.\n"
+      else
+        printf "  Status:   ${GREEN}Up to date${NC}\n"
+      fi
+      printf "\n"
+      ;;
+
+    update)
+      log_info "Updating CPIP..."
+      _api_url="http://127.0.0.1:${PINET_DESKTOP_PORT:-3000}"
+      _target="${2:-}"
+
+      _body="{}"
+      if [ -n "$_target" ]; then
+        _body="{\"target_version\": \"${_target}\"}"
+      fi
+
+      _resp=$(curl -sf -X POST -H "Content-Type: application/json" -d "$_body" "${_api_url}/api/cpip/update" 2>/dev/null) || {
+        log_error "Cannot reach PiNet-OS desktop API"
+        return 1
+      }
+
+      _success=$(echo "$_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('success',False))" 2>/dev/null)
+      _msg=$(echo "$_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('message',''))" 2>/dev/null)
+      _old=$(echo "$_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('current_version','?'))" 2>/dev/null)
+      _new=$(echo "$_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('target_version','?'))" 2>/dev/null)
+
+      if [ "$_success" = "True" ] || [ "$_success" = "true" ]; then
+        log_ok "CPIP updated: ${_old} -> ${_new}"
+        printf "  %s\n" "$_msg"
+      else
+        log_error "CPIP update failed: ${_msg}"
+        return 1
+      fi
+      ;;
+
+    watch)
+      _subaction="${2:-status}"
+      _api_url="http://127.0.0.1:${PINET_DESKTOP_PORT:-3000}"
+
+      case "$_subaction" in
+        status)
+          _resp=$(curl -sf "${_api_url}/api/cpip/watcher" 2>/dev/null) || {
+            log_error "Cannot reach PiNet-OS desktop API"
+            return 1
+          }
+
+          _running=$(echo "$_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('running',False))" 2>/dev/null)
+          _enabled=$(echo "$_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('enabled',False))" 2>/dev/null)
+          _interval=$(echo "$_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('poll_interval',0))" 2>/dev/null)
+          _auto=$(echo "$_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('auto_update',False))" 2>/dev/null)
+          _checks=$(echo "$_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('check_count',0))" 2>/dev/null)
+          _updates=$(echo "$_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('update_count',0))" 2>/dev/null)
+          _errors=$(echo "$_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('error_count',0))" 2>/dev/null)
+          _webhook=$(echo "$_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('webhook_configured',False))" 2>/dev/null)
+          _installed=$(echo "$_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('installed_version','?'))" 2>/dev/null)
+
+          printf "\n${WHITE}CPIP Version Watcher${NC}\n"
+          printf "  Running:        %s\n" "${_running}"
+          printf "  Enabled:        %s\n" "${_enabled}"
+          printf "  Installed:      ${CYAN}%s${NC}\n" "${_installed}"
+          printf "  Poll interval:  %ss\n" "${_interval}"
+          printf "  Auto-update:    %s\n" "${_auto}"
+          printf "  Checks:         %s\n" "${_checks}"
+          printf "  Updates:        %s\n" "${_updates}"
+          printf "  Errors:         %s\n" "${_errors}"
+          printf "  Webhook:        %s\n" "${_webhook}"
+          printf "\n"
+          ;;
+
+        check)
+          log_info "Forcing immediate version check..."
+          _resp=$(curl -sf -X POST "${_api_url}/api/cpip/watcher/check" 2>/dev/null) || {
+            log_error "Cannot reach PiNet-OS desktop API"
+            return 1
+          }
+          _success=$(echo "$_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('success',False))" 2>/dev/null)
+          if [ "$_success" = "True" ] || [ "$_success" = "true" ]; then
+            log_ok "Version check completed"
+          else
+            _err=$(echo "$_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('error','unknown'))" 2>/dev/null)
+            log_error "Check failed: ${_err}"
+            return 1
+          fi
+          ;;
+
+        *)
+          log_error "Unknown watch action: $_subaction (use: status, check)"
+          return 1
+          ;;
+      esac
+      ;;
+
+    help|--help|-h)
+      printf "\n${WHITE}CPIP (The Coffee Protocol) Management${NC}\n"
+      printf "Usage: ${CYAN}pinet${NC} cpip <action>\n\n"
+      printf "Actions:\n"
+      printf "  ${CYAN}status${NC}              Show CPIP version and status\n"
+      printf "  ${CYAN}check${NC}               Check for available updates\n"
+      printf "  ${CYAN}update${NC} [version]    Update to latest (or specific version)\n"
+      printf "  ${CYAN}watch${NC} [status|check] Version watcher status or force check\n"
+      printf "  ${CYAN}help${NC}                Show this help\n"
+      printf "\n"
+      ;;
+
+    *)
+      log_error "Unknown cpip action: $_action (use: status, check, update, help)"
+      return 1
+      ;;
+  esac
+}
+
 # ─── Main Dispatch ────────────────────────────────────────────────────────────
 
 case "${1:-help}" in
@@ -1326,6 +1487,7 @@ case "${1:-help}" in
   gpio)        shift; cmd_gpio "$@" ;;
   tips)        shift; cmd_tips "$@" ;;
   ssl)         shift; cmd_ssl "$@" ;;
+  cpip)        shift; cmd_cpip "$@" ;;
   version|info) cmd_version ;;
   help|--help|-h) cmd_help ;;
   *)

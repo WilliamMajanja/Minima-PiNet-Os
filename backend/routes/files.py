@@ -74,7 +74,7 @@ async def list_files(path: str = Query(default="")):
         return items
     except HTTPException:
         raise
-    except Exception as exc:
+    except OSError as exc:
         raise HTTPException(500, str(exc))
 
 
@@ -85,7 +85,7 @@ async def read_file(path: str = Query(...)):
         return {"content": content}
     except HTTPException:
         raise
-    except Exception as exc:
+    except OSError as exc:
         raise HTTPException(500, str(exc))
 
 
@@ -100,7 +100,7 @@ async def write_file(body: dict):
         return {"success": True}
     except HTTPException:
         raise
-    except Exception as exc:
+    except OSError as exc:
         raise HTTPException(500, str(exc))
 
 
@@ -114,5 +114,5 @@ async def delete_file(path: str = Query(...)):
         return {"success": True}
     except HTTPException:
         raise
-    except Exception as exc:
+    except OSError as exc:
         raise HTTPException(500, str(exc))

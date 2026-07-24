@@ -10,10 +10,7 @@ import datetime
 import logging
 import os
 import subprocess
-import sys
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger("pinet.ssl")
 
@@ -60,7 +57,7 @@ class SSLStatus:
     ssl_enabled: bool = False
     mkcert_available: bool = False
     certs_exist: bool = False
-    cert_info: Optional[SSLCertInfo] = None
+    cert_info: SSLCertInfo | None = None
     hsts_enabled: bool = False
     hsts_max_age: int = 31536000
     hsts_include_subdomains: bool = True
@@ -78,6 +75,7 @@ def _run(cmd: list[str], check: bool = False, capture: bool = True) -> subproces
             capture_output=capture,
             text=True,
             timeout=30,
+            check=False,
         )
         if check and result.returncode != 0:
             logger.error("Command failed: %s → %s", " ".join(cmd), result.stderr.strip())
@@ -129,14 +127,14 @@ def _parse_cert_dates(cert_path: str) -> tuple[str, str, int]:
 
         if not_after:
             try:
-                expiry = datetime.datetime.strptime(not_after, "%b %d %H:%M:%S %Y %Z")
-                days = (expiry - datetime.datetime.utcnow()).days
+                expiry = datetime.datetime.strptime(not_after, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=datetime.timezone.utc)
+                days = (expiry - datetime.datetime.now(tz=datetime.timezone.utc)).days
                 return (not_before, not_after, max(0, days))
             except ValueError:
                 pass
 
         return (not_before, not_after, 0)
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         return ("", "", 0)
 
 
@@ -170,7 +168,7 @@ def _parse_cert_info(cert_path: str) -> dict:
                         info["san"].append(part[12:])
 
         return info
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         return info
 
 
@@ -212,7 +210,7 @@ def generate_cert_mkcert(hosts: list[str] | None = None) -> tuple[str, str] | No
     if hosts is None:
         hosts = SSL_DEFAULT_HOSTS
 
-    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y%m%d-%H%M%S")
     cert_path = os.path.join(SSL_CERTS_DIR, f"pinet-server-{timestamp}.pem")
     key_path = os.path.join(SSL_CERTS_DIR, f"pinet-server-{timestamp}-key.pem")
 
@@ -275,11 +273,10 @@ def generate_cert_openssl(hosts: list[str] | None = None) -> tuple[str, str] | N
     ca_cert = os.path.join(SSL_CA_DIR, "rootCA.pem")
     ca_key = os.path.join(SSL_CA_DIR, "rootCA-key.pem")
 
-    if not os.path.exists(ca_cert) or not os.path.exists(ca_key):
-        if not generate_ca_openssl():
-            return None
+    if (not os.path.exists(ca_cert) or not os.path.exists(ca_key)) and not generate_ca_openssl():
+        return None
 
-    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y%m%d-%H%M%S")
     cert_path = os.path.join(SSL_CERTS_DIR, f"pinet-server-{timestamp}.pem")
     key_path = os.path.join(SSL_CERTS_DIR, f"pinet-server-{timestamp}-key.pem")
     csr_path = os.path.join(SSL_CERTS_DIR, f"pinet-server-{timestamp}.csr")
@@ -401,7 +398,7 @@ def ensure_certs() -> tuple[str, str]:
     return ("", "")
 
 
-def get_cert_info() -> Optional[SSLCertInfo]:
+def get_cert_info() -> SSLCertInfo | None:
     """Get detailed information about the current certificate."""
     cert, key = get_cert_paths()
     if not cert or not os.path.exists(cert):
@@ -457,7 +454,7 @@ def delete_certs() -> bool:
             os.makedirs(SSL_CA_DIR)
         logger.info("All certificates deleted")
         return True
-    except Exception as e:
+    except OSError as e:
         logger.error("Failed to delete certs: %s", e)
         return False
 

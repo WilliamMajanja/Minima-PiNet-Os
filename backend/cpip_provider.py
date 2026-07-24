@@ -26,12 +26,13 @@ import os
 import secrets
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, ClassVar
 
 try:
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import hashes, serialization
-    from cryptography.hazmat.primitives.asymmetric import ec, padding as asym_padding
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives.asymmetric import padding as asym_padding
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
     from cryptography.hazmat.primitives.kdf.hkdf import HKDF
     _CRYPTO_AVAILABLE = True
@@ -48,6 +49,8 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 # ─── Configuration ───────────────────────────────────────────────────────────
+
+from .config import CPIP_VERSION as _CPIP_VERSION
 
 CPIP_ENABLED = os.getenv("CPIP_ENABLED", "1") == "1"
 CPIP_FIPS_MODE = os.getenv("CPIP_FIPS", "0") == "1"
@@ -144,7 +147,7 @@ class CoffeeCipher:
         aesgcm = AESGCM(key)
         try:
             return aesgcm.decrypt(nonce, ct_and_tag, None)
-        except Exception:
+        except (ValueError, TypeError):
             return b""
 
     @classmethod
@@ -216,7 +219,7 @@ class ECP256:
                 ec.ECDSA(hashes.SHA256()),
             )
             return True
-        except Exception:
+        except (ValueError, TypeError):
             return False
 
     @classmethod
@@ -327,8 +330,8 @@ class ITFDefense:
     Blocks hostile probes with HTTP 418 and blacklists offending IPs.
     """
 
-    _blacklist: dict[str, dict[str, float | int]] = {}
-    _probe_counts: dict[str, list[float]] = {}
+    _blacklist: ClassVar[dict[str, dict[str, float | int]]] = {}
+    _probe_counts: ClassVar[dict[str, list[float]]] = {}
 
     @classmethod
     def is_blacklisted(cls, addr: str) -> bool:
@@ -484,7 +487,7 @@ class RpcToken:
             payload = f"{token_node_id}:{expiry_str}".encode()
             expected_sig = hmac.new(cls._secret, payload, hashlib.sha256).hexdigest()
             return hmac.compare_digest(sig, expected_sig)
-        except Exception:
+        except (ValueError, TypeError):
             return False
 
     @classmethod
@@ -492,7 +495,7 @@ class RpcToken:
         try:
             decoded = base64.urlsafe_b64decode(token.encode()).decode()
             return decoded.split(":")[0]
-        except Exception:
+        except (ValueError, TypeError, UnicodeDecodeError):
             return None
 
 
@@ -568,7 +571,7 @@ class CPIPSecurityMiddleware:
     RATE_WINDOW = int(os.getenv("CPIP_HTTP_RATE_WINDOW", "120"))
     MAX_REQUEST_SIZE = int(os.getenv("CPIP_MAX_REQUEST_SIZE", "65536"))
 
-    _rate_counts: dict[str, list[float]] = {}
+    _rate_counts: ClassVar[dict[str, list[float]]] = {}
 
     @classmethod
     def _check_rate_limit(cls, addr: str) -> bool:
@@ -628,7 +631,7 @@ class CPIPSecurityMiddleware:
         response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
         response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
         response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
-        response.headers["CPIP-Version"] = "5.0.5"
+        response.headers["CPIP-Version"] = _CPIP_VERSION
         response.headers["CPIP-Provider"] = "active"
 
         # HSTS — only on HTTPS

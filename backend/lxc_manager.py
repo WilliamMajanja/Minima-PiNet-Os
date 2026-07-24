@@ -10,18 +10,12 @@ API is always testable.
 from __future__ import annotations
 
 import logging
-import os
 import shutil
-import subprocess
 import time
 from pathlib import Path
 from typing import Any
 
 from .config import (
-    LXC_DEFAULT_CPU_LIMIT,
-    LXC_DEFAULT_DISK_GB,
-    LXC_DEFAULT_IO_IOPS,
-    LXC_DEFAULT_RAM_MB,
     LXC_MAX_TENANTS,
     LXC_QUOTA_ENABLED,
 )
@@ -140,7 +134,7 @@ class LXCQuotaManager:
             logger.info("Applied cgroup limits for tenant %s", quota.tenant_id)
         except PermissionError:
             logger.warning("Cannot write cgroup limits (need root) for %s", quota.tenant_id)
-        except Exception as exc:
+        except OSError as exc:
             logger.warning("Failed to apply cgroup limits for %s: %s", quota.tenant_id, exc)
 
     def _remove_cgroup_limits(self, quota: LXCQuota) -> None:
@@ -157,7 +151,7 @@ class LXCQuotaManager:
                     if procs:
                         Path("/sys/fs/cgroup/cgroup.procs").write_text(procs)
                 cgroup_path.rmdir()
-        except Exception as exc:
+        except OSError as exc:
             logger.warning("Failed to remove cgroup for %s: %s", quota.tenant_id, exc)
 
     def _read_cgroup_usage(self, quota: LXCQuota) -> LXCQuotaUsage:
@@ -184,7 +178,7 @@ class LXCQuotaManager:
             procs = (cgroup_path / "cgroup.procs").read_text().strip().splitlines()
             usage.processes = len(procs)
             usage.running = usage.processes > 0
-        except Exception as exc:
+        except (OSError, ValueError) as exc:
             logger.debug("Failed to read cgroup usage for %s: %s", quota.tenant_id, exc)
 
         return usage
@@ -198,7 +192,7 @@ class LXCQuotaManager:
             try:
                 quota = LXCQuota(**item)
                 self._quotas[quota.tenant_id] = quota
-            except Exception as exc:
+            except (ValueError, TypeError) as exc:
                 logger.warning("Skipping invalid tenant quota in state: %s", exc)
 
 

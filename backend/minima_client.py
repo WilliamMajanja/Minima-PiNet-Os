@@ -134,7 +134,7 @@ class MinimaRpcClient:
                                  attempt + 1, self.retries, command, exc)
                     await asyncio.sleep(self.retry_delay * (attempt + 1))
                 continue
-            except Exception as exc:
+            except OSError as exc:
                 last_exc = exc
                 break
 
@@ -146,7 +146,7 @@ class MinimaRpcClient:
         """Like ``call`` but returns *None* instead of raising on any error."""
         try:
             return await self.call(command)
-        except Exception as exc:
+        except (MinimaRpcError, OSError) as exc:
             logger.debug("Minima RPC try_call failed for '%s': %s", command, exc)
             return None
 
@@ -404,7 +404,7 @@ class MinimaRpcClient:
             try:
                 amount = Decimal(str(token.get("confirmed", 0)))
             except (InvalidOperation, ValueError):
-                amount = Decimal("0")
+                amount = Decimal(0)
             result[token_id] = amount
         return result
 

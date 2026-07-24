@@ -1,11 +1,15 @@
 """Network management endpoints."""
 from __future__ import annotations
 
+import asyncio
+import logging
 import re
 import subprocess
 
 import psutil
 from fastapi import APIRouter, HTTPException
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -56,9 +60,10 @@ async def list_interfaces():
 async def get_routes():
     routes = []
     try:
-        result = subprocess.run(
+        result = await asyncio.to_thread(
+            subprocess.run,
             ["ip", "-json", "route"],
-            capture_output=True, text=True, timeout=5, shell=False
+            capture_output=True, text=True, timeout=5, shell=False, check=False,
         )
         if result.returncode == 0 and result.stdout.strip():
             import json
@@ -72,7 +77,7 @@ async def get_routes():
                     "scope": r.get("scope", ""),
                 })
     except Exception:
-        pass
+        logger.debug("Failed to read network routes", exc_info=True)
     return {"routes": routes}
 
 
@@ -87,7 +92,7 @@ async def get_dns():
                 if line.strip().startswith("nameserver"):
                     dns_servers.append(line.strip().split()[1])
     except Exception:
-        pass
+        logger.debug("Failed to read DNS configuration", exc_info=True)
     return {"servers": dns_servers or ["8.8.8.8", "8.8.4.4"]}
 
 
@@ -96,9 +101,10 @@ async def get_firewall():
     rules = []
     default_policy = "deny"
     try:
-        result = subprocess.run(
+        result = await asyncio.to_thread(
+            subprocess.run,
             ["iptables", "-L", "-n", "--line-numbers", "-v"],
-            capture_output=True, text=True, timeout=5, shell=False
+            capture_output=True, text=True, timeout=5, shell=False, check=False,
         )
         if result.returncode == 0:
             current_chain = ""
@@ -122,7 +128,7 @@ async def get_firewall():
                             "destination": parts[8] if len(parts) > 8 else "any",
                         })
     except Exception:
-        pass
+        logger.debug("Failed to read iptables rules", exc_info=True)
     return {"rules": rules, "defaultPolicy": default_policy}
 
 
@@ -130,9 +136,10 @@ async def get_firewall():
 async def get_wireguard():
     interfaces = []
     try:
-        result = subprocess.run(
+        result = await asyncio.to_thread(
+            subprocess.run,
             ["wg", "show", "all", "dump"],
-            capture_output=True, text=True, timeout=5, shell=False
+            capture_output=True, text=True, timeout=5, shell=False, check=False,
         )
         if result.returncode == 0:
             current_iface = None
@@ -154,7 +161,7 @@ async def get_wireguard():
                         "lastHandshake": int(parts[4]) if len(parts) > 4 and parts[4].isdigit() else 0,
                     })
     except Exception:
-        pass
+        logger.debug("Failed to read WireGuard interfaces", exc_info=True)
     return {"interfaces": interfaces}
 
 
@@ -170,7 +177,8 @@ async def update_interface(name: str, body: dict):
     state = body.get("state")
     if state in ("up", "down"):
         try:
-            subprocess.run(
+            await asyncio.to_thread(
+                subprocess.run,
                 ["ip", "link", "set", name, state],
                 capture_output=True, timeout=5, shell=False, check=True
             )
@@ -185,7 +193,8 @@ async def update_interface(name: str, body: dict):
     prefix = body.get("prefix", 24)
     if address and isinstance(prefix, int):
         try:
-            subprocess.run(
+            await asyncio.to_thread(
+                subprocess.run,
                 ["ip", "addr", "add", f"{address}/{prefix}", "dev", name],
                 capture_output=True, timeout=5, shell=False, check=True
             )

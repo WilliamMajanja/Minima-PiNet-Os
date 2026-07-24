@@ -160,7 +160,7 @@ spec:
             periodSeconds: 15
         - name: cpip-sidecar
           image: cpip:5.0.5
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false

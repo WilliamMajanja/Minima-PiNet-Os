@@ -156,6 +156,7 @@ info "Version updated to ${LATEST_VERSION}"
 
 # ---- Step 7: Restart affected services --------------------------------------
 info "Restarting PiNetOS services..."
+systemctl restart cpip.service           || warn "Failed to restart cpip"
 systemctl restart pinet-hal.service     || warn "Failed to restart pinet-hal"
 systemctl restart pinet-desktop.service || warn "Failed to restart pinet-desktop"
 systemctl restart minima.service        || warn "Failed to restart minima"

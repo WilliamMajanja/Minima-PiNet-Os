@@ -18,10 +18,8 @@ attempt the PQ handshake (graceful degradation to classical TLS).
 from __future__ import annotations
 
 import hashlib
-import hmac
 import logging
 import os
-import secrets
 import time
 from typing import Any
 
@@ -37,9 +35,9 @@ logger = logging.getLogger(__name__)
 
 # Check for Kyber library availability
 try:
+    from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import ec
     from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-    from cryptography.hazmat.primitives import hashes, serialization
     _CRYPTO_AVAILABLE = True
 except ImportError:
     _CRYPTO_AVAILABLE = False
@@ -121,7 +119,7 @@ class PQTLSManager:
                 public_key = kem.generate_keypair()
                 secret_key = kem.export_secret_key()
             return bytes(secret_key), bytes(public_key)
-        except Exception as exc:
+        except (ValueError, RuntimeError) as exc:
             logger.warning("Kyber keypair generation failed: %s", exc)
             return b"", b""
 
@@ -137,7 +135,7 @@ class PQTLSManager:
                 ciphertext, shared_secret = kem.encap_secret(peer_public_key)
             self._handshake_count += 1
             return bytes(ciphertext), bytes(shared_secret)
-        except Exception as exc:
+        except (ValueError, RuntimeError) as exc:
             logger.warning("Kyber encapsulation failed: %s", exc)
             return b"", b""
 
@@ -149,7 +147,7 @@ class PQTLSManager:
             with oqs.KeyEncapsulation(_KYBER_ALG, secret_key=secret_key) as kem:
                 shared_secret = kem.decap_secret(ciphertext)
             return bytes(shared_secret)
-        except Exception as exc:
+        except (ValueError, RuntimeError) as exc:
             logger.warning("Kyber decapsulation failed: %s", exc)
             return b""
 
@@ -172,7 +170,7 @@ class PQTLSManager:
                 info=CPIP_RECIPE.encode(),
             )
             return hkdf.derive(combined)
-        except Exception:
+        except (ValueError, TypeError):
             return hashlib.sha256(combined).digest()
 
     def perform_handshake(self, peer_classical_pub: bytes = b"",
@@ -187,21 +185,22 @@ class PQTLSManager:
         start = time.monotonic()
         classical_secret = b""
         pq_secret = b""
-        pq_ciphertext = b""
 
         # Classical component (ECDH P-256)
         if self._hybrid and _CRYPTO_AVAILABLE and peer_classical_pub:
             try:
-                from cryptography.hazmat.primitives.serialization import load_pem_public_key
+                from cryptography.hazmat.primitives.serialization import (
+                    load_pem_public_key,
+                )
                 peer_pub = load_pem_public_key(peer_classical_pub)
                 our_priv = ec.generate_private_key(ec.SECP256R1())
                 classical_secret = our_priv.exchange(ec.ECDH(), peer_pub)
-            except Exception as exc:
+            except (ValueError, TypeError) as exc:
                 logger.warning("Classical ECDH failed: %s", exc)
 
         # PQ component (Kyber-768)
         if _KYBER_AVAILABLE and peer_pq_pub:
-            pq_ciphertext, pq_secret = self.encapsulate(peer_pq_pub)
+            _pq_ciphertext, pq_secret = self.encapsulate(peer_pq_pub)
         elif _KYBER_AVAILABLE:
             # Self-test: generate keypair and encapsulate to ourselves
             try:
@@ -209,8 +208,8 @@ class PQTLSManager:
                     pub = kem.generate_keypair()
                     ct, ss = kem.encap_secret(pub)
                     pq_secret = bytes(ss)
-                    pq_ciphertext = bytes(ct)
-            except Exception as exc:
+                    bytes(ct)
+            except (ValueError, RuntimeError) as exc:
                 logger.warning("PQ self-test failed: %s", exc)
 
         # Derive hybrid session key

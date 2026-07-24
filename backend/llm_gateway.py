@@ -10,7 +10,6 @@ enforces context-length limits per model.
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 import time
@@ -59,7 +58,7 @@ class LLMGateway:
                 resp = await client.get(f"{self._url}/api/tags")
                 self._available = resp.status_code == 200
                 return self._available
-        except Exception:
+        except (httpx.HTTPError, OSError):
             self._available = False
             return False
 
@@ -89,7 +88,7 @@ class LLMGateway:
                         "hailoAccelerated": self._hailo_available,
                     })
                 return models
-        except Exception as exc:
+        except (httpx.HTTPError, OSError) as exc:
             logger.warning("Failed to list LLM models: %s", exc)
             return []
 
@@ -163,7 +162,7 @@ class LLMGateway:
                 }
         except httpx.TimeoutException:
             return self._error_response(model, "Ollama request timed out")
-        except Exception as exc:
+        except (httpx.HTTPError, OSError) as exc:
             return self._error_response(model, str(exc))
 
     async def _chat_gemini(self, prompt: str, model: str, start: float) -> dict[str, Any]:
@@ -188,7 +187,7 @@ class LLMGateway:
                     "durationMs": duration_ms,
                     "hailoAccelerated": False,
                 }
-        except Exception as exc:
+        except (httpx.HTTPError, OSError) as exc:
             return self._error_response(model, str(exc))
 
     @staticmethod
@@ -214,7 +213,7 @@ class LLMGateway:
                     f"{self._url}/api/pull", json={"name": model_name, "stream": False}
                 )
                 return {"success": resp.status_code == 200, "model": model_name}
-        except Exception as exc:
+        except (httpx.HTTPError, OSError) as exc:
             return {"success": False, "error": str(exc)}
 
     async def delete_model(self, model_name: str) -> dict[str, Any]:
@@ -227,7 +226,7 @@ class LLMGateway:
                     "DELETE", f"{self._url}/api/delete", json={"name": model_name}
                 )
                 return {"success": resp.status_code == 200, "model": model_name}
-        except Exception as exc:
+        except (httpx.HTTPError, OSError) as exc:
             return {"success": False, "error": str(exc)}
 
     def status(self) -> dict[str, Any]:

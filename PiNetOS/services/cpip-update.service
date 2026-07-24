@@ -1,0 +1,14 @@
+[Unit]
+Description=CPIP Auto-Update Check
+After=network-online.target cpip.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -c "from backend.cpip_updater import auto_update_check; auto_update_check()"
+WorkingDirectory=/opt/pinet/desktop
+User=pi
+Environment=PYTHONPATH=/opt/pinet/desktop
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=120

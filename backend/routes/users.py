@@ -1,14 +1,12 @@
 """User management endpoints."""
 from __future__ import annotations
 
-import os
 import time
-from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 
+from ..config import DEFAULT_SHELL, DEFAULT_UID, DEFAULT_USER, PASSWORD_MIN_LENGTH
 from ..rate_limiter import auth_login_limiter, rate_limit_dependency
-from ..config import DEFAULT_UID, DEFAULT_USER, DEFAULT_SHELL, PASSWORD_MIN_LENGTH
 
 router = APIRouter()
 

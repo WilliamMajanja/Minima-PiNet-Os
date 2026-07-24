@@ -15,7 +15,7 @@ def _read_journal(limit: int = 100, unit: str | None = None) -> list[dict[str, A
     """Read journal entries using journalctl --output=json."""
     cmd = [
         "journalctl",
-        f"-n", str(limit),
+        "-n", str(limit),
         "--output=json",
         "--no-pager",
     ]
@@ -23,7 +23,7 @@ def _read_journal(limit: int = 100, unit: str | None = None) -> list[dict[str, A
         cmd += ["-u", unit]
     try:
         result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=10, shell=False
+            cmd, capture_output=True, text=True, timeout=10, shell=False, check=False,
         )
         if result.returncode != 0:
             return []
@@ -37,7 +37,7 @@ def _read_journal(limit: int = 100, unit: str | None = None) -> list[dict[str, A
             except json.JSONDecodeError:
                 continue
         return entries
-    except Exception:
+    except (OSError, json.JSONDecodeError):
         return []
 
 

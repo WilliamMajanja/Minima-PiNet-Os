@@ -21,7 +21,7 @@ async def broadcast_cluster_event(event_type: str, payload: Any) -> None:
     for ws in list(_cluster_ws_clients):
         try:
             await ws.send_text(message)
-        except Exception:
+        except (OSError, RuntimeError):
             dead.add(ws)
     _cluster_ws_clients.difference_update(dead)
 

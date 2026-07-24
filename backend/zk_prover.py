@@ -1,10 +1,9 @@
 from __future__ import annotations
+
 import hashlib
 import json
 import struct
 import time
-from typing import Optional
-from .config import ZK_PROVER_TIMEOUT, ZK_PROVER_MEM_MB
 
 PROOFS: dict[str, dict] = {}
 
@@ -46,7 +45,7 @@ async def generate_proof(
     PROOFS[pid] = proof
     return proof
 
-async def get_proof(proof_id: str) -> Optional[dict]:
+async def get_proof(proof_id: str) -> dict | None:
     return PROOFS.get(proof_id)
 
 async def list_proofs() -> list[dict]:
@@ -64,7 +63,7 @@ async def verify_proof(
     start = time.time()
     expected_hash = proof.get("programHash", "")
     hash_match = expected_hash == program_hash
-    input_check = hashlib.sha256(json.dumps(public_inputs, sort_keys=True).encode()).hexdigest()[:16]
+    hashlib.sha256(json.dumps(public_inputs, sort_keys=True).encode()).hexdigest()[:16]
     verified = hash_match
     elapsed_ms = int((time.time() - start) * 1000)
     proof["verified"] = verified

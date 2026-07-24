@@ -30,7 +30,7 @@ def get_provenance_events(limit: int | None = None) -> list[dict[str, Any]]:
 
 def record_provenance_event(body: dict[str, Any], source: str = "api") -> dict[str, Any]:
     if not isinstance(body, dict):
-        raise ValueError("Provenance event body must be an object")
+        raise TypeError("Provenance event body must be an object")
 
     # `event` is accepted as a legacy alias; new clients should send `eventType`.
     event_type = body.get("eventType") if "eventType" in body else body.get("event")
@@ -41,7 +41,7 @@ def record_provenance_event(body: dict[str, Any], source: str = "api") -> dict[s
     if payload is None:
         payload = {}
     if not isinstance(payload, dict):
-        raise ValueError("payload must be an object")
+        raise TypeError("payload must be an object")
 
     now = _now_ms()
     timestamp = body.get("timestamp", now)

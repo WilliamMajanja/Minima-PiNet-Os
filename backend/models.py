@@ -1,9 +1,11 @@
 """PiNet-OS Pydantic Models — ported from types.ts and types/ directory."""
 from __future__ import annotations
+
 from decimal import Decimal
-from typing import Optional, Literal, Any
-from pydantic import BaseModel, Field
 from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 class OSMode(str, Enum):
@@ -40,7 +42,7 @@ class WindowState(BaseModel):
 
 
 class MinimaState(BaseModel):
-    balance: Decimal = Decimal("0")
+    balance: Decimal = Decimal(0)
     block_height: int = Field(alias="blockHeight", default=0)
     status: str = "Offline"
     peers: int = 0
@@ -69,7 +71,7 @@ class SystemStats(BaseModel):
     ram: float = 0
     temp: float = 0
     disk: float = 0
-    uptime: Optional[float] = None
+    uptime: float | None = None
 
 
 class ClusterNodeMetrics(BaseModel):
@@ -86,9 +88,9 @@ class ClusterNode(BaseModel):
     hat: str = "NONE"
     status: str = "online"
     metrics: ClusterNodeMetrics = ClusterNodeMetrics()
-    cpip_identity: Optional[str] = None
-    cpip_public_key: Optional[str] = None
-    cpip_attestation: Optional[str] = None
+    cpip_identity: str | None = None
+    cpip_public_key: str | None = None
+    cpip_attestation: str | None = None
 
 
 class HypervisorSwitchResult(BaseModel):
@@ -101,9 +103,9 @@ class HypervisorSwitchResult(BaseModel):
     unit: str = ""
     requires_reboot: bool = Field(alias="requiresReboot", default=False)
     reboot_scheduled: bool = Field(alias="rebootScheduled", default=False)
-    boot_mount: Optional[str] = Field(alias="bootMount", default=None)
-    profile_label: Optional[str] = Field(alias="profileLabel", default=None)
-    fallback_reason: Optional[str] = Field(alias="fallbackReason", default=None)
+    boot_mount: str | None = Field(alias="bootMount", default=None)
+    profile_label: str | None = Field(alias="profileLabel", default=None)
+    fallback_reason: str | None = Field(alias="fallbackReason", default=None)
     stdout: str = ""
     stderr: str = ""
 
@@ -125,13 +127,13 @@ class PiNet2State(BaseModel):
     resource_priority: str = Field(alias="resourcePriority", default="host")
     ai_acceleration: str = Field(alias="aiAcceleration", default="detecting")
     health_status: str = Field(alias="healthStatus", default="unknown")
-    last_health_check: Optional[str] = Field(alias="lastHealthCheck", default=None)
-    system_hash: Optional[str] = Field(alias="systemHash", default=None)
+    last_health_check: str | None = Field(alias="lastHealthCheck", default=None)
+    system_hash: str | None = Field(alias="systemHash", default=None)
     container_name: str = Field(alias="containerName", default="pinet-enterprise-env")
     cpuset: str = "2-3"
     network_type: str = Field(alias="networkType", default="wireguard-veth")
     build_status: str = Field(alias="buildStatus", default="idle")
-    last_build: Optional[str] = Field(alias="lastBuild", default=None)
+    last_build: str | None = Field(alias="lastBuild", default=None)
     build_log: list[str] = Field(alias="buildLog", default_factory=list)
 
     class Config:
@@ -158,12 +160,12 @@ class DAppManifest(BaseModel):
     version: str = "1.0.0"
     author: str = "Unknown"
     kind: str = "typescript"
-    icon: Optional[str] = None
-    color: Optional[str] = None
+    icon: str | None = None
+    color: str | None = None
     entry_point: str = Field(alias="entryPoint", default="index.html")
     permissions: list[str] = Field(default_factory=list)
-    homepage: Optional[str] = None
-    min_pinet_version: Optional[str] = Field(alias="minPinetVersion", default=None)
+    homepage: str | None = None
+    min_pinet_version: str | None = Field(alias="minPinetVersion", default=None)
 
     class Config:
         populate_by_name = True
@@ -210,21 +212,21 @@ class MaximaSendRequest(BaseModel):
     to: str
     application: str
     data: Any
-    signature: Optional[str] = None
+    signature: str | None = None
 
 
 class ClusterExecRequest(BaseModel):
     target_node_id: str = Field(alias="targetNodeId")
     command: str
     args: list[str] = Field(default_factory=list)
-    signature: Optional[str] = None
+    signature: str | None = None
 
     class Config:
         populate_by_name = True
 
 
 class LocalExecRequest(BaseModel):
-    workload_id: Optional[str] = Field(alias="workloadId", default=None)
+    workload_id: str | None = Field(alias="workloadId", default=None)
     command: str
     args: list[str] = Field(default_factory=list)
     timeout: int = 30000
@@ -266,17 +268,17 @@ class CustomSensorDef(BaseModel):
     name: str
     kind: SensorKind = SensorKind.CUSTOM
     bus: SensorBus = SensorBus.I2C
-    address: Optional[str] = None
-    pin: Optional[int] = None
-    spi_channel: Optional[int] = Field(alias="spiChannel", default=None)
+    address: str | None = None
+    pin: int | None = None
+    spi_channel: int | None = Field(alias="spiChannel", default=None)
     poll_interval: int = Field(alias="pollInterval", default=15)
     unit: str = ""
-    min_value: Optional[float] = Field(alias="minValue", default=None)
-    max_value: Optional[float] = Field(alias="maxValue", default=None)
+    min_value: float | None = Field(alias="minValue", default=None)
+    max_value: float | None = Field(alias="maxValue", default=None)
     enabled: bool = True
     calibration_offset: float = Field(alias="calibrationOffset", default=0.0)
     calibration_scale: float = Field(alias="calibrationScale", default=1.0)
-    node_id: Optional[str] = Field(alias="nodeId", default=None)
+    node_id: str | None = Field(alias="nodeId", default=None)
 
     class Config:
         populate_by_name = True
@@ -287,8 +289,8 @@ class SensorReading(BaseModel):
     value: float
     unit: str = ""
     timestamp: str = ""
-    raw: Optional[float] = None
-    error: Optional[str] = None
+    raw: float | None = None
+    error: str | None = None
 
     class Config:
         populate_by_name = True

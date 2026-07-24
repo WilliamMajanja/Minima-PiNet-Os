@@ -6,8 +6,9 @@ and serves the Jinja2 frontend.
 from __future__ import annotations
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -16,58 +17,62 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+logger = logging.getLogger(__name__)
+
 from .config import (
+    CORS_ORIGIN,
     CPIP_DEFENSE_ENABLED,
     CPIP_ENABLED,
-    CORS_ORIGIN,
     DESKTOP_PORT,
     HSTS_ENABLED,
-    HSTS_MAX_AGE,
     HSTS_INCLUDE_SUBDOMAINS,
+    HSTS_MAX_AGE,
     HSTS_PRELOAD,
     PINET_VERSION,
     SSL_ENABLED,
 )
 from .cpip_provider import CPIPSecurityMiddleware, initialize_cpip
-from .state import get_state, save_state
+from .middleware.hsts import HSTSMiddleware
 
 # Import route modules
 from .routes import (
-    health,
-    system,
-    files,
-    settings,
-    minima,
-    maxima,
+    ai,
+    attestation,
     cluster,
+    cpip,
+    dapps,
+    devices,
+    downloads,
+    enclaves,
     enterprise,
+    files,
+    health,
+    ipc,
     kernel,
-    syslog_routes,
-    users,
-    security,
+    llm,
+    marketplace,
+    maxima,
+    minima,
     network,
     power,
-    devices,
-    dapps,
-    downloads,
-    ipc,
-    provenance,
-    ai,
-    cpip,
-    sensors,
-    llm,
-    quotas,
-    tpm,
     pq_tls,
-    attestation,
-    enclaves,
+    provenance,
+    quotas,
+    security,
+    sensors,
+    settings,
+    syslog_routes,
+    system,
+    tpm,
+    users,
     zk_proofs,
-    marketplace,
+)
+from .routes import (
     ssl as ssl_routes,
 )
-from .middleware.hsts import HSTSMiddleware
-from .websocket.terminal import router as ws_router
+from .state import get_state, save_state
 from .websocket.cluster import router as ws_cluster_router
+from .websocket.terminal import router as ws_router
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
@@ -97,20 +102,20 @@ async def _poll_minima_status():
                 balance_data = await minima_client.balance()
                 if balance_data and balance_data.get("status"):
                     parsed = minima_client.parse_balance(balance_data)
-                    native = parsed.get("0x00", Decimal("0"))
+                    native = parsed.get("0x00", Decimal(0))
                     state.minima.balance = native
 
                 save_state()
             else:
                 state = get_state()
                 state.minima.status = "Offline"
-        except Exception:
+        except (OSError, ValueError):
             state = get_state()
             state.minima.status = "Offline"
             try:
                 save_state()
-            except Exception:
-                pass
+            except OSError:
+                logger.debug("Failed to save state during poll", exc_info=True)
         await asyncio.sleep(10)
 
 
@@ -119,12 +124,24 @@ async def lifespan(app: FastAPI):
     """Startup / shutdown lifecycle."""
     if CPIP_ENABLED:
         initialize_cpip()
+        # Start CPIP version watcher (background polling + file watch)
+        try:
+            from .cpip_watcher import start_watcher
+            await start_watcher()
+        except Exception as exc:
+            logger.debug("CPIP watcher not started: %s", exc)
     task = asyncio.create_task(_poll_minima_status())
     yield
     task.cancel()
     try:
         await task
     except asyncio.CancelledError:
+        pass
+    # Stop CPIP watcher
+    try:
+        from .cpip_watcher import stop_watcher
+        await stop_watcher()
+    except Exception:
         pass
     from .minima_client import minima_client
     await minima_client.close()

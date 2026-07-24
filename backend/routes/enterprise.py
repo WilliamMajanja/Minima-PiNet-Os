@@ -1,15 +1,19 @@
 """Enterprise PiNet 2.0 endpoints — LXC, AI detection, health, build, release."""
 from __future__ import annotations
 
+import asyncio
+import logging
 import os
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..config import GITHUB_REPO, GITHUB_TOKEN, PINET_VERSION
-from ..rate_limiter import sys_exec_limiter, rate_limit_dependency
+from ..rate_limiter import rate_limit_dependency, sys_exec_limiter
 from ..state import get_state, save_state
 
 router = APIRouter()
@@ -27,8 +31,8 @@ async def lxc_init():
     state.pinet2.lxc_status = "initializing"
     save_state()
     try:
-        subprocess.Popen(["bash", "scripts/pinet-lxc-init.sh"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except Exception:
+        await asyncio.to_thread(subprocess.Popen, ["bash", "scripts/pinet-lxc-init.sh"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except (OSError, subprocess.SubprocessError):
         state.pinet2.lxc_status = "failed"
         save_state()
     return {"success": True}
@@ -43,9 +47,9 @@ async def pinet2_switch(body: dict):
     state.pinet2.resource_priority = mode
     save_state()
     try:
-        subprocess.Popen(["bash", "/usr/local/bin/pinet-switch", mode], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except Exception:
-        pass
+        await asyncio.to_thread(subprocess.Popen, ["bash", "/usr/local/bin/pinet-switch", mode], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except (OSError, subprocess.SubprocessError):
+        logger.debug("Failed to switch PiNet mode", exc_info=True)
     return {"success": True}
 
 
@@ -55,7 +59,7 @@ async def ai_detect():
     state.pinet2.ai_acceleration = "detecting"
     save_state()
     try:
-        result = subprocess.run(["python3", "scripts/pinet-ai-detect.py"], capture_output=True, text=True, timeout=30)
+        result = await asyncio.to_thread(subprocess.run, ["python3", "scripts/pinet-ai-detect.py"], capture_output=True, text=True, timeout=30, check=False)
         if result.returncode == 0:
             stdout = result.stdout
             if "Hailo-8L NPU Detected" in stdout:
@@ -66,7 +70,7 @@ async def ai_detect():
                 state.pinet2.ai_acceleration = "cpu-optimized"
         else:
             state.pinet2.ai_acceleration = "error"
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         state.pinet2.ai_acceleration = "error"
     save_state()
     return {"success": True}
@@ -78,8 +82,8 @@ async def health_check():
     state.pinet2.health_status = "checking"
     save_state()
     try:
-        result = subprocess.run(["bash", "scripts/pinet-health-check.sh"], capture_output=True, text=True, timeout=30)
-        state.pinet2.last_health_check = datetime.utcnow().isoformat()
+        result = await asyncio.to_thread(subprocess.run, ["bash", "scripts/pinet-health-check.sh"], capture_output=True, text=True, timeout=30, check=False)
+        state.pinet2.last_health_check = datetime.now(tz=timezone.utc).isoformat()
         if result.returncode == 0:
             state.pinet2.health_status = "verified"
             import re
@@ -88,7 +92,7 @@ async def health_check():
                 state.pinet2.system_hash = hash_match.group(1)
         else:
             state.pinet2.health_status = "compromised"
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         state.pinet2.health_status = "compromised"
     save_state()
     return {"success": True}
@@ -101,8 +105,8 @@ async def build_image():
     state.pinet2.build_log = ["[INFO] Starting Enterprise Build Pipeline..."]
     save_state()
     try:
-        subprocess.Popen(["bash", "scripts/pinet-build-image.sh"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except Exception:
+        await asyncio.to_thread(subprocess.Popen, ["bash", "scripts/pinet-build-image.sh"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except (OSError, subprocess.SubprocessError):
         state.pinet2.build_status = "failed"
         save_state()
     return {"success": True}
@@ -119,7 +123,7 @@ async def build_release():
         if parsed.hostname == "github.com" and parsed.path:
             github_repo = parsed.path.strip("/")
     except Exception:
-        pass
+        logger.debug("Failed to parse GitHub repo URL", exc_info=True)
 
     artifact_path = Path(os.getcwd()) / "PiNetOS-RaspberryPi.img"
 
@@ -133,8 +137,9 @@ async def build_release():
     state.pinet2.build_log.append(f"[INFO] Creating GitHub Release for {github_repo}...")
     save_state()
 
-    import httpx
     import time
+
+    import httpx
 
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
@@ -146,14 +151,14 @@ async def build_release():
                 },
                 json={
                     "tag_name": f"v{PINET_VERSION}-ent-{int(time.time() * 1000)}",
-                    "name": f"PiNet {PINET_VERSION} Enterprise Release - {datetime.utcnow().strftime('%Y-%m-%d')}",
+                    "name": f"PiNet {PINET_VERSION} Enterprise Release - {datetime.now(tz=timezone.utc).strftime('%Y-%m-%d')}",
                     "body": "Official Enterprise-grade, Web3-native operating system for Raspberry Pi 5 clusters.",
                     "draft": False,
                     "prerelease": False,
                 },
             )
             if release_resp.status_code not in (200, 201):
-                raise Exception(f"Failed to create release: {release_resp.text}")
+                raise RuntimeError(f"Failed to create release: {release_resp.text}")
 
             release_data = release_resp.json()
             upload_url = release_data["upload_url"].replace("{?name,label}", "?name=PiNetOS-Enterprise-v2.0-LTS.img")
@@ -168,14 +173,14 @@ async def build_release():
                 content=file_bytes,
             )
             if upload_resp.status_code not in (200, 201):
-                raise Exception(f"Failed to upload asset: {upload_resp.text}")
+                raise RuntimeError(f"Failed to upload asset: {upload_resp.text}")
 
         state.pinet2.build_status = "released"
         state.pinet2.build_log.append(f"[SUCCESS] Released to GitHub: {release_data.get('html_url', '')}")
         save_state()
         return {"success": True, "url": release_data.get("html_url", "")}
 
-    except Exception as exc:
+    except (httpx.HTTPError, OSError) as exc:
         state.pinet2.build_status = "failed"
         state.pinet2.build_log.append(f"[ERROR] GitHub Release failed: {exc}")
         save_state()
