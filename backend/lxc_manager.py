@@ -121,22 +121,26 @@ class LXCQuotaManager:
         if safe_name is None:
             logger.warning("Rejected suspicious container name: %s", quota.container_name)
             return
-        cgroup_dir = Path("/sys/fs/cgroup/lxc")
-        cgroup_path = cgroup_dir / safe_name
-        if not str(cgroup_path).startswith(str(cgroup_dir.resolve())):
+        cgroup_dir = Path("/sys/fs/cgroup/lxc").resolve()
+        cgroup_path = (cgroup_dir / safe_name).resolve()
+        if not str(cgroup_path).startswith(str(cgroup_dir)):
             logger.warning("Path traversal attempt for tenant %s", quota.tenant_id)
             return
+        cpu_limit = max(0, min(quota.cpu_limit, 128))
+        ram_limit = max(0, min(quota.ram_limit_mb, 1048576))
+        io_iops = max(0, min(quota.io_iops, 1000000))
+        pids_max = max(0, min(quota.processes_max, 65535))
         try:
             cgroup_path.mkdir(parents=True, exist_ok=True)
-            (cgroup_path / "cpu.max").write_text(f"{quota.cpu_limit * 1000} 100000")
-            (cgroup_path / "memory.max").write_text(str(quota.ram_limit_mb * 1024 * 1024))
-            io_max_value = f"rbps max={quota.io_iops * 1024} wbps max={quota.io_iops * 1024}"
+            (cgroup_path / "cpu.max").write_text(f"{cpu_limit * 1000} 100000")
+            (cgroup_path / "memory.max").write_text(str(ram_limit * 1024 * 1024))
+            io_max_value = f"rbps max={io_iops * 1024} wbps max={io_iops * 1024}"
             (cgroup_path / "io.max").write_text(io_max_value)
-            (cgroup_path / "pids.max").write_text(str(quota.processes_max))
+            (cgroup_path / "pids.max").write_text(str(pids_max))
             logger.info("Applied cgroup limits for tenant %s", quota.tenant_id)
         except PermissionError:
             logger.warning("Cannot write cgroup limits (need root) for %s", quota.tenant_id)
-        except OSError as exc:
+        except OSError:
             logger.warning("Failed to apply cgroup limits for %s", quota.tenant_id)
 
     @staticmethod
@@ -158,9 +162,9 @@ class LXCQuotaManager:
         if safe_name is None:
             logger.warning("Rejected suspicious container name: %s", quota.container_name)
             return
-        cgroup_dir = Path("/sys/fs/cgroup/lxc")
-        cgroup_path = cgroup_dir / safe_name
-        if not str(cgroup_path).startswith(str(cgroup_dir.resolve())):
+        cgroup_dir = Path("/sys/fs/cgroup/lxc").resolve()
+        cgroup_path = (cgroup_dir / safe_name).resolve()
+        if not str(cgroup_path).startswith(str(cgroup_dir)):
             logger.warning("Path traversal attempt for tenant %s", quota.tenant_id)
             return
         try:
@@ -180,9 +184,9 @@ class LXCQuotaManager:
         if safe_name is None:
             logger.warning("Rejected suspicious container name: %s", quota.container_name)
             return LXCQuotaUsage(tenantId=quota.tenant_id, running=False)
-        cgroup_dir = Path("/sys/fs/cgroup/lxc")
-        cgroup_path = cgroup_dir / safe_name
-        if not str(cgroup_path).startswith(str(cgroup_dir.resolve())):
+        cgroup_dir = Path("/sys/fs/cgroup/lxc").resolve()
+        cgroup_path = (cgroup_dir / safe_name).resolve()
+        if not str(cgroup_path).startswith(str(cgroup_dir)):
             logger.warning("Path traversal attempt for tenant %s", quota.tenant_id)
             return LXCQuotaUsage(tenantId=quota.tenant_id, running=False)
         usage = LXCQuotaUsage(tenantId=quota.tenant_id, running=False)

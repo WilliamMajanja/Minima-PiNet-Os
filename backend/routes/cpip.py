@@ -154,9 +154,9 @@ async def cpip_update(body: dict):
     target = body.get("target_version")
     try:
         return apply_update(target_version=target)
-    except Exception as exc:
-        logger.error("CPIP update failed: %s", exc)
-        raise HTTPException(500, "Update failed")
+    except Exception:
+        logger.exception("CPIP update failed")
+        raise HTTPException(500, "Update failed") from None
 
 
 @router.get("/cpip/update/status")
@@ -185,9 +185,9 @@ async def cpip_watcher_status():
     from ..cpip_watcher import get_watcher_state
     try:
         return get_watcher_state()
-    except Exception as exc:
-        logger.error("Failed to get watcher state: %s", exc)
-        raise HTTPException(500, "Watcher unavailable")
+    except Exception:
+        logger.exception("Failed to get watcher state")
+        raise HTTPException(500, "Watcher unavailable") from None
 
 
 @router.post("/cpip/watcher/check")
@@ -268,8 +268,15 @@ async def cpip_watcher_sse():
         finally:
             unsubscribe_sse(on_event)
 
+    async def safe_event_generator():
+        try:
+            async for message in event_generator():
+                yield message
+        except Exception:
+            logger.exception("SSE event generator failed")
+
     return StreamingResponse(
-        event_generator(),
+        safe_event_generator(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

@@ -51,9 +51,11 @@ async def unseal_key() -> dict[str, Any]:
         if isinstance(result, dict) and result.get("success") is False:
             raise HTTPException(500, "Unseal operation failed")
         return result
-    except Exception as exc:
-        logger.error("TPM unseal failed: %s", exc)
-        raise HTTPException(500, "Unseal operation failed")
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("TPM unseal failed")
+        raise HTTPException(500, "Unseal operation failed") from None
 
 
 @router.get("/tpm/pcrs")
