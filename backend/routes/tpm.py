@@ -51,8 +51,8 @@ async def unseal_key() -> dict[str, Any]:
         if isinstance(result, dict) and result.get("success") is False:
             raise HTTPException(500, "Unseal operation failed")
         return result
-    except Exception:
-        logger.error("TPM unseal failed")
+    except Exception as exc:
+        logger.error("TPM unseal failed: %s", exc)
         raise HTTPException(500, "Unseal operation failed")
 
 

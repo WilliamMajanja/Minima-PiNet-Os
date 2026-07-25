@@ -126,17 +126,13 @@ class LXCQuotaManager:
         if not str(cgroup_path).startswith(str(cgroup_dir.resolve())):
             logger.warning("Path traversal attempt for tenant %s", quota.tenant_id)
             return
-        cpu_max_file = cgroup_path / "cpu.max"
-        memory_max_file = cgroup_path / "memory.max"
-        io_max_file = cgroup_path / "io.max"
-        pids_max_file = cgroup_path / "pids.max"
         try:
             cgroup_path.mkdir(parents=True, exist_ok=True)
-            cpu_max_file.write_text(f"{quota.cpu_limit * 1000} 100000")
-            memory_max_file.write_text(str(quota.ram_limit_mb * 1024 * 1024))
+            (cgroup_path / "cpu.max").write_text(f"{quota.cpu_limit * 1000} 100000")
+            (cgroup_path / "memory.max").write_text(str(quota.ram_limit_mb * 1024 * 1024))
             io_max_value = f"rbps max={quota.io_iops * 1024} wbps max={quota.io_iops * 1024}"
-            io_max_file.write_text(io_max_value)
-            pids_max_file.write_text(str(quota.processes_max))
+            (cgroup_path / "io.max").write_text(io_max_value)
+            (cgroup_path / "pids.max").write_text(str(quota.processes_max))
             logger.info("Applied cgroup limits for tenant %s", quota.tenant_id)
         except PermissionError:
             logger.warning("Cannot write cgroup limits (need root) for %s", quota.tenant_id)

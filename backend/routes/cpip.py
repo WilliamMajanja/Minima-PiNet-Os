@@ -196,8 +196,8 @@ async def cpip_watcher_force_check():
     from ..cpip_watcher import force_check_now
     try:
         return await force_check_now()
-    except Exception:
-        logger.error("Force check failed")
+    except Exception as exc:
+        logger.error("Force check failed: %s", exc)
         raise HTTPException(500, "Check failed")
 
 
@@ -208,8 +208,8 @@ async def cpip_watcher_start():
     try:
         await start_watcher()
         return {"success": True, "message": "Watcher started"}
-    except Exception:
-        logger.error("Failed to start watcher")
+    except Exception as exc:
+        logger.error("Failed to start watcher: %s", exc)
         raise HTTPException(500, "Failed to start watcher")
 
 
@@ -220,8 +220,8 @@ async def cpip_watcher_stop():
     try:
         await stop_watcher()
         return {"success": True, "message": "Watcher stopped"}
-    except Exception:
-        logger.error("Failed to stop watcher")
+    except Exception as exc:
+        logger.error("Failed to stop watcher: %s", exc)
         raise HTTPException(500, "Failed to stop watcher")
 
 
