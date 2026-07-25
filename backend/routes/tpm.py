@@ -9,6 +9,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 
 from ..config import TPM_KEYWRAP_ENABLED
 from ..tpm_keystore import tpm_keystore
@@ -24,7 +25,7 @@ async def tpm_status() -> dict[str, Any]:
         return tpm_keystore.status()
     except Exception:
         logger.error("TPM status failed")
-        raise HTTPException(500, "Failed to get TPM status")
+        return JSONResponse(status_code=500, content={"detail": "Failed to get TPM status"})
 
 
 @router.post("/tpm/seal")
@@ -38,7 +39,7 @@ async def seal_key(body: dict | None = None) -> dict[str, Any]:
         return result.model_dump(by_alias=True)
     except Exception:
         logger.error("TPM seal failed")
-        raise HTTPException(500, "Seal operation failed")
+        return JSONResponse(status_code=500, content={"detail": "Seal operation failed"})
 
 
 @router.post("/tpm/unseal")
@@ -49,13 +50,13 @@ async def unseal_key() -> dict[str, Any]:
     try:
         result = tpm_keystore.unseal_key()
         if isinstance(result, dict) and result.get("success") is False:
-            raise HTTPException(500, "Unseal operation failed")
-        return result
+            return JSONResponse(status_code=500, content={"detail": "Unseal operation failed"})
+        return JSONResponse(content=result)
     except HTTPException:
         raise
     except Exception:
         logger.exception("TPM unseal failed")
-        raise HTTPException(500, "Unseal operation failed") from None
+        return JSONResponse(status_code=500, content={"detail": "Unseal operation failed"})
 
 
 @router.get("/tpm/pcrs")
@@ -70,4 +71,4 @@ async def get_pcrs() -> dict[str, Any]:
         }
     except Exception:
         logger.error("Failed to read PCRs")
-        raise HTTPException(500, "Failed to read PCR values")
+        return JSONResponse(status_code=500, content={"detail": "Failed to read PCR values"})

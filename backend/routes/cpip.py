@@ -14,7 +14,7 @@ import logging
 import time
 
 from fastapi import APIRouter, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from ..config import (
     CPIP_DEFENSE_ENABLED,
@@ -154,9 +154,11 @@ async def cpip_update(body: dict):
     target = body.get("target_version")
     try:
         return apply_update(target_version=target)
+    except HTTPException:
+        raise
     except Exception:
         logger.exception("CPIP update failed")
-        raise HTTPException(500, "Update failed") from None
+        return JSONResponse(status_code=500, content={"detail": "Update failed"})
 
 
 @router.get("/cpip/update/status")
@@ -171,9 +173,11 @@ async def cpip_update_status():
             "last_updated": state.get("last_updated", 0),
             "latest_known": state.get("latest_version", CPIP_VERSION),
         }
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("Failed to load update state: %s", exc)
-        raise HTTPException(500, "Failed to get update status")
+        return JSONResponse(status_code=500, content={"detail": "Failed to get update status"})
 
 
 # ─── CPIP Version Watcher Endpoints ──────────────────────────────────────────
@@ -185,9 +189,11 @@ async def cpip_watcher_status():
     from ..cpip_watcher import get_watcher_state
     try:
         return get_watcher_state()
+    except HTTPException:
+        raise
     except Exception:
         logger.exception("Failed to get watcher state")
-        raise HTTPException(500, "Watcher unavailable") from None
+        return JSONResponse(status_code=500, content={"detail": "Watcher unavailable"})
 
 
 @router.post("/cpip/watcher/check")
@@ -196,9 +202,11 @@ async def cpip_watcher_force_check():
     from ..cpip_watcher import force_check_now
     try:
         return await force_check_now()
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("Force check failed: %s", exc)
-        raise HTTPException(500, "Check failed")
+        return JSONResponse(status_code=500, content={"detail": "Check failed"})
 
 
 @router.post("/cpip/watcher/start")
@@ -208,9 +216,11 @@ async def cpip_watcher_start():
     try:
         await start_watcher()
         return {"success": True, "message": "Watcher started"}
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("Failed to start watcher: %s", exc)
-        raise HTTPException(500, "Failed to start watcher")
+        return JSONResponse(status_code=500, content={"detail": "Failed to start watcher"})
 
 
 @router.post("/cpip/watcher/stop")
@@ -220,9 +230,11 @@ async def cpip_watcher_stop():
     try:
         await stop_watcher()
         return {"success": True, "message": "Watcher stopped"}
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("Failed to stop watcher: %s", exc)
-        raise HTTPException(500, "Failed to stop watcher")
+        return JSONResponse(status_code=500, content={"detail": "Failed to stop watcher"})
 
 
 @router.get("/cpip/watcher/events")
@@ -247,7 +259,6 @@ async def cpip_watcher_sse():
 
     async def event_generator():
         try:
-            # Send initial state
             from ..cpip_watcher import get_watcher_state
             try:
                 state = get_watcher_state()
@@ -261,22 +272,16 @@ async def cpip_watcher_sse():
                     message = await asyncio.wait_for(queue.get(), timeout=30)
                     yield message
                 except asyncio.TimeoutError:
-                    # Send heartbeat to keep connection alive
                     yield f": heartbeat {int(time.time())}\n\n"
         except asyncio.CancelledError:
             pass
+        except Exception:
+            logger.exception("SSE event generator failed")
         finally:
             unsubscribe_sse(on_event)
 
-    async def safe_event_generator():
-        try:
-            async for message in event_generator():
-                yield message
-        except Exception:
-            logger.exception("SSE event generator failed")
-
     return StreamingResponse(
-        safe_event_generator(),
+        event_generator(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

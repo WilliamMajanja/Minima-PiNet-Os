@@ -9,6 +9,7 @@ API is always testable.
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import shutil
 import time
@@ -38,6 +39,7 @@ class LXCQuotaManager:
 
     def __init__(self) -> None:
         self._quotas: dict[str, LXCQuota] = {}
+        self._tenant_cgroup: dict[str, str] = {}
         self._max_tenants = LXC_MAX_TENANTS
 
     @property
@@ -113,29 +115,32 @@ class LXCQuotaManager:
         """Get resource usage for all tenants."""
         return [self.get_usage(tid) for tid in self._quotas]
 
+    def _cgroup_path(self, tenant_id: str) -> Path | None:
+        base = Path("/sys/fs/cgroup/lxc").resolve()
+        if tenant_id not in self._tenant_cgroup:
+            cgroup_id = hashlib.sha256(tenant_id.encode("utf-8")).hexdigest()[:16]
+            self._tenant_cgroup[tenant_id] = cgroup_id
+        path = (base / self._tenant_cgroup[tenant_id]).resolve()
+        if not str(path).startswith(str(base)):
+            return None
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
     def _apply_cgroup_limits(self, quota: LXCQuota) -> None:
-        """Apply cgroup v2 resource limits for a tenant container."""
         if not _CGROUP_V2:
             return
-        safe_name = self._validate_container_name(quota.container_name)
-        if safe_name is None:
+        cgroup_path = self._cgroup_path(quota.tenant_id)
+        if cgroup_path is None:
             logger.warning("Rejected suspicious container name: %s", quota.container_name)
-            return
-        cgroup_dir = Path("/sys/fs/cgroup/lxc").resolve()
-        cgroup_path = (cgroup_dir / safe_name).resolve()
-        if not str(cgroup_path).startswith(str(cgroup_dir)):
-            logger.warning("Path traversal attempt for tenant %s", quota.tenant_id)
             return
         cpu_limit = max(0, min(quota.cpu_limit, 128))
         ram_limit = max(0, min(quota.ram_limit_mb, 1048576))
         io_iops = max(0, min(quota.io_iops, 1000000))
         pids_max = max(0, min(quota.processes_max, 65535))
         try:
-            cgroup_path.mkdir(parents=True, exist_ok=True)
             (cgroup_path / "cpu.max").write_text(f"{cpu_limit * 1000} 100000")
             (cgroup_path / "memory.max").write_text(str(ram_limit * 1024 * 1024))
-            io_max_value = f"rbps max={io_iops * 1024} wbps max={io_iops * 1024}"
-            (cgroup_path / "io.max").write_text(io_max_value)
+            (cgroup_path / "io.max").write_text(f"rbps max={io_iops * 1024} wbps max={io_iops * 1024}")
             (cgroup_path / "pids.max").write_text(str(pids_max))
             logger.info("Applied cgroup limits for tenant %s", quota.tenant_id)
         except PermissionError:
@@ -143,29 +148,12 @@ class LXCQuotaManager:
         except OSError:
             logger.warning("Failed to apply cgroup limits for %s", quota.tenant_id)
 
-    @staticmethod
-    def _validate_container_name(name: str) -> str | None:
-        """Validate container name contains only safe characters."""
-        if not name or len(name) > 64:
-            return None
-        if not all(c.isalnum() or c in "-_" for c in name):
-            return None
-        if name in (".", "..", "lxc", "cgroup"):
-            return None
-        return name
-
     def _remove_cgroup_limits(self, quota: LXCQuota) -> None:
-        """Remove cgroup limits for a tenant."""
         if not _CGROUP_V2:
             return
-        safe_name = self._validate_container_name(quota.container_name)
-        if safe_name is None:
+        cgroup_path = self._cgroup_path(quota.tenant_id)
+        if cgroup_path is None:
             logger.warning("Rejected suspicious container name: %s", quota.container_name)
-            return
-        cgroup_dir = Path("/sys/fs/cgroup/lxc").resolve()
-        cgroup_path = (cgroup_dir / safe_name).resolve()
-        if not str(cgroup_path).startswith(str(cgroup_dir)):
-            logger.warning("Path traversal attempt for tenant %s", quota.tenant_id)
             return
         try:
             if cgroup_path.exists():
@@ -179,15 +167,9 @@ class LXCQuotaManager:
             logger.warning("Failed to remove cgroup for %s: %s", quota.tenant_id, exc)
 
     def _read_cgroup_usage(self, quota: LXCQuota) -> LXCQuotaUsage:
-        """Read current usage from cgroup v2 stats."""
-        safe_name = self._validate_container_name(quota.container_name)
-        if safe_name is None:
+        cgroup_path = self._cgroup_path(quota.tenant_id)
+        if cgroup_path is None:
             logger.warning("Rejected suspicious container name: %s", quota.container_name)
-            return LXCQuotaUsage(tenantId=quota.tenant_id, running=False)
-        cgroup_dir = Path("/sys/fs/cgroup/lxc").resolve()
-        cgroup_path = (cgroup_dir / safe_name).resolve()
-        if not str(cgroup_path).startswith(str(cgroup_dir)):
-            logger.warning("Path traversal attempt for tenant %s", quota.tenant_id)
             return LXCQuotaUsage(tenantId=quota.tenant_id, running=False)
         usage = LXCQuotaUsage(tenantId=quota.tenant_id, running=False)
         if not cgroup_path.exists():
