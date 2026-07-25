@@ -154,8 +154,8 @@ async def cpip_update(body: dict):
     target = body.get("target_version")
     try:
         return apply_update(target_version=target)
-    except Exception:
-        logger.error("CPIP update failed")
+    except Exception as exc:
+        logger.error("CPIP update failed: %s", exc)
         raise HTTPException(500, "Update failed")
 
 
@@ -171,8 +171,8 @@ async def cpip_update_status():
             "last_updated": state.get("last_updated", 0),
             "latest_known": state.get("latest_version", CPIP_VERSION),
         }
-    except Exception:
-        logger.error("Failed to load update state")
+    except Exception as exc:
+        logger.error("Failed to load update state: %s", exc)
         raise HTTPException(500, "Failed to get update status")
 
 
@@ -185,8 +185,8 @@ async def cpip_watcher_status():
     from ..cpip_watcher import get_watcher_state
     try:
         return get_watcher_state()
-    except Exception:
-        logger.error("Failed to get watcher state")
+    except Exception as exc:
+        logger.error("Failed to get watcher state: %s", exc)
         raise HTTPException(500, "Watcher unavailable")
 
 
