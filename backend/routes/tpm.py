@@ -51,9 +51,11 @@ async def unseal_key() -> dict[str, Any]:
         result = tpm_keystore.unseal_key()
         if isinstance(result, dict) and result.get("success") is False:
             return JSONResponse(status_code=500, content={"detail": "Unseal operation failed"})
-        return JSONResponse(content=result)
-    except HTTPException:
-        raise
+        safe = dict(result) if isinstance(result, dict) else {"data": str(result)}
+        safe.pop("error", None)
+        safe.pop("traceback", None)
+        safe.pop("exc_info", None)
+        return JSONResponse(content=safe)
     except Exception:
         logger.exception("TPM unseal failed")
         return JSONResponse(status_code=500, content={"detail": "Unseal operation failed"})

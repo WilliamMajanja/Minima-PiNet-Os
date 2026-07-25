@@ -154,8 +154,6 @@ async def cpip_update(body: dict):
     target = body.get("target_version")
     try:
         return apply_update(target_version=target)
-    except HTTPException:
-        raise
     except Exception:
         logger.exception("CPIP update failed")
         return JSONResponse(status_code=500, content={"detail": "Update failed"})
@@ -173,8 +171,6 @@ async def cpip_update_status():
             "last_updated": state.get("last_updated", 0),
             "latest_known": state.get("latest_version", CPIP_VERSION),
         }
-    except HTTPException:
-        raise
     except Exception as exc:
         logger.error("Failed to load update state: %s", exc)
         return JSONResponse(status_code=500, content={"detail": "Failed to get update status"})
@@ -189,8 +185,6 @@ async def cpip_watcher_status():
     from ..cpip_watcher import get_watcher_state
     try:
         return get_watcher_state()
-    except HTTPException:
-        raise
     except Exception:
         logger.exception("Failed to get watcher state")
         return JSONResponse(status_code=500, content={"detail": "Watcher unavailable"})
@@ -202,8 +196,6 @@ async def cpip_watcher_force_check():
     from ..cpip_watcher import force_check_now
     try:
         return await force_check_now()
-    except HTTPException:
-        raise
     except Exception as exc:
         logger.error("Force check failed: %s", exc)
         return JSONResponse(status_code=500, content={"detail": "Check failed"})
@@ -216,8 +208,6 @@ async def cpip_watcher_start():
     try:
         await start_watcher()
         return {"success": True, "message": "Watcher started"}
-    except HTTPException:
-        raise
     except Exception as exc:
         logger.error("Failed to start watcher: %s", exc)
         return JSONResponse(status_code=500, content={"detail": "Failed to start watcher"})
@@ -230,8 +220,6 @@ async def cpip_watcher_stop():
     try:
         await stop_watcher()
         return {"success": True, "message": "Watcher stopped"}
-    except HTTPException:
-        raise
     except Exception as exc:
         logger.error("Failed to stop watcher: %s", exc)
         return JSONResponse(status_code=500, content={"detail": "Failed to stop watcher"})
@@ -274,6 +262,8 @@ async def cpip_watcher_sse():
                 except asyncio.TimeoutError:
                     yield f": heartbeat {int(time.time())}\n\n"
         except asyncio.CancelledError:
+            pass
+        except GeneratorExit:
             pass
         except Exception:
             logger.exception("SSE event generator failed")
