@@ -49,13 +49,15 @@ async def unseal_key() -> dict[str, Any]:
         raise HTTPException(503, "TPM key-wrap is disabled")
     try:
         result = tpm_keystore.unseal_key()
-        if isinstance(result, dict) and result.get("success") is False:
+        if not isinstance(result, dict):
+            return JSONResponse(status_code=500, content={"detail": "Unseal returned unexpected data"})
+        if result.get("success") is False:
             return JSONResponse(status_code=500, content={"detail": "Unseal operation failed"})
-        safe = dict(result) if isinstance(result, dict) else {"detail": "Unseal returned unexpected data"}
-        safe.pop("error", None)
-        safe.pop("traceback", None)
-        safe.pop("exc_info", None)
-        return JSONResponse(content=safe)
+        return {
+            "success": True,
+            "keyId": result.get("keyId", "cpip-master"),
+            "keyLength": result.get("keyLength", 0),
+        }
     except Exception:
         logger.exception("TPM unseal failed")
         return JSONResponse(status_code=500, content={"detail": "Unseal operation failed"})

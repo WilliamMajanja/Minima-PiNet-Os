@@ -129,17 +129,21 @@ async def cpip_version():
 async def cpip_update_check():
     """Check for available CPIP updates."""
     from ..cpip_updater import check_for_update
-    info = check_for_update()
-    return {
-        "current_version": info.current_version,
-        "latest_version": info.latest_version,
-        "update_available": info.update_available,
-        "release_url": info.release_url,
-        "release_notes": info.release_notes[:500],
-        "published_at": info.published_at,
-        "last_checked": info.last_checked,
-        "error": info.error,
-    }
+    try:
+        info = check_for_update()
+        return {
+            "current_version": info.current_version,
+            "latest_version": info.latest_version,
+            "update_available": info.update_available,
+            "release_url": info.release_url,
+            "release_notes": (info.release_notes or "")[:500],
+            "published_at": info.published_at,
+            "last_checked": info.last_checked,
+            "error": info.error,
+        }
+    except Exception:
+        logger.exception("Failed to check for CPIP updates")
+        return JSONResponse(status_code=500, content={"detail": "Update check failed"})
 
 
 @router.post("/cpip/update")
@@ -153,7 +157,13 @@ async def cpip_update(body: dict):
     from ..cpip_updater import apply_update
     target = body.get("target_version")
     try:
-        return apply_update(target_version=target)
+        result = apply_update(target_version=target)
+        return {
+            "success": result.get("success", False),
+            "message": result.get("message", ""),
+            "current_version": result.get("current_version", ""),
+            "target_version": result.get("target_version", ""),
+        }
     except Exception:
         logger.exception("CPIP update failed")
         return JSONResponse(status_code=500, content={"detail": "Update failed"})
@@ -184,7 +194,22 @@ async def cpip_watcher_status():
     """Return the CPIP watcher status."""
     from ..cpip_watcher import get_watcher_state
     try:
-        return get_watcher_state()
+        state = get_watcher_state()
+        return {
+            "running": state.get("running", False),
+            "enabled": state.get("enabled", False),
+            "poll_interval": state.get("poll_interval", 0),
+            "auto_update": state.get("auto_update", False),
+            "last_check": state.get("last_check", 0),
+            "last_update": state.get("last_update", 0),
+            "last_version": state.get("last_version", ""),
+            "check_count": state.get("check_count", 0),
+            "update_count": state.get("update_count", 0),
+            "error_count": state.get("error_count", 0),
+            "last_error": state.get("last_error", ""),
+            "webhook_configured": state.get("webhook_configured", False),
+            "installed_version": state.get("installed_version", ""),
+        }
     except Exception:
         logger.exception("Failed to get watcher state")
         return JSONResponse(status_code=500, content={"detail": "Watcher unavailable"})
