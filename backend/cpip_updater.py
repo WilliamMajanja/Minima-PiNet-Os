@@ -305,8 +305,8 @@ def apply_update(target_version: str | None = None) -> dict[str, Any]:
             logger.warning("Could not find CPIP_VERSION line in config.py")
             result["config_updated"] = False
     except OSError as exc:
-        result["error"] = f"Failed to update config.py: {exc}"
-        logger.error(result["error"])
+        result["error"] = "Failed to update config.py"
+        logger.error("Failed to update config.py: %s", exc)
         return result
 
     # Update the CPIP-Version header in cpip_provider.py

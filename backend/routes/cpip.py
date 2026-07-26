@@ -243,7 +243,11 @@ async def cpip_watcher_sse():
         except asyncio.QueueFull:
             pass
 
-    subscribe_sse(on_event)
+    try:
+        subscribe_sse(on_event)
+    except Exception:
+        logger.exception("Failed to subscribe to SSE events")
+        return JSONResponse(status_code=500, content={"detail": "SSE subscription failed"})
 
     async def event_generator():
         try:
@@ -267,8 +271,12 @@ async def cpip_watcher_sse():
             pass
         except Exception:
             logger.exception("SSE event generator failed")
+            yield "event: error\ndata: {\"detail\": \"Internal error\"}\n\n"
         finally:
-            unsubscribe_sse(on_event)
+            try:
+                unsubscribe_sse(on_event)
+            except Exception:
+                logger.exception("Failed to unsubscribe from SSE events")
 
     return StreamingResponse(
         event_generator(),

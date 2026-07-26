@@ -407,10 +407,10 @@ async def _watcher_loop() -> None:
             await _watch_iteration()
         except Exception as exc:
             _watcher_state.error_count += 1
-            _watcher_state.last_error = str(exc)
+            _watcher_state.last_error = "Watcher iteration failed"
             logger.error("Watcher iteration failed: %s", exc)
 
-            _broadcast_event("watcher_error", {"error": str(exc)})
+            _broadcast_event("watcher_error", {"error": "Watcher iteration failed"})
 
         await asyncio.sleep(CPIP_WATCHER_POLL_INTERVAL)
 
@@ -456,5 +456,5 @@ async def force_check_now() -> dict[str, Any]:
     try:
         await _watch_iteration()
         return {"success": True, "check_count": _watcher_state.check_count}
-    except Exception as exc:
-        return {"success": False, "error": str(exc)}
+    except Exception:
+        return {"success": False, "error": "Force check failed"}
